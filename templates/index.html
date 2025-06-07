@@ -5,9 +5,16 @@
 {% block content %}
 <h2>Racing Schedule</h2>
 
-<div class="date-selector">
-    <label for="race-date">Select Date:</label>
-    <input type="date" id="race-date" value="{{ date }}" min="2025-06-04" max="2025-07-20">
+<div class="controls">
+    <div class="date-selector">
+        <label for="race-date">Select Date:</label>
+        <input type="date" id="race-date" value="{{ date }}" min="2025-06-04" max="2025-07-20">
+    </div>
+    
+    <div class="sync-controls">
+        <button id="sync-btn" class="btn btn-primary" onclick="syncData()">Sync Real Data from Equibase</button>
+        <button id="init-db-btn" class="btn btn-secondary" onclick="initDatabase()">Initialize Database</button>
+    </div>
 </div>
 
 <div id="loading" style="display: none;">Loading races...</div>
@@ -35,6 +42,74 @@ document.addEventListener('DOMContentLoaded', function() {
         loadRaces(this.value);
     });
 });
+
+async function initDatabase() {
+    const btn = document.getElementById('init-db-btn');
+    btn.disabled = true;
+    btn.textContent = 'Initializing...';
+    
+    try {
+        const response = await fetch('/init-db');
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ Database initialized successfully!');
+            loadRaces(document.getElementById('race-date').value);
+        } else {
+            alert('❌ Error: ' + (data.error || 'Failed to initialize database'));
+        }
+    } catch (err) {
+        alert('❌ Network error: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Initialize Database';
+    }
+}
+
+async function syncData() {
+    const btn = document.getElementById('sync-btn');
+    const error = document.getElementById('error');
+    
+    btn.disabled = true;
+    btn.textContent = 'Syncing... (this may take a minute)';
+    error.style.display = 'none';
+    
+    try {
+        const response = await fetch('/sync', { 
+            method: 'GET',
+            timeout: 120000 // 2 minute timeout
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ ' + data.message);
+            // Reload races after sync
+            loadRaces(document.getElementById('race-date').value);
+        } else {
+            const errorMsg = `❌ Sync failed!\n\nError: ${data.error}\n\n${data.note || ''}`;
+            alert(errorMsg);
+            console.error('Sync error details:', data);
+            
+            // Also show in error div
+            error.innerHTML = `
+                <strong>Sync Error:</strong><br>
+                ${data.error}<br>
+                <small>${data.note || 'Check browser console for details'}</small>
+            `;
+            error.style.display = 'block';
+        }
+    } catch (err) {
+        const errorMsg = `❌ Network error during sync!\n\n${err.message}\n\nThis usually means the request timed out. Check the server logs.`;
+        alert(errorMsg);
+        console.error('Sync network error:', err);
+        
+        error.innerHTML = `<strong>Network Error:</strong> ${err.message}`;
+        error.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sync Real Data from Equibase';
+    }
+}
 
 async function loadRaces(date) {
     const container = document.getElementById('races-container');

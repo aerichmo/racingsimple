@@ -69,13 +69,17 @@ h2 {
     color: #1a1a1a;
 }
 
-/* Date selector */
-.date-selector {
+/* Controls */
+.controls {
     margin-bottom: 2rem;
+}
+
+.date-selector {
     background: white;
     padding: 1rem;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
 }
 
 .date-selector label {
@@ -88,6 +92,43 @@ h2 {
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 1rem;
+}
+
+.sync-controls {
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    gap: 1rem;
+}
+
+.btn-primary {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #45a049;
+}
+
+.btn-primary:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background-color: #2196F3;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #1976D2;
+}
+
+.btn-secondary:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
 }
 
 /* Race cards */
