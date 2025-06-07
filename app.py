@@ -206,7 +206,8 @@ def sync_data():
                 'message': f'Created {len(sample_races)} demonstration races',
                 'strategy': sample_source,
                 'warning': 'All real data sources blocked - showing sample data for demonstration',
-                'note': 'The system is working correctly but cannot access live data due to anti-bot protection'
+                'note': 'The system is working correctly but cannot access live data due to anti-bot protection',
+                'suggestion': 'You can also upload Equibase PDF charts using the PDF Upload feature'
             })
         else:
             return jsonify({
@@ -244,6 +245,77 @@ def manual_entry():
     """Manual entry page"""
     today = datetime.now().date()
     return render_template('manual_entry.html', date=today)
+
+@app.route('/pdf-upload')
+def pdf_upload():
+    """PDF upload page"""
+    return render_template('pdf_upload.html')
+
+@app.route('/api/upload-pdf', methods=['POST'])
+def upload_pdf():
+    """Handle PDF file upload and parsing"""
+    try:
+        from flask import request
+        from werkzeug.utils import secure_filename
+        from pdf_parser import parse_pdf_file
+        import tempfile
+        
+        # Check if file was uploaded
+        if 'pdf' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No PDF file uploaded'
+            }), 400
+        
+        file = request.files['pdf']
+        
+        # Check if file is selected
+        if file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'No file selected'
+            }), 400
+        
+        # Check file extension
+        if not file.filename.lower().endswith('.pdf'):
+            return jsonify({
+                'success': False,
+                'error': 'File must be a PDF'
+            }), 400
+        
+        # Save file temporarily
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
+            file.save(tmp_file.name)
+            tmp_path = tmp_file.name
+        
+        # Parse the PDF
+        logger.info(f"Parsing uploaded PDF: {secure_filename(file.filename)}")
+        success, message = parse_pdf_file(tmp_path, os.environ.get('DATABASE_URL'))
+        
+        # Clean up temp file
+        try:
+            os.unlink(tmp_path)
+        except:
+            pass
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': message,
+                'filename': secure_filename(file.filename)
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': message
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"PDF upload error: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Error processing PDF: {str(e)}'
+        }), 500
 
 @app.route('/api/manual-entry', methods=['POST'])
 def save_manual_entry():
