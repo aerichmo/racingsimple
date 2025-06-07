@@ -42,32 +42,66 @@ def init_db():
 
 @app.route('/sync')
 def sync_data():
-    """Manual sync endpoint - fetches real data from Equibase"""
+    """Self-debugging sync endpoint that learns from HTML structure"""
     try:
-        from scraper import EquibaseScraper
-        from odds_scraper import OddsScraper
+        from self_debug_scraper import run_self_debugging_sync, SelfDebuggingScraper
         
         # First ensure tables exist
         db.create_tables()
         
-        # Run the real scrapers
-        scraper = EquibaseScraper(os.environ.get('DATABASE_URL'))
-        scraper.run_daily_sync()
+        # Try self-debugging scraper first
+        logger.info("Starting self-debugging sync...")
+        scraper = SelfDebuggingScraper(os.environ.get('DATABASE_URL'))
+        races = scraper.fetch_and_learn(datetime.now())
         
-        # Also fetch morning line odds
-        odds_scraper = OddsScraper(os.environ.get('DATABASE_URL'))
-        odds_scraper.save_morning_line_odds(datetime.now())
+        debug_info = {
+            'html_analyzed': True,
+            'selectors_found': scraper.successful_selectors,
+            'races_parsed': len(races) if races else 0,
+            'learning_saved': bool(scraper.successful_selectors)
+        }
         
-        return jsonify({
-            'success': True,
-            'message': 'Real data sync completed. Note: HTML selectors may need updating.'
-        })
+        if races:
+            # Save to database
+            from scraper import EquibaseScraper
+            eq_scraper = EquibaseScraper(os.environ.get('DATABASE_URL'))
+            eq_scraper.save_to_database(races)
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully learned HTML structure and synced {len(races)} races!',
+                'debug': debug_info
+            })
+        else:
+            # Fallback to regular scraper with debugging
+            logger.warning("Self-debugging failed, trying regular scraper...")
+            from scraper import EquibaseScraper
+            scraper = EquibaseScraper(os.environ.get('DATABASE_URL'))
+            
+            try:
+                scraper.run_daily_sync()
+                return jsonify({
+                    'success': True,
+                    'message': 'Sync completed with regular scraper',
+                    'debug': debug_info
+                })
+            except Exception as e:
+                # Return detailed debugging information
+                return jsonify({
+                    'success': False,
+                    'error': str(e),
+                    'debug': debug_info,
+                    'suggestion': 'Check /tmp/equibase_*.html for the raw HTML structure',
+                    'note': 'The scraper tried to learn from the HTML but needs manual selector updates'
+                }), 500
+                
     except Exception as e:
-        logger.error(f"Sync error: {e}")
+        logger.error(f"Sync error: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e),
-            'note': 'The scraper HTML selectors need to be updated for the actual Equibase HTML structure'
+            'traceback': str(e.__traceback__),
+            'note': 'Critical error in sync process'
         }), 500
 
 @app.route('/')
