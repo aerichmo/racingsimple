@@ -81,7 +81,17 @@ class Database:
         """Get all races for a specific date"""
         with self.get_cursor(dict_cursor=True) as cur:
             cur.execute("""
-                SELECT r.*, 
+                SELECT 
+                    r.id,
+                    r.date,
+                    r.race_number,
+                    r.track_name,
+                    TO_CHAR(r.post_time, 'HH24:MI') as post_time,
+                    r.purse,
+                    r.distance,
+                    r.surface,
+                    r.race_type,
+                    r.created_at,
                     array_agg(
                         json_build_object(
                             'program_number', h.program_number,
@@ -91,14 +101,26 @@ class Database:
                             'morning_line_odds', h.morning_line_odds,
                             'weight', h.weight
                         ) ORDER BY h.program_number
-                    ) as horses
+                    ) FILTER (WHERE h.id IS NOT NULL) as horses
                 FROM races r
                 LEFT JOIN horses h ON h.race_id = r.id
                 WHERE r.date = %s
                 GROUP BY r.id
                 ORDER BY r.race_number
             """, (date,))
-            return cur.fetchall()
+            
+            # Convert date objects to strings for JSON serialization
+            races = cur.fetchall()
+            for race in races:
+                if race['date']:
+                    race['date'] = race['date'].isoformat()
+                if race['created_at']:
+                    race['created_at'] = race['created_at'].isoformat()
+                # Handle null horses array
+                if not race['horses']:
+                    race['horses'] = []
+                    
+            return races
     
     def get_track_statistics(self):
         """Get statistics by track"""
@@ -177,7 +199,13 @@ class Database:
                 WHERE LOWER(h.horse_name) = LOWER(%s)
                 ORDER BY r.date DESC
             """, (horse_name,))
-            return cur.fetchall()
+            
+            results = cur.fetchall()
+            # Convert dates to strings
+            for row in results:
+                if row['date']:
+                    row['date'] = row['date'].isoformat()
+            return results
 
 
 if __name__ == "__main__":
