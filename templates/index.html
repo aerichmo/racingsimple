@@ -15,6 +15,7 @@
         <button id="sync-btn" class="btn btn-primary" onclick="syncData()">Sync Real Data from Equibase</button>
         <button id="init-db-btn" class="btn btn-secondary" onclick="initDatabase()">Initialize Database</button>
         <button id="clear-btn" class="btn btn-danger" onclick="clearData()">Clear All Data</button>
+        <button id="diagnose-btn" class="btn btn-warning" onclick="diagnose()">Diagnose Scraper</button>
     </div>
 </div>
 
@@ -91,6 +92,56 @@ async function clearData() {
     } finally {
         btn.disabled = false;
         btn.textContent = 'Clear All Data';
+    }
+}
+
+async function diagnose() {
+    const btn = document.getElementById('diagnose-btn');
+    const error = document.getElementById('error');
+    
+    btn.disabled = true;
+    btn.textContent = 'Diagnosing...';
+    error.style.display = 'none';
+    
+    try {
+        const response = await fetch('/diagnose');
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('Diagnosis:', data.diagnosis);
+            
+            const diagInfo = data.diagnosis;
+            const diagHTML = `
+                <h3>Scraper Diagnosis</h3>
+                <p><strong>URL:</strong> ${diagInfo.url}</p>
+                <p><strong>Status:</strong> ${diagInfo.status_code}</p>
+                <p><strong>Page Size:</strong> ${diagInfo.content_length} bytes</p>
+                <p><strong>Tables Found:</strong> ${diagInfo.tables_found}</p>
+                <p><strong>Divs Found:</strong> ${diagInfo.divs_found}</p>
+                <h4>Patterns Found:</h4>
+                <ul>
+                    <li>Race mentions: ${diagInfo.patterns.race_mentions}</li>
+                    <li>Fonner mentions: ${diagInfo.patterns.fonner_mentions}</li>
+                    <li>Horse/Jockey/Trainer mentions: ${diagInfo.patterns.horse_mentions}</li>
+                    <li>Post/Time mentions: ${diagInfo.patterns.post_time_mentions}</li>
+                </ul>
+                <h4>Text Preview:</h4>
+                <pre>${diagInfo.text_preview}</pre>
+                <p><small>Full HTML saved to: ${diagInfo.debug_file}</small></p>
+            `;
+            
+            error.innerHTML = diagHTML;
+            error.style.display = 'block';
+            error.className = 'diagnosis-info';
+            
+        } else {
+            alert('❌ Diagnosis failed: ' + data.error);
+        }
+    } catch (err) {
+        alert('❌ Network error: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Diagnose Scraper';
     }
 }
 

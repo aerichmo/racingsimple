@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify
 from datetime import datetime, timedelta
 import os
+import re
 from database import Database
 import logging
 
@@ -53,6 +54,67 @@ def clear_data():
             'message': 'All race data cleared successfully'
         })
     except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/diagnose')
+def diagnose():
+    """Diagnose what's happening with the scraper"""
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+        
+        # Generate today's URL
+        today = datetime.now()
+        date_str = today.strftime("%m%d%y")
+        url = f"https://www.equibase.com/static/entry/FMT{date_str}USA-EQB.html"
+        
+        logger.info(f"Diagnosing URL: {url}")
+        
+        # Fetch the page
+        response = requests.get(url, timeout=30)
+        html = response.text
+        
+        # Basic analysis
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        diagnosis = {
+            'url': url,
+            'status_code': response.status_code,
+            'content_length': len(html),
+            'title': soup.title.string if soup.title else 'No title',
+            'sample_content': html[:500],
+            'tables_found': len(soup.find_all('table')),
+            'divs_found': len(soup.find_all('div')),
+            'text_preview': soup.get_text()[:1000].replace('\n', ' ').strip()
+        }
+        
+        # Look for common patterns
+        patterns_found = {
+            'race_mentions': len(soup.find_all(text=re.compile(r'Race\s+\d+', re.I))),
+            'fonner_mentions': len(soup.find_all(text=re.compile(r'Fonner', re.I))),
+            'horse_mentions': len(soup.find_all(text=re.compile(r'Horse|Jockey|Trainer', re.I))),
+            'post_time_mentions': len(soup.find_all(text=re.compile(r'Post|Time', re.I)))
+        }
+        
+        diagnosis['patterns'] = patterns_found
+        
+        # Save full HTML for manual inspection
+        debug_file = f"/tmp/equibase_debug_{date_str}.html"
+        with open(debug_file, 'w') as f:
+            f.write(html)
+        diagnosis['debug_file'] = debug_file
+        
+        return jsonify({
+            'success': True,
+            'diagnosis': diagnosis,
+            'message': f'Diagnostics complete. HTML saved to {debug_file}'
+        })
+        
+    except Exception as e:
+        logger.error(f"Diagnosis error: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)

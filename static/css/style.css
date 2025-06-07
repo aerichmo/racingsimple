@@ -145,6 +145,43 @@ h2 {
     cursor: not-allowed;
 }
 
+.btn-warning {
+    background-color: #ff9800;
+    color: white;
+}
+
+.btn-warning:hover {
+    background-color: #f57c00;
+}
+
+.btn-warning:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.diagnosis-info {
+    background-color: #e3f2fd;
+    color: #0d47a1;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border: 1px solid #1976d2;
+}
+
+.diagnosis-info h3, .diagnosis-info h4 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.diagnosis-info pre {
+    background-color: #f5f5f5;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
 /* Race cards */
 .race-card {
     background: white;
