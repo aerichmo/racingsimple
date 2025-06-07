@@ -14,6 +14,17 @@ logger = logging.getLogger(__name__)
 # Initialize database
 db = Database(os.environ.get('DATABASE_URL'))
 
+@app.route('/test')
+def test():
+    """Test endpoint to verify app is running"""
+    return jsonify({
+        'status': 'ok',
+        'message': 'Flask app is running',
+        'time': datetime.now().isoformat(),
+        'database_url_set': bool(os.environ.get('DATABASE_URL')),
+        'port': os.environ.get('PORT', 'not set')
+    })
+
 @app.route('/')
 def index():
     """Home page showing today's races"""
