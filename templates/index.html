@@ -1,16 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Today's Races - Racing Simple{% endblock %}
+{% block title %}Races - Racing Simple{% endblock %}
 
 {% block content %}
-<h2>Racing Schedule</h2>
+<h2>Uploaded Race Data</h2>
 
 <div class="controls">
-    <div class="date-selector">
-        <label for="race-date">Select Date:</label>
-        <input type="date" id="race-date" value="{{ date }}" min="2025-06-04" max="2025-07-20">
-    </div>
-    
+    <button class="btn btn-primary" onclick="window.location.href='/pdf-upload'">Upload New PDF</button>
+    <button class="btn btn-danger" onclick="clearAllData()">Clear All Data</button>
 </div>
 
 <div id="loading" style="display: none;">Loading races...</div>
@@ -21,26 +18,20 @@
 </div>
 
 <div class="legend">
-    <h3>Odds Legend</h3>
-    <p><span class="odds-ml">Blue</span> = Morning Line Odds (8:00 AM)</p>
-    <p><span class="odds-live">Green</span> = Live Odds (5 min to post)</p>
+    <h3>Legend</h3>
+    <p><span class="odds-ml">M/L</span> = Morning Line Odds</p>
+    <p>Click on a filename to filter by that upload</p>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Load races when page loads or date changes
+// Load races when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    const dateInput = document.getElementById('race-date');
-    loadRaces(dateInput.value);
-    
-    dateInput.addEventListener('change', function() {
-        loadRaces(this.value);
-    });
+    loadAllRaces();
 });
 
-
-async function loadRaces(date) {
+async function loadAllRaces() {
     const container = document.getElementById('races-container');
     const loading = document.getElementById('loading');
     const error = document.getElementById('error');
@@ -50,7 +41,7 @@ async function loadRaces(date) {
     container.innerHTML = '';
     
     try {
-        const response = await fetch(`/api/races/${date}`);
+        const response = await fetch('/api/races');
         const data = await response.json();
         
         if (!data.success) {
@@ -58,9 +49,9 @@ async function loadRaces(date) {
         }
         
         if (data.races.length === 0) {
-            container.innerHTML = '<p class="no-races">No races scheduled for this date.</p>';
+            container.innerHTML = '<p class="no-races">No races uploaded yet. <a href="/pdf-upload">Upload a PDF</a> to get started.</p>';
         } else {
-            displayRaces(data.races);
+            displayRaces(data.races, data.total_uploads);
         }
     } catch (err) {
         error.textContent = 'Error loading races: ' + err.message;
@@ -70,91 +61,156 @@ async function loadRaces(date) {
     }
 }
 
-function displayRaces(races) {
+function displayRaces(races, totalUploads) {
     const container = document.getElementById('races-container');
     
+    // Group races by date
+    const racesByDate = {};
     races.forEach(race => {
-        const raceDiv = document.createElement('div');
-        raceDiv.className = 'race-card';
+        const date = race.date || 'Unknown Date';
+        if (!racesByDate[date]) {
+            racesByDate[date] = [];
+        }
+        racesByDate[date].push(race);
+    });
+    
+    // Display upload count
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'upload-summary';
+    summaryDiv.innerHTML = `<p>Total uploads: ${totalUploads} | Total races: ${races.length}</p>`;
+    container.appendChild(summaryDiv);
+    
+    // Display races grouped by date
+    Object.entries(racesByDate).forEach(([date, dateRaces]) => {
+        const dateHeader = document.createElement('h3');
+        dateHeader.textContent = `Date: ${date}`;
+        container.appendChild(dateHeader);
         
-        const horses = race.horses || [];
-        
-        raceDiv.innerHTML = `
-            <div class="race-header">
-                <h3>Race ${race.race_number} - ${race.track_name}</h3>
-                <div class="race-details">
-                    <span>Post Time: ${race.post_time || 'TBA'}</span>
-                    <span>Distance: ${race.distance || 'N/A'}</span>
-                    <span>Surface: ${race.surface || 'N/A'}</span>
-                    <span>Purse: ${race.purse || 'N/A'}</span>
+        dateRaces.forEach(race => {
+            const raceDiv = document.createElement('div');
+            raceDiv.className = 'race-card';
+            
+            const horses = race.horses || [];
+            
+            raceDiv.innerHTML = `
+                <div class="race-header">
+                    <h3>Race ${race.race_number || '?'} - ${race.track_name || 'Unknown Track'}</h3>
+                    <div class="race-details">
+                        <span>Post Time: ${race.post_time || 'TBA'}</span>
+                        <span>Distance: ${race.distance || 'N/A'}</span>
+                        <span>Surface: ${race.surface || 'Dirt'}</span>
+                        <span>Purse: $${race.purse || 'N/A'}</span>
+                    </div>
+                    <div class="file-info">
+                        <small>From: <a href="#" onclick="filterByUpload('${race.upload_id}')">${race.filename}</a></small>
+                    </div>
                 </div>
-            </div>
-            <div class="race-type">${race.race_type || 'Race Type N/A'}</div>
-            <table class="horses-table">
-                <thead>
-                    <tr>
-                        <th>Pgm</th>
-                        <th>Horse</th>
-                        <th>Jockey</th>
-                        <th>Trainer</th>
-                        <th>Weight</th>
-                        <th>M/L Odds</th>
-                        <th>Live Odds</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${horses.map(horse => `
+                <div class="race-type">${race.race_type || 'Race Type N/A'}</div>
+                <table class="horses-table">
+                    <thead>
                         <tr>
-                            <td>${horse.program_number || '-'}</td>
-                            <td class="horse-name">${horse.horse_name}</td>
-                            <td>${horse.jockey || '-'}</td>
-                            <td>${horse.trainer || '-'}</td>
-                            <td>${horse.weight || '-'}</td>
-                            <td class="odds-ml" id="ml-${race.id}-${horse.program_number}">-</td>
-                            <td class="odds-live" id="live-${race.id}-${horse.program_number}">-</td>
+                            <th>Pgm</th>
+                            <th>Horse</th>
+                            <th>Jockey</th>
+                            <th>Trainer</th>
+                            <th>Weight</th>
+                            <th>M/L Odds</th>
                         </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-            <button onclick="loadOdds(${race.id})" class="btn-odds">Load Odds History</button>
-            <div id="odds-${race.id}" class="odds-history"></div>
-        `;
-        
-        container.appendChild(raceDiv);
+                    </thead>
+                    <tbody>
+                        ${horses.map(horse => `
+                            <tr>
+                                <td>${horse.program_number || '-'}</td>
+                                <td class="horse-name">${horse.horse_name}</td>
+                                <td>${horse.jockey || '-'}</td>
+                                <td>${horse.trainer || '-'}</td>
+                                <td>${horse.weight || '-'}</td>
+                                <td class="odds-ml">${horse.morning_line_odds || '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            container.appendChild(raceDiv);
+        });
     });
 }
 
-async function loadOdds(raceId) {
-    const oddsDiv = document.getElementById(`odds-${raceId}`);
+async function filterByUpload(uploadId) {
+    const container = document.getElementById('races-container');
+    const loading = document.getElementById('loading');
+    const error = document.getElementById('error');
+    
+    loading.style.display = 'block';
+    error.style.display = 'none';
+    container.innerHTML = '';
     
     try {
-        const response = await fetch(`/api/odds/${raceId}`);
+        const response = await fetch(`/api/races/${uploadId}`);
         const data = await response.json();
         
         if (!data.success) {
-            throw new Error(data.error || 'Failed to load odds');
+            throw new Error(data.error || 'Failed to load races');
         }
         
-        // Update the table with latest odds
-        Object.entries(data.odds).forEach(([horseName, horseData]) => {
-            const pgm = horseData.program_number;
-            
-            horseData.odds_history.forEach(odds => {
-                if (odds.type === 'morning_line') {
-                    const mlCell = document.getElementById(`ml-${raceId}-${pgm}`);
-                    if (mlCell) mlCell.textContent = odds.value;
-                } else if (odds.type === 'live') {
-                    const liveCell = document.getElementById(`live-${raceId}-${pgm}`);
-                    if (liveCell) liveCell.textContent = odds.value;
-                }
-            });
-        });
+        // Add back button
+        const backBtn = document.createElement('button');
+        backBtn.className = 'btn btn-secondary';
+        backBtn.textContent = 'Back to All Races';
+        backBtn.onclick = loadAllRaces;
+        container.appendChild(backBtn);
         
-        oddsDiv.innerHTML = '<p class="odds-loaded">Odds updated!</p>';
+        const header = document.createElement('h3');
+        header.textContent = `Races from: ${data.filename}`;
+        container.appendChild(header);
         
+        displayRaces(data.races, 1);
     } catch (err) {
-        oddsDiv.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+        error.textContent = 'Error loading races: ' + err.message;
+        error.style.display = 'block';
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+async function clearAllData() {
+    if (!confirm('Are you sure you want to clear all uploaded data?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/clear');
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('All data cleared successfully');
+            loadAllRaces();
+        } else {
+            alert('Error clearing data: ' + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
     }
 }
 </script>
+
+<style>
+.upload-summary {
+    background: #f0f0f0;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+}
+
+.file-info {
+    margin-top: 0.5rem;
+    font-size: 0.9em;
+}
+
+.file-info a {
+    color: #2196F3;
+    text-decoration: underline;
+}
+</style>
 {% endblock %}

@@ -1,8 +1,11 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request, session
 from datetime import datetime
 import os
-from database import Database
 import logging
+from werkzeug.utils import secure_filename
+from pdf_parser import parse_pdf_file
+import tempfile
+import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
@@ -11,8 +14,8 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-produ
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize database
-db = Database(os.environ.get('DATABASE_URL'))
+# Store races in memory (in production, you might want to use Redis or file storage)
+races_data = {}
 
 @app.route('/test')
 def test():
@@ -20,51 +23,13 @@ def test():
     return jsonify({
         'status': 'ok',
         'message': 'Flask app is running',
-        'time': datetime.now().isoformat(),
-        'database_url_set': bool(os.environ.get('DATABASE_URL')),
-        'port': os.environ.get('PORT', 'not set')
+        'time': datetime.now().isoformat()
     })
-
-@app.route('/init-db')
-def init_db():
-    """Initialize database tables"""
-    try:
-        db.create_tables()
-        return jsonify({
-            'success': True,
-            'message': 'Database tables created successfully'
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/clear-data')
-def clear_data():
-    """Clear all race data"""
-    try:
-        with db.get_cursor() as cur:
-            cur.execute("DELETE FROM horses")
-            cur.execute("DELETE FROM races")
-            
-        return jsonify({
-            'success': True,
-            'message': 'All race data cleared successfully'
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
 
 @app.route('/')
 def index():
-    """Home page showing today's races"""
-    today = datetime.now().date()
-    return render_template('index.html', date=today)
-
+    """Home page showing uploaded races"""
+    return render_template('index.html')
 
 @app.route('/pdf-upload')
 def pdf_upload():
@@ -75,11 +40,6 @@ def pdf_upload():
 def upload_pdf():
     """Handle PDF file upload and parsing"""
     try:
-        from flask import request
-        from werkzeug.utils import secure_filename
-        from pdf_parser import parse_pdf_file
-        import tempfile
-        
         # Check if file was uploaded
         if 'pdf' not in request.files:
             return jsonify({
@@ -110,7 +70,7 @@ def upload_pdf():
         
         # Parse the PDF
         logger.info(f"Parsing uploaded PDF: {secure_filename(file.filename)}")
-        success, message = parse_pdf_file(tmp_path, os.environ.get('DATABASE_URL'))
+        success, message, races = parse_pdf_file(tmp_path)
         
         # Clean up temp file
         try:
@@ -118,11 +78,26 @@ def upload_pdf():
         except:
             pass
         
-        if success:
+        if success and races:
+            # Store races in memory with timestamp
+            upload_id = datetime.now().isoformat()
+            races_data[upload_id] = {
+                'filename': secure_filename(file.filename),
+                'uploaded_at': datetime.now().isoformat(),
+                'races': races
+            }
+            
+            # Store in session for easy access
+            if 'uploads' not in session:
+                session['uploads'] = []
+            session['uploads'].append(upload_id)
+            
             return jsonify({
                 'success': True,
                 'message': message,
-                'filename': secure_filename(file.filename)
+                'filename': secure_filename(file.filename),
+                'upload_id': upload_id,
+                'races_count': len(races)
             })
         else:
             return jsonify({
@@ -137,16 +112,27 @@ def upload_pdf():
             'error': f'Error processing PDF: {str(e)}'
         }), 500
 
-
-@app.route('/api/races/<date>')
-def get_races(date):
-    """API endpoint to get races for a specific date"""
+@app.route('/api/races')
+def get_all_races():
+    """Get all uploaded races"""
     try:
-        races = db.get_races_by_date(date)
+        all_races = []
+        
+        # Get races from all uploads
+        for upload_id, upload_data in races_data.items():
+            for race in upload_data['races']:
+                race_copy = race.copy()
+                race_copy['upload_id'] = upload_id
+                race_copy['filename'] = upload_data['filename']
+                all_races.append(race_copy)
+        
+        # Sort by date and race number
+        all_races.sort(key=lambda x: (x.get('date', ''), x.get('race_number', 0)))
+        
         return jsonify({
             'success': True,
-            'date': date,
-            'races': races
+            'races': all_races,
+            'total_uploads': len(races_data)
         })
     except Exception as e:
         logger.error(f"Error fetching races: {e}")
@@ -155,100 +141,121 @@ def get_races(date):
             'error': str(e)
         }), 500
 
-@app.route('/api/odds/<int:race_id>')
-def get_odds_history(race_id):
-    """Get odds history for a specific race"""
+@app.route('/api/races/<upload_id>')
+def get_races_by_upload(upload_id):
+    """Get races from a specific upload"""
     try:
-        with db.get_cursor(dict_cursor=True) as cur:
-            cur.execute("""
-                SELECT 
-                    h.horse_name,
-                    h.program_number,
-                    oh.odds_type,
-                    oh.odds_value,
-                    oh.captured_at,
-                    oh.minutes_to_post
-                FROM odds_history oh
-                JOIN horses h ON h.id = oh.horse_id
-                WHERE oh.race_id = %s
-                ORDER BY h.program_number, oh.captured_at
-            """, (race_id,))
-            
-            odds_data = cur.fetchall()
-            
-            # Group by horse
-            horses_odds = {}
-            for row in odds_data:
-                horse_name = row['horse_name']
-                if horse_name not in horses_odds:
-                    horses_odds[horse_name] = {
-                        'program_number': row['program_number'],
-                        'odds_history': []
-                    }
-                horses_odds[horse_name]['odds_history'].append({
-                    'type': row['odds_type'],
-                    'value': row['odds_value'],
-                    'captured_at': row['captured_at'].isoformat(),
-                    'minutes_to_post': row['minutes_to_post']
-                })
-            
+        if upload_id not in races_data:
             return jsonify({
-                'success': True,
-                'race_id': race_id,
-                'odds': horses_odds
-            })
+                'success': False,
+                'error': 'Upload not found'
+            }), 404
+        
+        upload_data = races_data[upload_id]
+        
+        return jsonify({
+            'success': True,
+            'filename': upload_data['filename'],
+            'uploaded_at': upload_data['uploaded_at'],
+            'races': upload_data['races']
+        })
     except Exception as e:
-        logger.error(f"Error fetching odds: {e}")
+        logger.error(f"Error fetching races: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
+
+@app.route('/api/clear')
+def clear_data():
+    """Clear all uploaded data"""
+    global races_data
+    races_data = {}
+    session.pop('uploads', None)
+    
+    return jsonify({
+        'success': True,
+        'message': 'All data cleared'
+    })
 
 @app.route('/stats')
 def stats():
     """Statistics page"""
     return render_template('stats.html')
 
-@app.route('/api/stats/jockeys')
-def jockey_stats():
-    """Get jockey statistics"""
+@app.route('/api/stats')
+def get_stats():
+    """Get statistics from uploaded data"""
     try:
-        stats = db.get_jockey_statistics()
+        # Collect all horses from all races
+        all_horses = []
+        for upload_data in races_data.values():
+            for race in upload_data['races']:
+                for horse in race.get('horses', []):
+                    horse_copy = horse.copy()
+                    horse_copy['track'] = race.get('track_name', 'Unknown')
+                    horse_copy['date'] = race.get('date')
+                    all_horses.append(horse_copy)
+        
+        # Calculate jockey stats
+        jockey_stats = {}
+        for horse in all_horses:
+            jockey = horse.get('jockey', 'Unknown')
+            if jockey and jockey != '-':
+                if jockey not in jockey_stats:
+                    jockey_stats[jockey] = {
+                        'name': jockey,
+                        'mounts': 0,
+                        'tracks': set()
+                    }
+                jockey_stats[jockey]['mounts'] += 1
+                jockey_stats[jockey]['tracks'].add(horse['track'])
+        
+        # Calculate trainer stats
+        trainer_stats = {}
+        for horse in all_horses:
+            trainer = horse.get('trainer', 'Unknown')
+            if trainer and trainer != '-':
+                if trainer not in trainer_stats:
+                    trainer_stats[trainer] = {
+                        'name': trainer,
+                        'entries': 0,
+                        'tracks': set()
+                    }
+                trainer_stats[trainer]['entries'] += 1
+                trainer_stats[trainer]['tracks'].add(horse['track'])
+        
+        # Convert sets to lists for JSON serialization
+        jockey_list = []
+        for jockey, stats in jockey_stats.items():
+            jockey_list.append({
+                'name': stats['name'],
+                'mounts': stats['mounts'],
+                'tracks': list(stats['tracks'])
+            })
+        
+        trainer_list = []
+        for trainer, stats in trainer_stats.items():
+            trainer_list.append({
+                'name': stats['name'],
+                'entries': stats['entries'],
+                'tracks': list(stats['tracks'])
+            })
+        
+        # Sort by activity
+        jockey_list.sort(key=lambda x: x['mounts'], reverse=True)
+        trainer_list.sort(key=lambda x: x['entries'], reverse=True)
+        
         return jsonify({
             'success': True,
-            'stats': stats
+            'jockeys': jockey_list[:20],  # Top 20
+            'trainers': trainer_list[:20],  # Top 20
+            'total_races': sum(len(upload['races']) for upload in races_data.values()),
+            'total_horses': len(all_horses)
         })
+        
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/api/stats/trainers')
-def trainer_stats():
-    """Get trainer statistics"""
-    try:
-        stats = db.get_trainer_statistics()
-        return jsonify({
-            'success': True,
-            'stats': stats
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/api/stats/tracks')
-def track_stats():
-    """Get track statistics"""
-    try:
-        stats = db.get_track_statistics()
-        return jsonify({
-            'success': True,
-            'stats': stats
-        })
-    except Exception as e:
+        logger.error(f"Error calculating stats: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -263,12 +270,5 @@ def health():
     })
 
 if __name__ == '__main__':
-    # Create tables on startup
-    try:
-        db.create_tables()
-        logger.info("Database tables verified/created")
-    except Exception as e:
-        logger.error(f"Error creating tables: {e}")
-    
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

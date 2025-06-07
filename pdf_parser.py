@@ -18,8 +18,7 @@ logger = logging.getLogger(__name__)
 class EquibasePDFParser:
     """Parse Equibase PDF chart files to extract race data"""
     
-    def __init__(self, db_url: str):
-        self.db_url = db_url
+    def __init__(self):
         self.track_patterns = {
             'FMT': 'Fonner Park',
             'GP': 'Gulfstream Park',
@@ -559,86 +558,19 @@ class EquibasePDFParser:
         
         return race if race['horses'] else None
     
-    def save_parsed_races(self, races: List[Dict]):
-        """Save parsed races to database"""
-        from database import Database
-        db = Database(self.db_url)
-        
-        with db.get_cursor() as cur:
-            for race in races:
-                # Insert race
-                cur.execute("""
-                    INSERT INTO races (date, race_number, track_name, post_time, 
-                                     purse, distance, surface, race_type)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (date, race_number, track_name) 
-                    DO UPDATE SET 
-                        post_time = EXCLUDED.post_time,
-                        purse = EXCLUDED.purse,
-                        distance = EXCLUDED.distance,
-                        surface = EXCLUDED.surface,
-                        race_type = EXCLUDED.race_type
-                    RETURNING id
-                """, (
-                    race['date'], 
-                    race.get('race_number', 1),
-                    race['track_name'],
-                    race.get('post_time'),
-                    race.get('purse'),
-                    race.get('distance'),
-                    race.get('surface', 'Dirt'),
-                    race.get('race_type')
-                ))
-                
-                race_id = cur.fetchone()[0]
-                
-                # Delete existing horses
-                cur.execute("DELETE FROM horses WHERE race_id = %s", (race_id,))
-                
-                # Insert horses
-                for horse in race.get('horses', []):
-                    cur.execute("""
-                        INSERT INTO horses (race_id, program_number, horse_name, 
-                                          jockey, trainer, morning_line_odds, weight)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        race_id,
-                        horse.get('program_number'),
-                        horse['horse_name'],
-                        horse.get('jockey'),
-                        horse.get('trainer'),
-                        horse.get('morning_line_odds'),
-                        horse.get('weight')
-                    ))
-                    
-                    # If we have morning line odds, save to odds history
-                    if horse.get('morning_line_odds'):
-                        cur.execute("""
-                            INSERT INTO odds_history (race_id, horse_id, odds_type, 
-                                                    odds_value, captured_at, minutes_to_post)
-                            SELECT %s, h.id, 'morning_line', %s, NOW(), NULL
-                            FROM horses h
-                            WHERE h.race_id = %s AND h.program_number = %s
-                        """, (
-                            race_id,
-                            horse['morning_line_odds'],
-                            race_id,
-                            horse['program_number']
-                        ))
 
 
-def parse_pdf_file(pdf_path: str, db_url: str) -> Tuple[bool, str]:
-    """Parse a PDF file and save to database"""
+def parse_pdf_file(pdf_path: str) -> Tuple[bool, str, List[Dict]]:
+    """Parse a PDF file and return races data"""
     try:
-        parser = EquibasePDFParser(db_url)
+        parser = EquibasePDFParser()
         races = parser.parse_pdf_file(pdf_path)
         
         if races:
-            parser.save_parsed_races(races)
-            return True, f"Successfully parsed {len(races)} races from PDF"
+            return True, f"Successfully parsed {len(races)} races from PDF", races
         else:
-            return False, "No races found in PDF"
+            return False, "No races found in PDF", []
             
     except Exception as e:
         logger.error(f"PDF parsing error: {e}")
-        return False, f"Error parsing PDF: {str(e)}"
+        return False, f"Error parsing PDF: {str(e)}", []
