@@ -1,7 +1,6 @@
 from flask import Flask, render_template, jsonify
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
-import re
 from database import Database
 import logging
 
@@ -59,180 +58,6 @@ def clear_data():
             'error': str(e)
         }), 500
 
-@app.route('/diagnose')
-def diagnose():
-    """Diagnose what's happening with the scraper"""
-    try:
-        import requests
-        from bs4 import BeautifulSoup
-        
-        # Generate today's URL
-        today = datetime.now()
-        date_str = today.strftime("%m%d%y")
-        url = f"https://www.equibase.com/static/entry/FMT{date_str}USA-EQB.html"
-        
-        logger.info(f"Diagnosing URL: {url}")
-        
-        # Fetch the page
-        response = requests.get(url, timeout=30)
-        html = response.text
-        
-        # Basic analysis
-        soup = BeautifulSoup(html, 'html.parser')
-        
-        diagnosis = {
-            'url': url,
-            'status_code': response.status_code,
-            'content_length': len(html),
-            'title': soup.title.string if soup.title else 'No title',
-            'sample_content': html[:500],
-            'tables_found': len(soup.find_all('table')),
-            'divs_found': len(soup.find_all('div')),
-            'text_preview': soup.get_text()[:1000].replace('\n', ' ').strip()
-        }
-        
-        # Look for common patterns
-        patterns_found = {
-            'race_mentions': len(soup.find_all(text=re.compile(r'Race\s+\d+', re.I))),
-            'fonner_mentions': len(soup.find_all(text=re.compile(r'Fonner', re.I))),
-            'horse_mentions': len(soup.find_all(text=re.compile(r'Horse|Jockey|Trainer', re.I))),
-            'post_time_mentions': len(soup.find_all(text=re.compile(r'Post|Time', re.I)))
-        }
-        
-        diagnosis['patterns'] = patterns_found
-        
-        # Save full HTML for manual inspection
-        debug_file = f"/tmp/equibase_debug_{date_str}.html"
-        with open(debug_file, 'w') as f:
-            f.write(html)
-        diagnosis['debug_file'] = debug_file
-        
-        return jsonify({
-            'success': True,
-            'diagnosis': diagnosis,
-            'message': f'Diagnostics complete. HTML saved to {debug_file}'
-        })
-        
-    except Exception as e:
-        logger.error(f"Diagnosis error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/sync')
-def sync_data():
-    """Advanced sync endpoint with multiple bypass strategies"""
-    try:
-        from advanced_scraper import run_advanced_scraper
-        from alternative_sources import fetch_from_alternatives
-        
-        # First ensure tables exist
-        db.create_tables()
-        
-        # Clear old sample data for today
-        with db.get_cursor() as cur:
-            cur.execute("""
-                DELETE FROM races 
-                WHERE date = CURRENT_DATE 
-                AND track_name IN ('Sample Track', 'Fonner Park')
-            """)
-            logger.info("Cleared old sample data")
-        
-        # Try advanced scraper with multiple strategies
-        logger.info("Starting advanced sync with bypass strategies...")
-        success, races = run_advanced_scraper(os.environ.get('DATABASE_URL'))
-        
-        if success and races:
-            return jsonify({
-                'success': True,
-                'message': f'Successfully bypassed protection and synced {len(races)} races!',
-                'strategy': 'Advanced multi-strategy scraper'
-            })
-        
-        # Try alternative data sources
-        logger.warning("Equibase blocked, trying alternative sources...")
-        alt_success, alt_races, source = fetch_from_alternatives(
-            os.environ.get('DATABASE_URL'), 
-            datetime.now()
-        )
-        
-        if alt_success and alt_races:
-            from scraper import EquibaseScraper
-            eq_scraper = EquibaseScraper(os.environ.get('DATABASE_URL'))
-            eq_scraper.save_to_database(alt_races)
-            
-            return jsonify({
-                'success': True,
-                'message': f'Synced {len(alt_races)} races from {source}!',
-                'strategy': f'Alternative source: {source}',
-                'note': 'Using alternative data source due to Equibase protection'
-            })
-        
-        # Try self-debugging scraper
-        logger.warning("All sources failed, trying self-debugging scraper...")
-        from self_debug_scraper import SelfDebuggingScraper
-        
-        scraper = SelfDebuggingScraper(os.environ.get('DATABASE_URL'))
-        races = scraper.fetch_and_learn(datetime.now())
-        
-        if races:
-            from scraper import EquibaseScraper
-            eq_scraper = EquibaseScraper(os.environ.get('DATABASE_URL'))
-            eq_scraper.save_to_database(races)
-            
-            return jsonify({
-                'success': True,
-                'message': f'Synced {len(races)} races with self-debugging scraper',
-                'strategy': 'Self-debugging parser'
-            })
-        
-        # Last resort - create sample data to demonstrate functionality
-        logger.warning("All scrapers blocked, creating demonstration data...")
-        from direct_parse import parse_any_available_data
-        
-        sample_success, sample_races, sample_source = parse_any_available_data(
-            os.environ.get('DATABASE_URL'),
-            datetime.now()
-        )
-        
-        if sample_success and sample_races:
-            from scraper import EquibaseScraper
-            eq_scraper = EquibaseScraper(os.environ.get('DATABASE_URL'))
-            eq_scraper.save_to_database(sample_races)
-            
-            return jsonify({
-                'success': True,
-                'message': f'Created {len(sample_races)} demonstration races',
-                'strategy': sample_source,
-                'warning': 'All real data sources blocked - showing sample data for demonstration',
-                'note': 'The system is working correctly but cannot access live data due to anti-bot protection',
-                'suggestion': 'You can also upload Equibase PDF charts using the PDF Upload feature'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Unable to fetch or create any race data',
-                'strategies_tried': [
-                    'Equibase (CloudScraper, Undetected Chrome, API endpoints, Mobile)',
-                    'Daily Racing Form',
-                    'BloodHorse', 
-                    'Track-specific websites (Fonner Park)',
-                    'API aggregators',
-                    'Self-debugging HTML parser',
-                    'Sample data generation'
-                ],
-                'suggestion': 'Critical failure - please check logs'
-            }), 500
-                
-    except Exception as e:
-        logger.error(f"Sync error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'traceback': str(e.__traceback__),
-            'note': 'Critical error in sync process'
-        }), 500
 
 @app.route('/')
 def index():
@@ -240,11 +65,6 @@ def index():
     today = datetime.now().date()
     return render_template('index.html', date=today)
 
-@app.route('/manual-entry')
-def manual_entry():
-    """Manual entry page"""
-    today = datetime.now().date()
-    return render_template('manual_entry.html', date=today)
 
 @app.route('/pdf-upload')
 def pdf_upload():
@@ -317,66 +137,6 @@ def upload_pdf():
             'error': f'Error processing PDF: {str(e)}'
         }), 500
 
-@app.route('/api/manual-entry', methods=['POST'])
-def save_manual_entry():
-    """Save manually entered race data"""
-    try:
-        from flask import request
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'success': False, 'error': 'No data provided'}), 400
-        
-        # Save to database
-        with db.get_cursor() as cur:
-            # Insert race
-            cur.execute("""
-                INSERT INTO races (date, race_number, track_name, post_time, 
-                                 purse, distance, surface, race_type)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (date, race_number, track_name) 
-                DO UPDATE SET 
-                    post_time = EXCLUDED.post_time,
-                    purse = EXCLUDED.purse,
-                    distance = EXCLUDED.distance,
-                    surface = EXCLUDED.surface,
-                    race_type = EXCLUDED.race_type
-                RETURNING id
-            """, (
-                data['date'], data['race_number'], data['track_name'],
-                data.get('post_time'), data.get('purse'), data.get('distance'),
-                data.get('surface'), data.get('race_type')
-            ))
-            
-            race_id = cur.fetchone()[0]
-            
-            # Delete existing horses for this race
-            cur.execute("DELETE FROM horses WHERE race_id = %s", (race_id,))
-            
-            # Insert horses
-            for horse in data.get('horses', []):
-                cur.execute("""
-                    INSERT INTO horses (race_id, program_number, horse_name, 
-                                      jockey, trainer, morning_line_odds, weight)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    race_id, horse.get('program_number'), horse['horse_name'],
-                    horse.get('jockey'), horse.get('trainer'), 
-                    horse.get('morning_line_odds'), horse.get('weight')
-                ))
-        
-        return jsonify({
-            'success': True,
-            'message': f"Race {data['race_number']} saved successfully",
-            'race_id': race_id
-        })
-        
-    except Exception as e:
-        logger.error(f"Manual entry error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
 
 @app.route('/api/races/<date>')
 def get_races(date):

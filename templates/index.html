@@ -11,10 +11,6 @@
         <input type="date" id="race-date" value="{{ date }}" min="2025-06-04" max="2025-07-20">
     </div>
     
-    <div class="sync-controls">
-        <button id="sync-btn" class="btn btn-primary" onclick="syncData()">Sync Data</button>
-        <button id="diagnose-btn" class="btn btn-warning" onclick="diagnose()">Diagnose Scraper</button>
-    </div>
 </div>
 
 <div id="loading" style="display: none;">Loading races...</div>
@@ -43,116 +39,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Combined sync function that handles both database initialization and data syncing
-
-async function diagnose() {
-    const btn = document.getElementById('diagnose-btn');
-    const error = document.getElementById('error');
-    
-    btn.disabled = true;
-    btn.textContent = 'Diagnosing...';
-    error.style.display = 'none';
-    
-    try {
-        const response = await fetch('/diagnose');
-        const data = await response.json();
-        
-        if (data.success) {
-            console.log('Diagnosis:', data.diagnosis);
-            
-            const diagInfo = data.diagnosis;
-            const diagHTML = `
-                <h3>Scraper Diagnosis</h3>
-                <p><strong>URL:</strong> ${diagInfo.url}</p>
-                <p><strong>Status:</strong> ${diagInfo.status_code}</p>
-                <p><strong>Page Size:</strong> ${diagInfo.content_length} bytes</p>
-                <p><strong>Tables Found:</strong> ${diagInfo.tables_found}</p>
-                <p><strong>Divs Found:</strong> ${diagInfo.divs_found}</p>
-                <h4>Patterns Found:</h4>
-                <ul>
-                    <li>Race mentions: ${diagInfo.patterns.race_mentions}</li>
-                    <li>Fonner mentions: ${diagInfo.patterns.fonner_mentions}</li>
-                    <li>Horse/Jockey/Trainer mentions: ${diagInfo.patterns.horse_mentions}</li>
-                    <li>Post/Time mentions: ${diagInfo.patterns.post_time_mentions}</li>
-                </ul>
-                <h4>Text Preview:</h4>
-                <pre>${diagInfo.text_preview}</pre>
-                <p><small>Full HTML saved to: ${diagInfo.debug_file}</small></p>
-            `;
-            
-            error.innerHTML = diagHTML;
-            error.style.display = 'block';
-            error.className = 'diagnosis-info';
-            
-        } else {
-            alert('❌ Diagnosis failed: ' + data.error);
-        }
-    } catch (err) {
-        alert('❌ Network error: ' + err.message);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Diagnose Scraper';
-    }
-}
-
-async function syncData() {
-    const btn = document.getElementById('sync-btn');
-    const error = document.getElementById('error');
-    
-    btn.disabled = true;
-    btn.textContent = 'Syncing... (this may take a minute)';
-    error.style.display = 'none';
-    
-    try {
-        // First, ensure database is initialized
-        const initResponse = await fetch('/init-db');
-        const initData = await initResponse.json();
-        
-        if (!initData.success) {
-            throw new Error('Failed to initialize database: ' + (initData.error || 'Unknown error'));
-        }
-        
-        // Then perform the sync
-        const response = await fetch('/sync', { 
-            method: 'GET',
-            timeout: 120000 // 2 minute timeout
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-            alert('✅ ' + data.message);
-            // Show debug info if available
-            if (data.debug) {
-                console.log('Sync debug info:', data.debug);
-            }
-            // Reload races after sync
-            loadRaces(document.getElementById('race-date').value);
-        } else {
-            const errorMsg = `❌ Sync failed!\n\nError: ${data.error}\n\n${data.note || ''}`;
-            alert(errorMsg);
-            console.error('Sync error details:', data);
-            
-            // Also show in error div with debug info
-            error.innerHTML = `
-                <strong>Sync Error:</strong><br>
-                ${data.error}<br>
-                <small>${data.note || 'Check browser console for details'}</small>
-                ${data.debug ? '<br><pre>' + JSON.stringify(data.debug, null, 2) + '</pre>' : ''}
-            `;
-            error.style.display = 'block';
-        }
-    } catch (err) {
-        const errorMsg = `❌ Network error during sync!\n\n${err.message}\n\nThis usually means the request timed out. Check the server logs.`;
-        alert(errorMsg);
-        console.error('Sync network error:', err);
-        
-        error.innerHTML = `<strong>Network Error:</strong> ${err.message}`;
-        error.style.display = 'block';
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Sync Data';
-    }
-}
 
 async function loadRaces(date) {
     const container = document.getElementById('races-container');
