@@ -14,6 +14,7 @@
     <div class="sync-controls">
         <button id="sync-btn" class="btn btn-primary" onclick="syncData()">Sync Real Data from Equibase</button>
         <button id="init-db-btn" class="btn btn-secondary" onclick="initDatabase()">Initialize Database</button>
+        <button id="clear-btn" class="btn btn-danger" onclick="clearData()">Clear All Data</button>
     </div>
 </div>
 
@@ -66,6 +67,33 @@ async function initDatabase() {
     }
 }
 
+async function clearData() {
+    if (!confirm('Are you sure you want to clear all race data?')) {
+        return;
+    }
+    
+    const btn = document.getElementById('clear-btn');
+    btn.disabled = true;
+    btn.textContent = 'Clearing...';
+    
+    try {
+        const response = await fetch('/clear-data');
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ ' + data.message);
+            loadRaces(document.getElementById('race-date').value);
+        } else {
+            alert('❌ Error: ' + (data.error || 'Failed to clear data'));
+        }
+    } catch (err) {
+        alert('❌ Network error: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Clear All Data';
+    }
+}
+
 async function syncData() {
     const btn = document.getElementById('sync-btn');
     const error = document.getElementById('error');
@@ -83,6 +111,10 @@ async function syncData() {
         
         if (data.success) {
             alert('✅ ' + data.message);
+            // Show debug info if available
+            if (data.debug) {
+                console.log('Sync debug info:', data.debug);
+            }
             // Reload races after sync
             loadRaces(document.getElementById('race-date').value);
         } else {
@@ -90,11 +122,12 @@ async function syncData() {
             alert(errorMsg);
             console.error('Sync error details:', data);
             
-            // Also show in error div
+            // Also show in error div with debug info
             error.innerHTML = `
                 <strong>Sync Error:</strong><br>
                 ${data.error}<br>
                 <small>${data.note || 'Check browser console for details'}</small>
+                ${data.debug ? '<br><pre>' + JSON.stringify(data.debug, null, 2) + '</pre>' : ''}
             `;
             error.style.display = 'block';
         }

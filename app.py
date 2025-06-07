@@ -40,6 +40,24 @@ def init_db():
             'error': str(e)
         }), 500
 
+@app.route('/clear-data')
+def clear_data():
+    """Clear all race data"""
+    try:
+        with db.get_cursor() as cur:
+            cur.execute("DELETE FROM horses")
+            cur.execute("DELETE FROM races")
+            
+        return jsonify({
+            'success': True,
+            'message': 'All race data cleared successfully'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/sync')
 def sync_data():
     """Self-debugging sync endpoint that learns from HTML structure"""
@@ -48,6 +66,15 @@ def sync_data():
         
         # First ensure tables exist
         db.create_tables()
+        
+        # Clear old sample data for today
+        with db.get_cursor() as cur:
+            cur.execute("""
+                DELETE FROM races 
+                WHERE date = CURRENT_DATE 
+                AND track_name IN ('Sample Track', 'Fonner Park')
+            """)
+            logger.info("Cleared old sample data")
         
         # Try self-debugging scraper first
         logger.info("Starting self-debugging sync...")
