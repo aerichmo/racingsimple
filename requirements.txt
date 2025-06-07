@@ -5,3 +5,7 @@ python-dotenv==1.0.0
 pytz==2023.3
 Flask==3.0.0
 gunicorn==21.2.0
+cloudscraper==1.2.71
+selenium==4.15.0
+undetected-chromedriver==3.5.4
+lxml==4.9.3

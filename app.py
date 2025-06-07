@@ -122,9 +122,9 @@ def diagnose():
 
 @app.route('/sync')
 def sync_data():
-    """Self-debugging sync endpoint that learns from HTML structure"""
+    """Advanced sync endpoint with multiple bypass strategies"""
     try:
-        from self_debug_scraper import run_self_debugging_sync, SelfDebuggingScraper
+        from advanced_scraper import run_advanced_scraper
         
         # First ensure tables exist
         db.create_tables()
@@ -138,50 +138,46 @@ def sync_data():
             """)
             logger.info("Cleared old sample data")
         
-        # Try self-debugging scraper first
-        logger.info("Starting self-debugging sync...")
-        scraper = SelfDebuggingScraper(os.environ.get('DATABASE_URL'))
-        races = scraper.fetch_and_learn(datetime.now())
+        # Try advanced scraper with multiple strategies
+        logger.info("Starting advanced sync with bypass strategies...")
+        success, races = run_advanced_scraper(os.environ.get('DATABASE_URL'))
         
-        debug_info = {
-            'html_analyzed': True,
-            'selectors_found': scraper.successful_selectors,
-            'races_parsed': len(races) if races else 0,
-            'learning_saved': bool(scraper.successful_selectors)
-        }
-        
-        if races:
-            # Save to database
-            from scraper import EquibaseScraper
-            eq_scraper = EquibaseScraper(os.environ.get('DATABASE_URL'))
-            eq_scraper.save_to_database(races)
-            
+        if success and races:
             return jsonify({
                 'success': True,
-                'message': f'Successfully learned HTML structure and synced {len(races)} races!',
-                'debug': debug_info
+                'message': f'Successfully bypassed protection and synced {len(races)} races!',
+                'strategy': 'Advanced multi-strategy scraper'
             })
         else:
-            # Fallback to regular scraper with debugging
-            logger.warning("Self-debugging failed, trying regular scraper...")
-            from scraper import EquibaseScraper
-            scraper = EquibaseScraper(os.environ.get('DATABASE_URL'))
+            # Try self-debugging scraper as fallback
+            logger.warning("Advanced scraper failed, trying self-debugging scraper...")
+            from self_debug_scraper import SelfDebuggingScraper
             
-            try:
-                scraper.run_daily_sync()
+            scraper = SelfDebuggingScraper(os.environ.get('DATABASE_URL'))
+            races = scraper.fetch_and_learn(datetime.now())
+            
+            if races:
+                from scraper import EquibaseScraper
+                eq_scraper = EquibaseScraper(os.environ.get('DATABASE_URL'))
+                eq_scraper.save_to_database(races)
+                
                 return jsonify({
                     'success': True,
-                    'message': 'Sync completed with regular scraper',
-                    'debug': debug_info
+                    'message': f'Synced {len(races)} races with self-debugging scraper',
+                    'strategy': 'Self-debugging parser'
                 })
-            except Exception as e:
-                # Return detailed debugging information
+            else:
                 return jsonify({
                     'success': False,
-                    'error': str(e),
-                    'debug': debug_info,
-                    'suggestion': 'Check /tmp/equibase_*.html for the raw HTML structure',
-                    'note': 'The scraper tried to learn from the HTML but needs manual selector updates'
+                    'error': 'All scraping strategies failed - Equibase protection is active',
+                    'strategies_tried': [
+                        'CloudScraper (bypass Cloudflare/Incapsula)',
+                        'Undetected Chrome (stealth browser)',
+                        'Alternative API endpoints',
+                        'Mobile site access',
+                        'Self-debugging HTML parser'
+                    ],
+                    'suggestion': 'The site has strong bot protection. Consider using the manual entry form.'
                 }), 500
                 
     except Exception as e:
