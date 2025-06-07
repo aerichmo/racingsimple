@@ -42,51 +42,32 @@ def init_db():
 
 @app.route('/sync')
 def sync_data():
-    """Manual sync endpoint - creates sample data for testing"""
+    """Manual sync endpoint - fetches real data from Equibase"""
     try:
+        from scraper import EquibaseScraper
+        from odds_scraper import OddsScraper
+        
         # First ensure tables exist
         db.create_tables()
         
-        # Insert sample data for testing
-        with db.get_cursor() as cur:
-            # Insert a sample race
-            cur.execute("""
-                INSERT INTO races (date, race_number, track_name, post_time, 
-                                 purse, distance, surface, race_type)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (date, race_number, track_name) DO NOTHING
-                RETURNING id
-            """, (
-                datetime.now().date(), 1, 'Sample Track', '14:00',
-                '$50,000', '1 Mile', 'Dirt', 'Allowance'
-            ))
-            
-            result = cur.fetchone()
-            if result:
-                race_id = result[0]
-                
-                # Insert sample horses
-                sample_horses = [
-                    ('1', 'Thunder Bolt', 'J. Smith', 'T. Johnson', '3-1', '126'),
-                    ('2', 'Lightning Fast', 'M. Williams', 'R. Davis', '5-2', '124'),
-                    ('3', 'Speed Demon', 'A. Brown', 'S. Miller', '4-1', '125')
-                ]
-                
-                for horse_data in sample_horses:
-                    cur.execute("""
-                        INSERT INTO horses (race_id, program_number, horse_name, 
-                                          jockey, trainer, morning_line_odds, weight)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """, (race_id,) + horse_data)
+        # Run the real scrapers
+        scraper = EquibaseScraper(os.environ.get('DATABASE_URL'))
+        scraper.run_daily_sync()
+        
+        # Also fetch morning line odds
+        odds_scraper = OddsScraper(os.environ.get('DATABASE_URL'))
+        odds_scraper.save_morning_line_odds(datetime.now())
         
         return jsonify({
             'success': True,
-            'message': 'Sample data created successfully'
+            'message': 'Real data sync completed. Note: HTML selectors may need updating.'
         })
     except Exception as e:
+        logger.error(f"Sync error: {e}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'note': 'The scraper HTML selectors need to be updated for the actual Equibase HTML structure'
         }), 500
 
 @app.route('/')
