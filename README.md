@@ -2,6 +2,8 @@
 
 A simplified horse racing data application.
 
+**Repository**: https://github.com/aerichmo/racingsimple
+
 ## Project Structure
 
 ```
@@ -24,6 +26,17 @@ RacingSimple/
 
 ## Getting Started
 
+### Quick Start
+```bash
+# Clone the repository
+git clone https://github.com/aerichmo/racingsimple.git
+cd racingsimple
+
+# Run the startup script
+./start.sh
+```
+
+### Manual Setup
 1. Install dependencies:
    ```bash
    npm install
@@ -38,6 +51,8 @@ RacingSimple/
    ```bash
    npm start
    ```
+
+The application will be available at: http://localhost:3000
 
 ## Features
 
