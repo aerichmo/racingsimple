@@ -199,6 +199,73 @@ def index():
     today = datetime.now().date()
     return render_template('index.html', date=today)
 
+@app.route('/manual-entry')
+def manual_entry():
+    """Manual entry page"""
+    today = datetime.now().date()
+    return render_template('manual_entry.html', date=today)
+
+@app.route('/api/manual-entry', methods=['POST'])
+def save_manual_entry():
+    """Save manually entered race data"""
+    try:
+        from flask import request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        # Save to database
+        with db.get_cursor() as cur:
+            # Insert race
+            cur.execute("""
+                INSERT INTO races (date, race_number, track_name, post_time, 
+                                 purse, distance, surface, race_type)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (date, race_number, track_name) 
+                DO UPDATE SET 
+                    post_time = EXCLUDED.post_time,
+                    purse = EXCLUDED.purse,
+                    distance = EXCLUDED.distance,
+                    surface = EXCLUDED.surface,
+                    race_type = EXCLUDED.race_type
+                RETURNING id
+            """, (
+                data['date'], data['race_number'], data['track_name'],
+                data.get('post_time'), data.get('purse'), data.get('distance'),
+                data.get('surface'), data.get('race_type')
+            ))
+            
+            race_id = cur.fetchone()[0]
+            
+            # Delete existing horses for this race
+            cur.execute("DELETE FROM horses WHERE race_id = %s", (race_id,))
+            
+            # Insert horses
+            for horse in data.get('horses', []):
+                cur.execute("""
+                    INSERT INTO horses (race_id, program_number, horse_name, 
+                                      jockey, trainer, morning_line_odds, weight)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    race_id, horse.get('program_number'), horse['horse_name'],
+                    horse.get('jockey'), horse.get('trainer'), 
+                    horse.get('morning_line_odds'), horse.get('weight')
+                ))
+        
+        return jsonify({
+            'success': True,
+            'message': f"Race {data['race_number']} saved successfully",
+            'race_id': race_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Manual entry error: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/races/<date>')
 def get_races(date):
     """API endpoint to get races for a specific date"""

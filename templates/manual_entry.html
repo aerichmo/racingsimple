@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Manual Race Entry - Racing Simple{% endblock %}
+
+{% block content %}
+<h2>Manual Race Entry</h2>
+
+<div class="alert alert-info">
+    <strong>Note:</strong> Equibase blocks automated access. Please manually enter race data below.
+</div>
+
+<form id="race-form" class="manual-entry-form">
+    <div class="form-section">
+        <h3>Race Information</h3>
+        <div class="form-group">
+            <label for="race-date">Date:</label>
+            <input type="date" id="race-date" name="date" required value="{{ date }}">
+        </div>
+        <div class="form-group">
+            <label for="race-number">Race Number:</label>
+            <input type="number" id="race-number" name="race_number" required min="1" max="20">
+        </div>
+        <div class="form-group">
+            <label for="track-name">Track Name:</label>
+            <input type="text" id="track-name" name="track_name" required value="Fonner Park">
+        </div>
+        <div class="form-group">
+            <label for="post-time">Post Time:</label>
+            <input type="time" id="post-time" name="post_time">
+        </div>
+        <div class="form-group">
+            <label for="distance">Distance:</label>
+            <input type="text" id="distance" name="distance" placeholder="e.g., 6 Furlongs">
+        </div>
+        <div class="form-group">
+            <label for="surface">Surface:</label>
+            <select id="surface" name="surface">
+                <option value="Dirt">Dirt</option>
+                <option value="Turf">Turf</option>
+                <option value="All Weather">All Weather</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="purse">Purse:</label>
+            <input type="text" id="purse" name="purse" placeholder="e.g., $10,000">
+        </div>
+        <div class="form-group">
+            <label for="race-type">Race Type:</label>
+            <input type="text" id="race-type" name="race_type" placeholder="e.g., Maiden Claiming">
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3>Horses</h3>
+        <div id="horses-container">
+            <!-- Horse entries will be added here -->
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="addHorseRow()">Add Horse</button>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save Race</button>
+        <button type="button" class="btn btn-secondary" onclick="clearForm()">Clear Form</button>
+    </div>
+</form>
+
+<div id="saved-races" class="saved-races">
+    <h3>Today's Entered Races</h3>
+    <div id="races-list"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let horseCount = 0;
+
+function addHorseRow() {
+    horseCount++;
+    const container = document.getElementById('horses-container');
+    const horseRow = document.createElement('div');
+    horseRow.className = 'horse-row';
+    horseRow.id = `horse-${horseCount}`;
+    
+    horseRow.innerHTML = `
+        <h4>Horse ${horseCount}</h4>
+        <div class="horse-fields">
+            <input type="text" name="horse_${horseCount}_program" placeholder="Program #" class="small-input" required>
+            <input type="text" name="horse_${horseCount}_name" placeholder="Horse Name" required>
+            <input type="text" name="horse_${horseCount}_jockey" placeholder="Jockey">
+            <input type="text" name="horse_${horseCount}_trainer" placeholder="Trainer">
+            <input type="text" name="horse_${horseCount}_odds" placeholder="M/L Odds">
+            <input type="text" name="horse_${horseCount}_weight" placeholder="Weight">
+            <button type="button" class="btn btn-danger btn-small" onclick="removeHorse(${horseCount})">Remove</button>
+        </div>
+    `;
+    
+    container.appendChild(horseRow);
+}
+
+function removeHorse(id) {
+    const horseRow = document.getElementById(`horse-${id}`);
+    if (horseRow) {
+        horseRow.remove();
+    }
+}
+
+function clearForm() {
+    if (confirm('Clear all form data?')) {
+        document.getElementById('race-form').reset();
+        document.getElementById('horses-container').innerHTML = '';
+        horseCount = 0;
+        // Add one empty horse row
+        addHorseRow();
+    }
+}
+
+// Initialize with one horse row
+document.addEventListener('DOMContentLoaded', function() {
+    addHorseRow();
+    loadTodaysRaces();
+});
+
+// Handle form submission
+document.getElementById('race-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const raceData = {
+        date: formData.get('date'),
+        race_number: parseInt(formData.get('race_number')),
+        track_name: formData.get('track_name'),
+        post_time: formData.get('post_time'),
+        distance: formData.get('distance'),
+        surface: formData.get('surface'),
+        purse: formData.get('purse'),
+        race_type: formData.get('race_type'),
+        horses: []
+    };
+    
+    // Collect horse data
+    for (let i = 1; i <= horseCount; i++) {
+        const horseRow = document.getElementById(`horse-${i}`);
+        if (horseRow) {
+            const horse = {
+                program_number: formData.get(`horse_${i}_program`),
+                horse_name: formData.get(`horse_${i}_name`),
+                jockey: formData.get(`horse_${i}_jockey`),
+                trainer: formData.get(`horse_${i}_trainer`),
+                morning_line_odds: formData.get(`horse_${i}_odds`),
+                weight: formData.get(`horse_${i}_weight`)
+            };
+            if (horse.horse_name) {
+                raceData.horses.push(horse);
+            }
+        }
+    }
+    
+    try {
+        const response = await fetch('/api/manual-entry', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(raceData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Race saved successfully!');
+            clearForm();
+            loadTodaysRaces();
+        } else {
+            alert('❌ Error: ' + result.error);
+        }
+    } catch (err) {
+        alert('❌ Network error: ' + err.message);
+    }
+});
+
+async function loadTodaysRaces() {
+    const date = new Date().toISOString().split('T')[0];
+    try {
+        const response = await fetch(`/api/races/${date}`);
+        const data = await response.json();
+        
+        const container = document.getElementById('races-list');
+        if (data.success && data.races.length > 0) {
+            container.innerHTML = data.races.map(race => `
+                <div class="saved-race">
+                    <strong>Race ${race.race_number}</strong> - ${race.track_name}
+                    <br>Post: ${race.post_time || 'TBA'} | ${race.horses.length} horses
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<p>No races entered yet today.</p>';
+        }
+    } catch (err) {
+        console.error('Error loading races:', err);
+    }
+}
+</script>
+{% endblock %}

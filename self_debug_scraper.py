@@ -174,9 +174,26 @@ class SelfDebuggingScraper:
         logger.info(f"Fetching and learning from: {url}")
         
         try:
-            response = requests.get(url, timeout=30)
+            # Add browser headers to avoid bot detection
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            }
+            
+            session = requests.Session()
+            response = session.get(url, headers=headers, timeout=30)
             response.raise_for_status()
             html = response.text
+            
+            # Check for Incapsula block
+            if 'Incapsula' in html or 'incident ID' in html:
+                logger.error("Blocked by Incapsula bot protection")
+                raise Exception("Equibase is blocking automated access. Manual data entry required.")
             
             # Save HTML for debugging
             debug_file = f"/tmp/equibase_{date.strftime('%Y%m%d')}.html"
