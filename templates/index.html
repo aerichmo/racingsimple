@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Today's Races - Racing Simple{% endblock %}
+
+{% block content %}
+<h2>Racing Schedule</h2>
+
+<div class="date-selector">
+    <label for="race-date">Select Date:</label>
+    <input type="date" id="race-date" value="{{ date }}" min="2025-06-04" max="2025-07-20">
+</div>
+
+<div id="loading" style="display: none;">Loading races...</div>
+<div id="error" class="error" style="display: none;"></div>
+
+<div id="races-container">
+    <!-- Races will be loaded here -->
+</div>
+
+<div class="legend">
+    <h3>Odds Legend</h3>
+    <p><span class="odds-ml">Blue</span> = Morning Line Odds (8:00 AM)</p>
+    <p><span class="odds-live">Green</span> = Live Odds (5 min to post)</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load races when page loads or date changes
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.getElementById('race-date');
+    loadRaces(dateInput.value);
+    
+    dateInput.addEventListener('change', function() {
+        loadRaces(this.value);
+    });
+});
+
+async function loadRaces(date) {
+    const container = document.getElementById('races-container');
+    const loading = document.getElementById('loading');
+    const error = document.getElementById('error');
+    
+    loading.style.display = 'block';
+    error.style.display = 'none';
+    container.innerHTML = '';
+    
+    try {
+        const response = await fetch(`/api/races/${date}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to load races');
+        }
+        
+        if (data.races.length === 0) {
+            container.innerHTML = '<p class="no-races">No races scheduled for this date.</p>';
+        } else {
+            displayRaces(data.races);
+        }
+    } catch (err) {
+        error.textContent = 'Error loading races: ' + err.message;
+        error.style.display = 'block';
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+function displayRaces(races) {
+    const container = document.getElementById('races-container');
+    
+    races.forEach(race => {
+        const raceDiv = document.createElement('div');
+        raceDiv.className = 'race-card';
+        
+        const horses = race.horses || [];
+        
+        raceDiv.innerHTML = `
+            <div class="race-header">
+                <h3>Race ${race.race_number} - ${race.track_name}</h3>
+                <div class="race-details">
+                    <span>Post Time: ${race.post_time || 'TBA'}</span>
+                    <span>Distance: ${race.distance || 'N/A'}</span>
+                    <span>Surface: ${race.surface || 'N/A'}</span>
+                    <span>Purse: ${race.purse || 'N/A'}</span>
+                </div>
+            </div>
+            <div class="race-type">${race.race_type || 'Race Type N/A'}</div>
+            <table class="horses-table">
+                <thead>
+                    <tr>
+                        <th>Pgm</th>
+                        <th>Horse</th>
+                        <th>Jockey</th>
+                        <th>Trainer</th>
+                        <th>Weight</th>
+                        <th>M/L Odds</th>
+                        <th>Live Odds</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${horses.map(horse => `
+                        <tr>
+                            <td>${horse.program_number || '-'}</td>
+                            <td class="horse-name">${horse.horse_name}</td>
+                            <td>${horse.jockey || '-'}</td>
+                            <td>${horse.trainer || '-'}</td>
+                            <td>${horse.weight || '-'}</td>
+                            <td class="odds-ml" id="ml-${race.id}-${horse.program_number}">-</td>
+                            <td class="odds-live" id="live-${race.id}-${horse.program_number}">-</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            <button onclick="loadOdds(${race.id})" class="btn-odds">Load Odds History</button>
+            <div id="odds-${race.id}" class="odds-history"></div>
+        `;
+        
+        container.appendChild(raceDiv);
+    });
+}
+
+async function loadOdds(raceId) {
+    const oddsDiv = document.getElementById(`odds-${raceId}`);
+    
+    try {
+        const response = await fetch(`/api/odds/${raceId}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to load odds');
+        }
+        
+        // Update the table with latest odds
+        Object.entries(data.odds).forEach(([horseName, horseData]) => {
+            const pgm = horseData.program_number;
+            
+            horseData.odds_history.forEach(odds => {
+                if (odds.type === 'morning_line') {
+                    const mlCell = document.getElementById(`ml-${raceId}-${pgm}`);
+                    if (mlCell) mlCell.textContent = odds.value;
+                } else if (odds.type === 'live') {
+                    const liveCell = document.getElementById(`live-${raceId}-${pgm}`);
+                    if (liveCell) liveCell.textContent = odds.value;
+                }
+            });
+        });
+        
+        oddsDiv.innerHTML = '<p class="odds-loaded">Odds updated!</p>';
+        
+    } catch (err) {
+        oddsDiv.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+    }
+}
+</script>
+{% endblock %}

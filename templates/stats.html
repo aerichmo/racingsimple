@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - Racing Simple{% endblock %}
+
+{% block content %}
+<h2>Racing Statistics</h2>
+
+<div class="stats-nav">
+    <button onclick="loadStats('jockeys')" class="btn active">Top Jockeys</button>
+    <button onclick="loadStats('trainers')" class="btn">Top Trainers</button>
+    <button onclick="loadStats('tracks')" class="btn">Track Summary</button>
+</div>
+
+<div id="loading" style="display: none;">Loading statistics...</div>
+<div id="error" class="error" style="display: none;"></div>
+
+<div id="stats-container">
+    <!-- Stats will be loaded here -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats('jockeys');
+});
+
+async function loadStats(type) {
+    const container = document.getElementById('stats-container');
+    const loading = document.getElementById('loading');
+    const error = document.getElementById('error');
+    
+    // Update active button
+    document.querySelectorAll('.stats-nav button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    loading.style.display = 'block';
+    error.style.display = 'none';
+    container.innerHTML = '';
+    
+    try {
+        const response = await fetch(`/api/stats/${type}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to load statistics');
+        }
+        
+        displayStats(type, data.stats);
+    } catch (err) {
+        error.textContent = 'Error loading statistics: ' + err.message;
+        error.style.display = 'block';
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+function displayStats(type, stats) {
+    const container = document.getElementById('stats-container');
+    
+    if (stats.length === 0) {
+        container.innerHTML = '<p>No data available.</p>';
+        return;
+    }
+    
+    let html = '<table class="stats-table">';
+    
+    if (type === 'jockeys') {
+        html += `
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Jockey</th>
+                    <th>Total Rides</th>
+                    <th>Racing Days</th>
+                    <th>Different Horses</th>
+                    <th>Tracks</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        stats.forEach((jockey, index) => {
+            html += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td class="name">${jockey.jockey}</td>
+                    <td>${jockey.total_rides}</td>
+                    <td>${jockey.racing_days}</td>
+                    <td>${jockey.unique_horses}</td>
+                    <td class="tracks">${jockey.tracks.join(', ')}</td>
+                </tr>
+            `;
+        });
+    } else if (type === 'trainers') {
+        html += `
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Trainer</th>
+                    <th>Total Entries</th>
+                    <th>Racing Days</th>
+                    <th>Different Horses</th>
+                    <th>Tracks</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        stats.forEach((trainer, index) => {
+            html += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td class="name">${trainer.trainer}</td>
+                    <td>${trainer.total_entries}</td>
+                    <td>${trainer.racing_days}</td>
+                    <td>${trainer.unique_horses}</td>
+                    <td class="tracks">${trainer.tracks.join(', ')}</td>
+                </tr>
+            `;
+        });
+    } else if (type === 'tracks') {
+        html += `
+            <thead>
+                <tr>
+                    <th>Track</th>
+                    <th>Racing Days</th>
+                    <th>Total Races</th>
+                    <th>Unique Horses</th>
+                    <th>Avg Purse</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        stats.forEach(track => {
+            const avgPurse = track.avg_purse ? '$' + parseInt(track.avg_purse).toLocaleString() : 'N/A';
+            html += `
+                <tr>
+                    <td class="name">${track.track_name || 'Unknown'}</td>
+                    <td>${track.racing_days}</td>
+                    <td>${track.total_races}</td>
+                    <td>${track.unique_horses}</td>
+                    <td>${avgPurse}</td>
+                </tr>
+            `;
+        });
+    }
+    
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+</script>
+{% endblock %}
