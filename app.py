@@ -213,7 +213,16 @@ def stall10n_complex():
             const data = await response.json();
             
             if (!data.success) {
-                contentDiv.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                let errorMsg = `<div class="error">
+                    <strong>Error:</strong> ${data.error}<br>`;
+                if (data.details) {
+                    errorMsg += `<strong>Details:</strong> ${data.details}<br>`;
+                }
+                if (data.credentials_configured === false) {
+                    errorMsg += `<br><strong>Note:</strong> API credentials are not configured. Please ensure RACING_API_USERNAME and RACING_API_PASSWORD environment variables are set on Render.`;
+                }
+                errorMsg += `</div>`;
+                contentDiv.innerHTML = errorMsg;
                 return;
             }
             
@@ -700,7 +709,14 @@ def get_fair_meadows_races():
         
     except requests.exceptions.RequestException as e:
         logger.error(f"Racing API error: {e}")
-        return jsonify({'success': False, 'error': 'Failed to fetch racing data'}), 500
+        logger.error(f"API URL attempted: {meets_url if 'meets_url' in locals() else 'Not set'}")
+        logger.error(f"API credentials present: username={bool(username)}, password={bool(password)}")
+        return jsonify({
+            'success': False, 
+            'error': 'Failed to fetch racing data',
+            'details': str(e),
+            'credentials_configured': bool(username and password)
+        }), 500
     except Exception as e:
         logger.error(f"Fair Meadows races error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
