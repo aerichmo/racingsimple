@@ -614,8 +614,8 @@ def get_fair_meadows_races():
             base_url = base_url[:-3]
         meets_url = f"{base_url}/v1/north-america/meets"
         params = {
-            'date_from': today,
-            'date_to': today
+            'start_date': today,
+            'end_date': today
         }
         
         auth = HTTPBasicAuth(username, password)
