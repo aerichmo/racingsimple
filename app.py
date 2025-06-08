@@ -636,10 +636,12 @@ def get_fair_meadows_races():
         meets_response.raise_for_status()
         meets_data = meets_response.json()
         
+        # According to the API docs, the response is a direct array of meets
+        meets_list = meets_data if isinstance(meets_data, list) else []
+        
         # Find Fair Meadows meet
         fair_meadows_meet = None
         all_tracks = []
-        meets_list = meets_data.get('meets', [])
         
         # Log the structure to understand the API response
         logger.info(f"Total meets found: {len(meets_list)}")
@@ -647,15 +649,15 @@ def get_fair_meadows_races():
             logger.info(f"First meet structure: {meets_list[0]}")
         
         for meet in meets_list:
-            # Try different possible field names for track
-            track = meet.get('track', meet.get('track_name', meet.get('venue', '')))
-            track_code = meet.get('track_code', meet.get('code', ''))
+            # Based on API docs, the fields should be:
+            # meet_id, date, track (3-letter code), status
+            track = meet.get('track', '')  # This should be the 3-letter track code like 'FMT'
             
-            # Store both track name and code for debugging
-            all_tracks.append(f"{track} ({track_code})" if track_code else track)
+            # Store track code
+            all_tracks.append(track)
             
-            # Check for FMT in either track name or code
-            if 'FMT' in track.upper() or 'FMT' in track_code.upper() or 'FAIR' in track.upper():
+            # Check for FMT (Fair Meadows Tulsa)
+            if track.upper() == 'FMT':
                 fair_meadows_meet = meet
                 break
         
