@@ -40,13 +40,41 @@ class EquibasePDFParser:
         """Parse races from extracted text"""
         races = []
         
-        # Split text by race markers - looking for race number followed by $2 Exacta
-        race_splits = re.split(r'(\d+)\$2 Exacta', text)
+        # Try multiple ways to split races
+        race_patterns = [
+            (r'(\d+)\$2 Exacta', 2),  # Original pattern
+            (r'Race\s+(\d+)', 1),      # "Race X" pattern
+            (r'(\d+)(?:st|nd|rd|th)\s+Race', 1),  # "1st Race" pattern
+            (r'RACE\s+(\d+)', 1),      # "RACE X" pattern
+        ]
         
-        for i in range(1, len(race_splits), 2):
-            if i+1 < len(race_splits):
-                race_num = race_splits[i].strip()
-                race_text = race_splits[i+1]
+        race_splits = None
+        race_nums = []
+        
+        # Try each pattern
+        for pattern, group_offset in race_patterns:
+            matches = list(re.finditer(pattern, text, re.IGNORECASE))
+            if matches:
+                logger.info(f"Found {len(matches)} races using pattern: {pattern}")
+                # Extract race sections
+                race_splits = []
+                for i, match in enumerate(matches):
+                    race_num = match.group(1)
+                    start = match.start()
+                    end = matches[i+1].start() if i+1 < len(matches) else len(text)
+                    race_text = text[start:end]
+                    race_nums.append(race_num)
+                    race_splits.append(race_text)
+                break
+        
+        # If no race markers found, treat entire text as one race
+        if not race_splits:
+            logger.warning("No race markers found, treating as single race")
+            race_nums = ['1']
+            race_splits = [text]
+        
+        # Parse each race
+        for race_num, race_text in zip(race_nums, race_splits):
                 
                 race = self._parse_single_race(race_num, race_text)
                 if race and race.get('entries'):
@@ -103,9 +131,15 @@ class EquibasePDFParser:
             if any(word in line for word in ['PgmPost', 'HorseClass', 'Jockey', 'Copyright', 'Equibase Speed']):
                 continue
                 
-            # Try to parse entry
+            # Try multiple patterns to parse entries
+            entry = self._try_parse_entry_line(line)
+            if entry:
+                race['entries'].append(entry)
+                continue
+                
+            # Original parsing method as fallback
             parts = line.split()
-            if len(parts) >= 10 and parts[0].isdigit() and parts[1].isdigit():
+            if len(parts) >= 3 and parts[0].isdigit():
                 try:
                     # Find where the numeric data starts after horse name
                     # Look for the class rating (first number after horse name)
@@ -174,6 +208,53 @@ class EquibasePDFParser:
                     continue
         
         return race
+    
+    def _try_parse_entry_line(self, line: str) -> Optional[Dict]:
+        """Try multiple patterns to parse an entry line"""
+        line = line.strip()
+        if not line:
+            return None
+            
+        # Pattern 1: Standard format with program number at start
+        match = re.match(r'^(\d{1,2})\s+(\d{1,2})?\s*\(?([\d.]+)%?\)?\s+([A-Z][A-Z\s\']+?)\s+(\d+|NA)', line)
+        if match:
+            return {
+                'program_number': int(match.group(1)),
+                'post_position': int(match.group(2)) if match.group(2) else int(match.group(1)),
+                'win_pct': float(match.group(3)) if match.group(3) else None,
+                'horse_name': match.group(4).strip(),
+                'class_rating': self._parse_int(match.group(5))
+            }
+            
+        # Pattern 2: Simple format - just number and horse name
+        match = re.match(r'^(\d{1,2})\s+([A-Z][A-Z0-9\s\'\-]+)', line)
+        if match:
+            # Make sure it's not all numbers after the program number
+            horse_name = match.group(2).strip()
+            if not horse_name.replace(' ', '').isdigit():
+                return {
+                    'program_number': int(match.group(1)),
+                    'post_position': int(match.group(1)),
+                    'horse_name': horse_name
+                }
+                
+        # Pattern 3: Line starting with number and containing uppercase words
+        if re.match(r'^\d{1,2}\s+', line):
+            parts = line.split(None, 1)
+            if len(parts) == 2:
+                pgm = int(parts[0])
+                rest = parts[1]
+                
+                # Look for consecutive uppercase words (likely horse name)
+                horse_match = re.search(r'([A-Z]{2,}(?:\s+[A-Z][A-Z0-9\'\-]*)*)', rest)
+                if horse_match:
+                    return {
+                        'program_number': pgm,
+                        'post_position': pgm,
+                        'horse_name': horse_match.group(1).strip()
+                    }
+                    
+        return None
     
     def _extract_date(self, text: str) -> date:
         """Extract race date from PDF text"""

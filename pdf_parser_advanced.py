@@ -120,12 +120,14 @@ class AdvancedPDFParser:
         
         # Try multiple extraction methods
         all_extractions = []
+        all_texts = []  # Keep all extracted texts for fallback
         
         # Method 1: PyPDF2
         try:
             text_pypdf2 = self._extract_text_pypdf2(pdf_path)
             logger.info(f"PyPDF2 extracted {len(text_pypdf2) if text_pypdf2 else 0} characters")
             if text_pypdf2:
+                all_texts.append(text_pypdf2)
                 races = self._parse_with_confidence(text_pypdf2, ExtractionMethod.PYPDF2)
                 logger.info(f"PyPDF2 found {len(races)} races")
                 if races:
@@ -137,6 +139,9 @@ class AdvancedPDFParser:
         try:
             text_plumber, tables = self._extract_text_pdfplumber(pdf_path)
             logger.info(f"pdfplumber extracted {len(text_plumber) if text_plumber else 0} characters, {len(tables) if tables else 0} tables")
+            if text_plumber:
+                all_texts.append(text_plumber)
+                
             if text_plumber or tables:
                 races = self._parse_with_tables(text_plumber, tables, ExtractionMethod.PDFPLUMBER)
                 logger.info(f"pdfplumber found {len(races)} races")
@@ -150,6 +155,7 @@ class AdvancedPDFParser:
             text_mupdf, blocks = self._extract_text_pymupdf(pdf_path)
             logger.info(f"PyMuPDF extracted {len(text_mupdf) if text_mupdf else 0} characters, {len(blocks) if blocks else 0} blocks")
             if text_mupdf:
+                all_texts.append(text_mupdf)
                 races = self._parse_with_blocks(text_mupdf, blocks, ExtractionMethod.PYMUPDF)
                 logger.info(f"PyMuPDF found {len(races)} races")
                 if races:
@@ -164,6 +170,19 @@ class AdvancedPDFParser:
             
             # Convert to dictionary format
             return [race.to_dict() for race in best_races]
+        
+        # FALLBACK: If no races found, try emergency parsing
+        logger.warning("No races found with standard parsing, trying emergency fallback")
+        if all_texts:
+            # Use the longest extracted text
+            best_text = max(all_texts, key=len)
+            logger.info(f"Emergency parsing with text of length {len(best_text)}")
+            
+            # Try emergency parsing
+            races = self._emergency_parse(best_text)
+            if races:
+                logger.info(f"Emergency parsing found {len(races)} races")
+                return races
         
         logger.error("All extraction methods failed - no races found")
         return []
@@ -1112,6 +1131,150 @@ class AdvancedPDFParser:
         
         race.confidence = score / max_score if max_score > 0 else 0.0
         return race.confidence
+    
+    def _emergency_parse(self, text: str) -> List[Dict]:
+        """Emergency fallback parser for difficult PDFs"""
+        logger.info("Starting emergency parse")
+        races = []
+        
+        # First, try to find any horse-like names
+        lines = text.split('\n')
+        potential_entries = []
+        
+        # Look for lines that might be horse entries
+        for i, line in enumerate(lines):
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Strategy 1: Lines that start with a number and have uppercase words
+            if re.match(r'^\d{1,2}\s+', line):
+                logger.debug(f"Found numbered line: {line[:50]}...")
+                potential_entries.append((i, line))
+                continue
+                
+            # Strategy 2: Lines with multiple consecutive uppercase words (horse names)
+            uppercase_words = re.findall(r'\b[A-Z]{2,}(?:\s+[A-Z]{2,})*\b', line)
+            if uppercase_words:
+                logger.debug(f"Found uppercase words: {uppercase_words[:3]}")
+                potential_entries.append((i, line))
+                continue
+                
+            # Strategy 3: Lines containing typical racing terms
+            racing_terms = ['MAIDEN', 'CLAIMING', 'ALLOWANCE', 'STAKES', 'HANDICAP', 
+                          'Furlongs', 'Miles', 'Yards', 'Purse', 'Race']
+            if any(term in line for term in racing_terms):
+                logger.debug(f"Found racing term in: {line[:50]}...")
+                potential_entries.append((i, line))
+        
+        if not potential_entries:
+            logger.warning("No potential entries found in emergency parse")
+            return []
+            
+        # Try to organize into races
+        current_race = None
+        race_num = 1
+        
+        for line_num, line in potential_entries:
+            # Check if this is a race header
+            race_match = re.search(r'(?:Race|RACE)\s*(\d+)', line, re.IGNORECASE)
+            if race_match:
+                # Save previous race if exists
+                if current_race and current_race['entries']:
+                    races.append(current_race)
+                    
+                race_num = int(race_match.group(1))
+                current_race = {
+                    'race_number': race_num,
+                    'track': 'Fair Meadows',
+                    'race_date': datetime.now().date().isoformat(),
+                    'entries': []
+                }
+                
+                # Try to extract race details
+                self._extract_emergency_race_details(current_race, line)
+                continue
+                
+            # If no current race, create one
+            if not current_race:
+                current_race = {
+                    'race_number': race_num,
+                    'track': 'Fair Meadows',
+                    'race_date': datetime.now().date().isoformat(),
+                    'entries': []
+                }
+            
+            # Try to parse as entry
+            entry = self._parse_emergency_entry(line)
+            if entry:
+                current_race['entries'].append(entry)
+        
+        # Don't forget the last race
+        if current_race and current_race['entries']:
+            races.append(current_race)
+        
+        logger.info(f"Emergency parse found {len(races)} races with entries")
+        return races
+    
+    def _extract_emergency_race_details(self, race: Dict, line: str):
+        """Extract race details in emergency mode"""
+        # Distance
+        dist_match = re.search(r'(\d+(?:\s*\d+/\d+)?)\s*(Furlongs?|Miles?|Yards?)', line, re.IGNORECASE)
+        if dist_match:
+            race['distance'] = f"{dist_match.group(1)} {dist_match.group(2)}"
+            
+        # Purse
+        purse_match = re.search(r'\$([\d,]+)', line)
+        if purse_match:
+            race['purse'] = int(purse_match.group(1).replace(',', ''))
+            
+        # Race type
+        for rtype in ['MAIDEN', 'CLAIMING', 'ALLOWANCE', 'STAKES', 'HANDICAP']:
+            if rtype in line.upper():
+                race['race_type'] = rtype
+                break
+    
+    def _parse_emergency_entry(self, line: str) -> Optional[Dict]:
+        """Parse entry in emergency mode - very flexible"""
+        # Remove extra spaces
+        line = ' '.join(line.split())
+        
+        # Try to find program number
+        pgm_match = re.match(r'^(\d{1,2})\s+(.+)', line)
+        if pgm_match:
+            pgm = int(pgm_match.group(1))
+            rest = pgm_match.group(2)
+            
+            # Find horse name (consecutive uppercase words)
+            horse_match = re.search(r'^([A-Z][A-Z0-9\s\'\-]*[A-Z0-9])', rest)
+            if horse_match:
+                horse_name = horse_match.group(1).strip()
+                
+                # Don't accept single letters as horse names
+                if len(horse_name) > 1:
+                    return {
+                        'program_number': pgm,
+                        'horse_name': horse_name,
+                        'post_position': pgm  # Default PP to program number
+                    }
+        
+        # Fallback: Look for any sequence of uppercase words
+        horse_match = re.search(r'\b([A-Z]{2,}(?:\s+[A-Z][A-Z0-9\'\-]*)*)', line)
+        if horse_match:
+            horse_name = horse_match.group(1).strip()
+            if len(horse_name) > 2:  # At least 3 characters
+                # Try to find a number before the horse name
+                prefix = line[:horse_match.start()].strip()
+                pgm_match = re.search(r'(\d{1,2})\s*$', prefix)
+                pgm = int(pgm_match.group(1)) if pgm_match else 1
+                
+                return {
+                    'program_number': pgm,
+                    'horse_name': horse_name,
+                    'post_position': pgm
+                }
+        
+        return None
 
 
 # Backwards compatibility wrapper
