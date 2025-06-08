@@ -229,6 +229,12 @@ def stall10n_complex():
             if (!data.races || data.races.length === 0) {
                 let noRacesMsg = '<div class="no-races">';
                 noRacesMsg += data.message || 'No Fair Meadows races scheduled for today.';
+                if (data.debug_info) {
+                    noRacesMsg += '<br><br><strong>Debug Info:</strong> ' + data.debug_info;
+                }
+                if (data.sample_meet) {
+                    noRacesMsg += '<br><br><strong>Sample meet data:</strong><pre>' + JSON.stringify(data.sample_meet, null, 2) + '</pre>';
+                }
                 if (data.available_tracks && data.available_tracks.length > 0) {
                     noRacesMsg += '<br><br><strong>Available tracks today:</strong><br>';
                     noRacesMsg += data.available_tracks.join('<br>');
@@ -633,23 +639,38 @@ def get_fair_meadows_races():
         # Find Fair Meadows meet
         fair_meadows_meet = None
         all_tracks = []
+        meets_list = meets_data.get('meets', [])
         
-        for meet in meets_data.get('meets', []):
-            track = meet.get('track', '')
-            all_tracks.append(track)
-            # Check for FMT (Fair Meadows Tulsa) - exact match or as part of track name
-            if track.upper() == 'FMT' or 'FMT' in track.upper():
+        # Log the structure to understand the API response
+        logger.info(f"Total meets found: {len(meets_list)}")
+        if meets_list and len(meets_list) > 0:
+            logger.info(f"First meet structure: {meets_list[0]}")
+        
+        for meet in meets_list:
+            # Try different possible field names for track
+            track = meet.get('track', meet.get('track_name', meet.get('venue', '')))
+            track_code = meet.get('track_code', meet.get('code', ''))
+            
+            # Store both track name and code for debugging
+            all_tracks.append(f"{track} ({track_code})" if track_code else track)
+            
+            # Check for FMT in either track name or code
+            if 'FMT' in track.upper() or 'FMT' in track_code.upper() or 'FAIR' in track.upper():
                 fair_meadows_meet = meet
                 break
         
         if not fair_meadows_meet:
             # Return list of all available tracks for debugging
+            # Also return first meet to see structure
+            sample_meet = meets_list[0] if meets_list else None
             return jsonify({
                 'success': True,
-                'message': f'No Fair Meadows races found today. Available tracks: {", ".join(all_tracks)}',
+                'message': f'No Fair Meadows races found today. Total meets: {len(meets_list)}',
                 'races': [],
                 'available_tracks': all_tracks,
-                'total_meets': len(meets_data.get('meets', []))
+                'total_meets': len(meets_list),
+                'sample_meet': sample_meet,
+                'debug_info': f'First meet keys: {list(sample_meet.keys()) if sample_meet else "No meets"}'
             })
         
         # Get entries for Fair Meadows meet
