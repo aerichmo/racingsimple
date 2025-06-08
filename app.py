@@ -24,12 +24,7 @@ db = Database(db_url)
 
 @app.route('/')
 def index():
-    """Landing page"""
-    return redirect('/stall10nsimple')
-
-@app.route('/stall10nsimple')
-def stall10n_simple():
-    """Stall10n Simple - XML analysis page"""
+    """Main page - XML analysis"""
     today = datetime.now().date()
     return render_template('index_unified.html', today=today)
 
@@ -108,7 +103,7 @@ def upload_and_analyze():
         analysis_results = []
         
         for race in races:
-            # Prepare race data with all fields
+            # Prepare race data with simplified fields
             race_data = {
                 'date': race['race_date'],
                 'race_number': race['race_number'],
@@ -117,25 +112,15 @@ def upload_and_analyze():
                 'country': race.get('country', 'USA'),
                 'distance': race.get('distance'),
                 'dist_unit': race.get('dist_unit', 'F'),
-                'dist_disp': race.get('dist_disp'),
                 'surface': race.get('surface', 'D'),
-                'course_id': race.get('course_id', 'D'),
                 'race_type': race.get('race_type'),
-                'stk_clm_md': race.get('stk_clm_md'),
-                'stkorclm': race.get('stkorclm'),
                 'purse': race.get('purse'),
-                'claimamt': race.get('claimamt'),
+                'claiming_price': race.get('claimamt') or race.get('claiming_price'),
                 'post_time': race.get('post_time'),
-                'age_restr': race.get('age_restr'),
+                'age_restriction': race.get('age_restr'),
                 'sex_restriction': race.get('sex_restriction'),
                 'race_conditions': race.get('race_conditions'),
-                'betting_options': race.get('betting_options'),
-                'track_record': race.get('track_record'),
-                'partim': race.get('partim'),
-                'raceord': race.get('raceord'),
-                'breed_type': race.get('breed_type', 'TB'),
-                'todays_cls': race.get('todays_cls'),
-                'pdf_filename': secure_filename(file.filename)
+                'file_name': secure_filename(file.filename)
             }
             race_id = db.save_race(race_data)
             
@@ -154,92 +139,36 @@ def upload_and_analyze():
             
             # Save and analyze entries
             for entry in race['entries']:
-                # Prepare entry data with all fields
+                # Prepare entry data with simplified fields matching schema
                 entry_data = {
                     'race_id': race_id,
                     'program_number': entry['program_number'],
                     'post_position': entry.get('post_position', entry['program_number']),
                     'horse_name': entry['horse_name'],
-                    'owner_name': entry.get('owner_name'),
-                    'sex': entry.get('sex'),
                     'age': entry.get('age'),
-                    'foal_date': entry.get('foal_date'),
+                    'sex': entry.get('sex'),
                     'color': entry.get('color'),
-                    'breed_type': entry.get('breed_type', 'TB'),
+                    'sire': entry.get('sire_data', {}).get('sire_name') if 'sire_data' in entry else None,
+                    'dam': entry.get('dam_data', {}).get('dam_name') if 'dam_data' in entry else None,
+                    'owner_name': entry.get('owner_name'),
                     'breeder': entry.get('breeder'),
-                    'where_bred': entry.get('where_bred'),
+                    'jockey': entry.get('jockey'),
+                    'trainer': entry.get('trainer'),
                     'weight': entry.get('weight'),
-                    'weight_shift': entry.get('weight_shift', 0),
                     'medication': entry.get('medication'),
                     'equipment': entry.get('equipment'),
                     'morning_line_odds': entry.get('morning_line_odds'),
                     'claiming_price': entry.get('claiming_price'),
                     'power_rating': entry.get('power_rating'),
-                    'power_symb': entry.get('power_symb'),
                     'avg_speed': entry.get('avg_speed'),
                     'avg_class': entry.get('avg_class'),
-                    'todays_cls': entry.get('todays_cls'),
                     'last_speed': entry.get('last_speed'),
                     'best_speed': entry.get('best_speed'),
-                    'class_rating': entry.get('class_rating'),
-                    'pstyerl': entry.get('pstyerl'),
-                    'pstymid': entry.get('pstymid'),
-                    'pstyfin': entry.get('pstyfin'),
-                    'pstynum': entry.get('pstynum'),
-                    'pstyoff': entry.get('pstyoff'),
-                    'psprstyerl': entry.get('psprstyerl'),
-                    'psprstymid': entry.get('psprstymid'),
-                    'psprstyfin': entry.get('psprstyfin'),
-                    'psprstynum': entry.get('psprstynum'),
-                    'psprstyoff': entry.get('psprstyoff'),
-                    'prtestyerl': entry.get('prtestyerl'),
-                    'prtestymid': entry.get('prtestymid'),
-                    'prtestyfin': entry.get('prtestyfin'),
-                    'prtestynum': entry.get('prtestynum'),
-                    'prtestyoff': entry.get('prtestyoff'),
-                    'pallstyerl': entry.get('pallstyerl'),
-                    'pallstymid': entry.get('pallstymid'),
-                    'pallstyfin': entry.get('pallstyfin'),
-                    'pallstynum': entry.get('pallstynum'),
-                    'pallstyoff': entry.get('pallstyoff'),
-                    'pfigerl': entry.get('pfigerl'),
-                    'pfigmid': entry.get('pfigmid'),
-                    'pfigfin': entry.get('pfigfin'),
-                    'pfignum': entry.get('pfignum'),
-                    'pfigoff': entry.get('pfigoff'),
-                    'psprfigerl': entry.get('psprfigerl'),
-                    'psprfigmid': entry.get('psprfigmid'),
-                    'psprfigfin': entry.get('psprfigfin'),
-                    'psprfignum': entry.get('psprfignum'),
-                    'psprfigoff': entry.get('psprfigoff'),
-                    'prtefigerl': entry.get('prtefigerl'),
-                    'prtefigmid': entry.get('prtefigmid'),
-                    'prtefigfin': entry.get('prtefigfin'),
-                    'prtefignum': entry.get('prtefignum'),
-                    'prtefigoff': entry.get('prtefigoff'),
-                    'pallfigerl': entry.get('pallfigerl'),
-                    'pallfigmid': entry.get('pallfigmid'),
-                    'pallfigfin': entry.get('pallfigfin'),
-                    'pallfignum': entry.get('pallfignum'),
-                    'pallfigoff': entry.get('pallfigoff'),
-                    'tmmark': entry.get('tmmark'),
-                    'av_pur_val': entry.get('av_pur_val'),
-                    'ae_flag': entry.get('ae_flag'),
-                    'horse_comment': entry.get('horse_comment'),
-                    'lst_salena': entry.get('lst_salena'),
-                    'lst_salepr': entry.get('lst_salepr'),
-                    'lst_saleda': entry.get('lst_saleda'),
-                    'apprweight': entry.get('apprweight'),
-                    'axciskey': entry.get('axciskey'),
-                    'avg_spd_sd': entry.get('avg_spd_sd'),
-                    'ave_cl_sd': entry.get('ave_cl_sd'),
-                    'hi_spd_sd': entry.get('hi_spd_sd'),
-                    'jockey': entry.get('jockey'),
-                    'trainer': entry.get('trainer'),
                     'win_pct': entry.get('win_pct'),
                     'jockey_win_pct': entry.get('jockey_win_pct'),
                     'trainer_win_pct': entry.get('trainer_win_pct'),
-                    'jt_combo_pct': entry.get('jt_combo_pct')
+                    'finish_position': None,  # Will be updated with results
+                    'final_odds': None  # Will be updated with results
                 }
                 entry_id = db.save_entry(entry_data)
                 
@@ -247,21 +176,17 @@ def upload_and_analyze():
                 if 'horse_stats' in entry:
                     db.save_horse_stats(entry_id, entry['horse_stats'])
                 
-                # Save jockey information and statistics
+                # Save jockey statistics
                 if 'jockey_data' in entry:
-                    db.save_jockey_info_and_stats(entry_id, entry['jockey_data'])
+                    jockey_name = entry['jockey_data'].get('jockey_name')
+                    if jockey_name and 'stats' in entry['jockey_data']:
+                        db.save_jockey_stats(entry_id, jockey_name, entry['jockey_data']['stats'])
                 
-                # Save trainer information and statistics
+                # Save trainer statistics
                 if 'trainer_data' in entry:
-                    db.save_trainer_info_and_stats(entry_id, entry['trainer_data'])
-                
-                # Save sire information and statistics
-                if 'sire_data' in entry:
-                    db.save_sire_info_and_stats(entry_id, entry['sire_data'])
-                
-                # Save dam information and statistics
-                if 'dam_data' in entry:
-                    db.save_dam_info_and_stats(entry_id, entry['dam_data'])
+                    trainer_name = entry['trainer_data'].get('trainer_name')
+                    if trainer_name and 'stats' in entry['trainer_data']:
+                        db.save_trainer_stats(entry_id, trainer_name, entry['trainer_data']['stats'])
                 
                 # Save workouts
                 if 'workouts' in entry:
