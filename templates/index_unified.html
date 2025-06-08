@@ -96,7 +96,7 @@
                     </div>
                     <div class="form-group">
                         <label for="uploadDate">For Date:</label>
-                        <input type="date" id="uploadDate" name="date" required>
+                        <input type="date" id="uploadDate" name="date" value="">
                     </div>
                     <button type="submit" class="btn btn-primary" id="uploadBtn">Upload & Analyze</button>
                 </div>
@@ -128,7 +128,13 @@
         
         // Set default date to today
         const today = new Date().toISOString().split('T')[0];
-        document.getElementById('uploadDate').value = today;
+        const uploadDateInput = document.getElementById('uploadDate');
+        if (uploadDateInput) {
+            uploadDateInput.value = today;
+            console.log('Set upload date to:', today);
+        } else {
+            console.error('Upload date input not found!');
+        }
     });
     
     // Load available dates
@@ -174,19 +180,33 @@
         const statusDiv = document.getElementById('status');
         const analysisDiv = document.getElementById('analysis');
         
+        // Debug logging
+        console.log('Form submitted');
+        console.log('Date input element:', dateInput);
+        console.log('Date value:', dateInput?.value);
+        
         if (!fileInput.files || !fileInput.files[0]) {
             alert('Please select a PDF file');
             return;
         }
         
-        if (!dateInput.value) {
+        // Get date value directly
+        const selectedDate = dateInput?.value;
+        if (!selectedDate || selectedDate.trim() === '') {
+            console.error('Date validation failed:', {
+                element: dateInput,
+                value: selectedDate,
+                trimmed: selectedDate?.trim()
+            });
             alert('Please select a date for this upload');
             return;
         }
         
+        console.log('Proceeding with date:', selectedDate);
+        
         const formData = new FormData();
         formData.append('pdf', fileInput.files[0]);
-        formData.append('date', dateInput.value);
+        formData.append('date', selectedDate);
         
         uploadBtn.disabled = true;
         uploadBtn.textContent = 'Analyzing...';
