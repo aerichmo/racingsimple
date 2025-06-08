@@ -618,10 +618,9 @@ def get_fair_meadows_races():
         if not username or not password:
             return jsonify({'success': False, 'error': 'API credentials not configured'}), 500
         
-        # Get today's date - June 7, 2024
-        # Note: Using fixed date since the system date might be incorrect
-        today = '2024-06-07'
-        tomorrow = '2024-06-08'
+        # Get today's date - June 7, 2025
+        today = '2025-06-07'
+        tomorrow = '2025-06-08'
         
         # Get meets for today and tomorrow
         # Fix: Remove /v1 from base_url if it's included, as we'll add it in the path
