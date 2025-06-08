@@ -177,6 +177,33 @@ def init_db():
         logger.error(f"Database init error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/migrate-db')
+def migrate_db():
+    """Run database migrations"""
+    try:
+        with open('migrate.sql', 'r') as f:
+            migration = f.read()
+        
+        from database import Database
+        db_instance = Database(os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimple'))
+        with db_instance.get_cursor(dict_cursor=False) as cur:
+            cur.execute(migration)
+        
+        return jsonify({'success': True, 'message': 'Database migrated successfully'})
+    except Exception as e:
+        logger.error(f"Database migration error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/reset-db')
+def reset_db():
+    """Drop and recreate all tables (WARNING: This will delete all data)"""
+    try:
+        db.create_tables()
+        return jsonify({'success': True, 'message': 'Database reset successfully'})
+    except Exception as e:
+        logger.error(f"Database reset error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 if __name__ == '__main__':
     # Initialize database on startup
     try:
