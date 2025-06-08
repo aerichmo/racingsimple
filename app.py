@@ -232,6 +232,9 @@ def stall10n_complex():
                 if (data.debug_info) {
                     noRacesMsg += '<br><br><strong>Debug Info:</strong> ' + data.debug_info;
                 }
+                if (data.debug_entries) {
+                    noRacesMsg += '<br><br><strong>Entries API Response:</strong><pre>' + JSON.stringify(data.debug_entries, null, 2) + '</pre>';
+                }
                 if (data.sample_meet) {
                     noRacesMsg += '<br><br><strong>Sample meet data:</strong><pre>' + JSON.stringify(data.sample_meet, null, 2) + '</pre>';
                 }
@@ -769,18 +772,34 @@ def get_fair_meadows_races():
         # Get entries for Fair Meadows meet
         meet_id = fair_meadows_meet['meet_id']
         entries_url = f"{base_url}/v1/north-america/meets/{meet_id}/entries"
+        logger.info(f"Fetching entries from: {entries_url}")
+        
         entries_response = requests.get(entries_url, auth=auth)
         entries_response.raise_for_status()
         entries_data = entries_response.json()
+        
+        logger.info(f"Entries response type: {type(entries_data)}")
+        logger.info(f"Entries response keys: {list(entries_data.keys()) if isinstance(entries_data, dict) else 'Not a dict'}")
+        
+        # Debug: Return raw entries data if no races found
+        if not entries_data.get('races'):
+            return jsonify({
+                'success': True,
+                'track': fair_meadows_meet.get('track_name', 'Fair Meadows Tulsa'),
+                'date': fair_meadows_meet.get('date'),
+                'races': [],
+                'debug_entries': entries_data,
+                'message': 'No races found in entries response'
+            })
         
         # Process races and entries
         races_with_analysis = []
         for race in entries_data.get('races', []):
             race_info = {
-                'race_number': race.get('race_number'),
-                'race_time': race.get('race_time'),
+                'race_number': race.get('race_number', race.get('number')),
+                'race_time': race.get('race_time', race.get('time')),
                 'distance': race.get('distance'),
-                'race_type': race.get('race_type'),
+                'race_type': race.get('race_type', race.get('type')),
                 'purse': race.get('purse'),
                 'entries': []
             }
