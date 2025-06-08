@@ -32,8 +32,98 @@ def stall10n_simple():
 
 @app.route('/stall10ncomplex')
 def stall10n_complex():
-    """Stall10n Complex - placeholder page"""
-    return "Hello World"
+    """Stall10n Complex - main page"""
+    HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>STALL10N - Horse Racing Platform</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #4CAF50;
+            text-align: center;
+        }
+        .info {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .endpoints {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        pre {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .note {
+            color: #666;
+            font-style: italic;
+            text-align: center;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>STALL10N Horse Racing Platform</h1>
+        
+        <div class="info">
+            <h2>About</h2>
+            <p>STALL10N is an automated horse racing analysis and betting platform that uses machine learning to predict race outcomes and make informed betting decisions.</p>
+        </div>
+        
+        <div class="endpoints">
+            <h2>API Endpoints</h2>
+            <ul>
+                <li><strong>/api/races</strong> - Race information and entries</li>
+                <li><strong>/api/predictions</strong> - ML-powered race predictions</li>
+                <li><strong>/api/bets</strong> - Betting management</li>
+                <li><strong>/api/analytics</strong> - Performance analytics</li>
+                <li><strong>/api/sync</strong> - Data synchronization</li>
+            </ul>
+        </div>
+        
+        <h2>Features</h2>
+        <ul>
+            <li>Real-time integration with TheRacingAPI</li>
+            <li>Random Forest ML models for prediction</li>
+            <li>Kelly Criterion betting strategy</li>
+            <li>Track bias analysis</li>
+            <li>Automated data syncing</li>
+            <li>$100/track daily budget management</li>
+        </ul>
+        
+        <h2>Deployment Note</h2>
+        <p>This is a simplified deployment. For full functionality including the React frontend and background workers, deploy using the render.yaml Blueprint configuration.</p>
+        
+        <div class="note">
+            <p>View the full documentation and source code at <a href="https://github.com/aerichmo/racingsimple">GitHub</a></p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+    return HTML_TEMPLATE
 
 @app.route('/upload')
 def upload_page():
