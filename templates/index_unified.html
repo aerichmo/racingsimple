@@ -88,12 +88,18 @@
         
         <div class="control-panel">
             <!-- Upload Section -->
-            <form id="uploadForm" class="controls-row">
-                <div class="form-group">
-                    <label for="pdfFile">Upload New Equibase PDF:</label>
-                    <input type="file" id="pdfFile" name="pdf" accept=".pdf">
+            <form id="uploadForm">
+                <div class="controls-row">
+                    <div class="form-group">
+                        <label for="pdfFile">Upload Equibase PDF:</label>
+                        <input type="file" id="pdfFile" name="pdf" accept=".pdf">
+                    </div>
+                    <div class="form-group">
+                        <label for="uploadDate">For Date:</label>
+                        <input type="date" id="uploadDate" name="date" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="uploadBtn">Upload & Analyze</button>
                 </div>
-                <button type="submit" class="btn btn-primary" id="uploadBtn">Analyze PDF</button>
             </form>
             
             <div class="divider"><span>OR</span></div>
@@ -101,14 +107,12 @@
             <!-- Date Selection Section -->
             <div class="controls-row">
                 <div class="form-group">
-                    <label for="dateSelect">Select Historical Date:</label>
+                    <label for="dateSelect">View Historical Date:</label>
                     <select id="dateSelect">
                         <option value="">Choose a date...</option>
                     </select>
                 </div>
-                <button class="btn btn-primary" onclick="loadSelectedDate()">Load Analysis</button>
-                <button class="btn btn-secondary" onclick="fetchResults()" id="fetchResultsBtn">Fetch Results</button>
-                <button class="btn btn-danger btn-small" onclick="clearDateData()" id="clearDataBtn">Clear</button>
+                <button class="btn btn-primary" onclick="loadSelectedDate()">View Analysis</button>
             </div>
             
             <div id="status" class="status"></div>
@@ -121,6 +125,10 @@
     // Load available dates on page load
     document.addEventListener('DOMContentLoaded', () => {
         loadAvailableDates();
+        
+        // Set default date to today
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('uploadDate').value = today;
     });
     
     // Load available dates
@@ -161,6 +169,7 @@
         e.preventDefault();
         
         const fileInput = document.getElementById('pdfFile');
+        const dateInput = document.getElementById('uploadDate');
         const uploadBtn = document.getElementById('uploadBtn');
         const statusDiv = document.getElementById('status');
         const analysisDiv = document.getElementById('analysis');
@@ -170,8 +179,14 @@
             return;
         }
         
+        if (!dateInput.value) {
+            alert('Please select a date for this upload');
+            return;
+        }
+        
         const formData = new FormData();
         formData.append('pdf', fileInput.files[0]);
+        formData.append('date', dateInput.value);
         
         uploadBtn.disabled = true;
         uploadBtn.textContent = 'Analyzing...';
@@ -197,14 +212,9 @@
                 // Refresh dates and load the uploaded data
                 await loadAvailableDates();
                 
-                // Get the date from analysis
-                if (data.analysis && data.analysis.length > 0) {
-                    const uploadedDate = data.analysis[0].date || data.analysis[0].race_date;
-                    if (uploadedDate) {
-                        document.getElementById('dateSelect').value = uploadedDate;
-                        loadSelectedDate();
-                    }
-                }
+                // Load the uploaded date
+                document.getElementById('dateSelect').value = dateInput.value;
+                loadSelectedDate();
             } else {
                 statusDiv.className = 'status error';
                 statusDiv.textContent = `Error: ${data.error}`;
@@ -214,7 +224,7 @@
             statusDiv.textContent = `Error: ${error.message}`;
         } finally {
             uploadBtn.disabled = false;
-            uploadBtn.textContent = 'Analyze PDF';
+            uploadBtn.textContent = 'Upload & Analyze';
         }
     });
     
@@ -257,6 +267,29 @@
                 }
                 
                 displayAnalysis(racesWithData, selectedDate);
+                
+                // Also fetch results if not already available
+                const hasResults = racesWithData.some(race => 
+                    race.entries.some(entry => entry.finish_position !== null)
+                );
+                
+                if (!hasResults) {
+                    // Try to fetch results
+                    statusDiv.textContent = 'Checking for results from OTB...';
+                    try {
+                        const resultsResp = await fetch(`/api/scrape-results/${selectedDate}`);
+                        const resultsData = await resultsResp.json();
+                        if (resultsData.success) {
+                            statusDiv.className = 'status success';
+                            statusDiv.textContent = `Loaded ${data.races.length} races. ${resultsData.message}`;
+                            // Reload to show results
+                            setTimeout(() => loadSelectedDate(), 1000);
+                        }
+                    } catch (error) {
+                        // Results fetch failed, but that's okay
+                        console.log('Could not fetch results:', error);
+                    }
+                }
             } else {
                 statusDiv.className = 'status error';
                 statusDiv.textContent = 'No races found for this date';
@@ -268,84 +301,6 @@
         }
     }
     
-    // Fetch results from OTB
-    async function fetchResults() {
-        const dateSelect = document.getElementById('dateSelect');
-        const selectedDate = dateSelect.value;
-        
-        if (!selectedDate) {
-            alert('Please select a date first');
-            return;
-        }
-        
-        const statusDiv = document.getElementById('status');
-        const btn = document.getElementById('fetchResultsBtn');
-        
-        btn.disabled = true;
-        statusDiv.className = 'status loading';
-        statusDiv.textContent = 'Fetching results from OTB...';
-        
-        try {
-            const response = await fetch(`/api/scrape-results/${selectedDate}`);
-            const data = await response.json();
-            
-            if (data.success) {
-                statusDiv.className = 'status success';
-                statusDiv.textContent = `Successfully fetched results: ${data.message}`;
-                
-                // Reload the data to show results
-                setTimeout(() => loadSelectedDate(), 1000);
-            } else {
-                statusDiv.className = 'status error';
-                statusDiv.textContent = `Error: ${data.error}`;
-            }
-        } catch (error) {
-            statusDiv.className = 'status error';
-            statusDiv.textContent = `Error: ${error.message}`;
-        } finally {
-            btn.disabled = false;
-        }
-    }
-    
-    // Clear data for selected date
-    async function clearDateData() {
-        const dateSelect = document.getElementById('dateSelect');
-        const selectedDate = dateSelect.value;
-        
-        if (!selectedDate) {
-            alert('Please select a date first');
-            return;
-        }
-        
-        if (!confirm(`Are you sure you want to clear all data for ${selectedDate}? This cannot be undone.`)) {
-            return;
-        }
-        
-        const statusDiv = document.getElementById('status');
-        const analysisDiv = document.getElementById('analysis');
-        
-        try {
-            const response = await fetch(`/api/clear-date/${selectedDate}`, {
-                method: 'DELETE'
-            });
-            const data = await response.json();
-            
-            if (data.success) {
-                statusDiv.className = 'status success';
-                statusDiv.textContent = data.message;
-                analysisDiv.innerHTML = '';
-                
-                // Reload available dates
-                loadAvailableDates();
-            } else {
-                statusDiv.className = 'status error';
-                statusDiv.textContent = `Error: ${data.error}`;
-            }
-        } catch (error) {
-            statusDiv.className = 'status error';
-            statusDiv.textContent = `Error: ${error.message}`;
-        }
-    }
     
     // Display analysis
     function displayAnalysis(races, selectedDate) {

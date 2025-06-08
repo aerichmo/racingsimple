@@ -468,6 +468,13 @@ def upload_and_analyze():
         if not races:
             return jsonify({'success': False, 'error': 'No races found in PDF'}), 400
         
+        # Get the date from form data (if provided) or use the PDF date
+        form_date = request.form.get('date')
+        if form_date:
+            # Override PDF date with user-selected date
+            for race in races:
+                race['race_date'] = form_date
+        
         # Save to database and analyze
         analyzer = RaceAnalyzer()
         total_entries = 0
