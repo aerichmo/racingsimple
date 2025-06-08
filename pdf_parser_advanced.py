@@ -398,17 +398,26 @@ class AdvancedPDFParser:
             if not line:
                 continue
                 
-            # Distance
+            # Distance - look for it anywhere in the line
             if not race.distance:
                 match = re.search(self.patterns['distance'], line)
                 if match:
                     race.distance = f"{match.group(1)} {match.group(2)}"
             
-            # Race type
+            # Race type - check if it's in the same line as distance
             if not race.race_type:
+                # First check for standalone race type
                 match = re.search(self.patterns['race_type'], line, re.IGNORECASE)
                 if match:
                     race.race_type = match.group(1).upper()
+                # Also check in lines with periods (e.g., "350 Yards. MAIDEN.")
+                elif '. ' in line:
+                    parts = line.split('. ')
+                    for part in parts:
+                        match = re.search(self.patterns['race_type'], part, re.IGNORECASE)
+                        if match:
+                            race.race_type = match.group(1).upper()
+                            break
             
             # Purse
             if not race.purse:
@@ -475,15 +484,32 @@ class AdvancedPDFParser:
             
         entries = []
         lines = text.split('\n')
+        found_header = False
         
         for line in lines:
             # Skip headers and empty lines
             if not line or not line.strip():
                 continue
                 
-            # Check for headers - handle potential None values
+            # Skip race header lines
+            if any(term in line for term in ['Yards', 'Furlongs', 'Miles', 'Purse:', 'Post Time:', 
+                                             'Exacta', 'Trifecta', 'Superfecta', 'Daily Double',
+                                             'For Mixed', 'For Fillies', 'For Colts', 'For Three',
+                                             'For Two', 'year olds', 'and up']):
+                continue
+                
+            # Look for the actual header line
+            if 'PgmPost' in line or ('Pgm' in line and 'Horse' in line):
+                found_header = True
+                continue
+                
+            # Skip lines before we find the header
+            if not found_header:
+                continue
+                
+            # Check for other headers to skip
             skip_line = False
-            for header in ['Pgm', 'Horse', 'Jockey', 'Copyright']:
+            for header in ['Copyright', 'Equibase Speed', 'Page', 'Help']:
                 if header in line:
                     skip_line = True
                     break
@@ -493,8 +519,10 @@ class AdvancedPDFParser:
             
             # Try to parse entry
             entry = self._parse_entry_line(line)
-            if entry and entry.horse_name:
-                entries.append(entry)
+            if entry and entry.horse_name and len(entry.horse_name) > 2:
+                # Additional validation - horse names shouldn't be single race type words
+                if entry.horse_name.upper() not in ['MAIDEN', 'CLAIMING', 'ALLOWANCE', 'STAKES', 'HANDICAP']:
+                    entries.append(entry)
         
         return entries
     
@@ -505,14 +533,16 @@ class AdvancedPDFParser:
         
         # Try multiple patterns for different PDF formats
         patterns = [
-            # Pattern 1: Full format with percentages
-            (r'^(\d{1,2})\s+(\d{1,2})\s+\(?([\d.]+)%?\)?\s+([A-Z][A-Z\s\']+?)(?:\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA))?\s*(.*)$', 'full'),
-            # Pattern 2: Simple format (just program, horse name)
-            (r'^(\d{1,2})\s+([A-Z][A-Z\s\']+?)\s*(.*)$', 'simple'),
-            # Pattern 3: Program, PP, Horse
-            (r'^(\d{1,2})\s+(\d{1,2})\s+([A-Z][A-Z\s\']+?)\s*(.*)$', 'pp'),
-            # Pattern 4: With odds but no percentages
-            (r'^(\d{1,2})\s+(\d{1,2})\s+([A-Z][A-Z\s\']+?)\s+(\d+-\d+|\d+\.\d+)\s*(.*)$', 'odds')
+            # Pattern 1: Full Equibase format with percentages (looking for pattern like "1 1 (16%) HORSE NAME")
+            (r'^(\d{1,2})\s+(\d{1,2})\s+\(([\d.]+)%\)\s+([A-Z][A-Z0-9\s\'-]+?)\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA)\s*(.*)$', 'full'),
+            # Pattern 2: Format without parentheses around percentage
+            (r'^(\d{1,2})\s+(\d{1,2})\s+([\d.]+)%?\s+([A-Z][A-Z0-9\s\'-]+?)\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA)\s*(.*)$', 'full_no_paren'),
+            # Pattern 3: Program, PP, Horse with some data
+            (r'^(\d{1,2})\s+(\d{1,2})\s+([A-Z][A-Z0-9\s\'-]+?)\s+(\d+)\s*(.*)$', 'pp_data'),
+            # Pattern 4: Simple format (just program, horse name)
+            (r'^(\d{1,2})\s+([A-Z][A-Z0-9\s\'-]+?)\s*(.*)$', 'simple'),
+            # Pattern 5: With odds but no percentages
+            (r'^(\d{1,2})\s+(\d{1,2})\s+([A-Z][A-Z0-9\s\'-]+?)\s+(\d+-\d+|\d+\.\d+)\s*(.*)$', 'odds')
         ]
         
         for pattern, format_type in patterns:
@@ -520,10 +550,12 @@ class AdvancedPDFParser:
             if match:
                 if format_type == 'full':  # Full format
                     return self._parse_full_format_match(match)
+                elif format_type == 'full_no_paren':  # Full format without parentheses
+                    return self._parse_full_format_match(match)
                 elif format_type == 'simple':  # Simple format
                     return self._parse_simple_format_match(match)
-                elif format_type == 'pp':  # Program, PP, Horse
-                    return self._parse_pp_format_match(match)
+                elif format_type == 'pp_data':  # PP with data
+                    return self._parse_pp_data_format_match(match)
                 elif format_type == 'odds':  # With odds
                     return self._parse_odds_format_match(match)
         
@@ -531,11 +563,17 @@ class AdvancedPDFParser:
     
     def _parse_full_format_match(self, match) -> ParsedEntry:
         """Parse full format match"""
+        horse_name = match.group(4).strip()
+        
+        # Skip if it's a race type word or too short
+        if horse_name.upper() in ['MAIDEN', 'CLAIMING', 'ALLOWANCE', 'STAKES', 'HANDICAP'] or len(horse_name) < 3:
+            return None
+            
         entry = ParsedEntry(
             program_number=int(match.group(1)),
             post_position=int(match.group(2)),
             win_pct=float(match.group(3)) if match.group(3) else None,
-            horse_name=match.group(4).strip()
+            horse_name=horse_name
         )
         
         # Parse speed figures if present
@@ -553,9 +591,15 @@ class AdvancedPDFParser:
     
     def _parse_simple_format_match(self, match) -> ParsedEntry:
         """Parse simple format match"""
+        horse_name = match.group(2).strip()
+        
+        # Skip if it's a race type word or too short
+        if horse_name.upper() in ['MAIDEN', 'CLAIMING', 'ALLOWANCE', 'STAKES', 'HANDICAP'] or len(horse_name) < 3:
+            return None
+            
         entry = ParsedEntry(
             program_number=int(match.group(1)),
-            horse_name=match.group(2).strip()
+            horse_name=horse_name
         )
         
         # Parse remaining text for jockey/trainer
@@ -564,17 +608,27 @@ class AdvancedPDFParser:
         
         return entry
     
-    def _parse_pp_format_match(self, match) -> ParsedEntry:
-        """Parse PP format match"""
+    def _parse_pp_data_format_match(self, match) -> ParsedEntry:
+        """Parse PP format match with data"""
+        horse_name = match.group(3).strip()
+        
+        # Skip if it's a race type word or too short
+        if horse_name.upper() in ['MAIDEN', 'CLAIMING', 'ALLOWANCE', 'STAKES', 'HANDICAP'] or len(horse_name) < 3:
+            return None
+            
         entry = ParsedEntry(
             program_number=int(match.group(1)),
             post_position=int(match.group(2)),
-            horse_name=match.group(3).strip()
+            horse_name=horse_name
         )
         
-        # Parse remaining text
+        # First number after horse name might be class rating
         if match.group(4):
-            self._parse_jockey_trainer(entry, match.group(4))
+            entry.class_rating = self._parse_int_or_na(match.group(4))
+            
+        # Parse remaining text
+        if match.group(5):
+            self._parse_jockey_trainer(entry, match.group(5))
         
         return entry
     
