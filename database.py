@@ -71,10 +71,27 @@ class Database:
                 if field in entry_data and entry_data[field] == '':
                     entry_data[field] = None
             
-            # Convert empty strings to None for decimal fields
+            # Convert empty strings to None for decimal fields and cap values
             for field in ['power_rating', 'win_pct', 'jockey_win_pct', 'trainer_win_pct']:
-                if field in entry_data and entry_data[field] == '':
-                    entry_data[field] = None
+                if field in entry_data:
+                    if entry_data[field] == '':
+                        entry_data[field] = None
+                    elif entry_data[field] is not None:
+                        try:
+                            val = float(entry_data[field])
+                            if field == 'power_rating':
+                                # power_rating is DECIMAL(5,1) - max value is 9999.9
+                                if val > 9999.9:
+                                    logger.warning(f"Capping {field} from {val} to 9999.9 for horse {entry_data.get('horse_name', 'unknown')}")
+                                entry_data[field] = min(val, 9999.9)
+                            elif field.endswith('_pct'):
+                                # percentage fields are DECIMAL(5,2) but should be capped at 99.99 (100%)
+                                if val > 99.99:
+                                    logger.warning(f"Capping {field} from {val} to 99.99 for horse {entry_data.get('horse_name', 'unknown')}")
+                                entry_data[field] = min(val, 99.99)
+                        except (ValueError, TypeError):
+                            logger.warning(f"Invalid value for {field}: {entry_data[field]}")
+                            entry_data[field] = None
                     
             cur.execute("""
                 INSERT INTO entries (
@@ -136,7 +153,7 @@ class Database:
                         'places': stats.get('places', 0),
                         'shows': stats.get('shows', 0),
                         'earnings': stats.get('earnings', 0),
-                        'roi': stats.get('roi')
+                        'roi': min(float(stats.get('roi', 0) or 0), 9999.99) if stats.get('roi') is not None else None
                     })
     
     def save_jockey_stats(self, entry_id, jockey_name, stats_dict):
@@ -168,7 +185,7 @@ class Database:
                         'wins': stats.get('wins', 0),
                         'places': stats.get('places', 0),
                         'shows': stats.get('shows', 0),
-                        'roi': stats.get('roi')
+                        'roi': min(float(stats.get('roi', 0) or 0), 9999.99) if stats.get('roi') is not None else None
                     })
     
     def save_trainer_stats(self, entry_id, trainer_name, stats_dict):
@@ -200,7 +217,7 @@ class Database:
                         'wins': stats.get('wins', 0),
                         'places': stats.get('places', 0),
                         'shows': stats.get('shows', 0),
-                        'roi': stats.get('roi')
+                        'roi': min(float(stats.get('roi', 0) or 0), 9999.99) if stats.get('roi') is not None else None
                     })
     
     def save_workouts(self, entry_id, workouts):
@@ -251,7 +268,7 @@ class Database:
                     'distance': pp.get('distance'),
                     'surface': pp.get('surface'),
                     'finish_position': pp.get('positionfi'),
-                    'beaten_lengths': pp.get('lenbackfin'),
+                    'beaten_lengths': min(float(pp.get('lenbackfin', 0) or 0), 999.99) if pp.get('lenbackfin') else None,
                     'speed_figure': pp.get('speedfigur'),
                     'class_rating': pp.get('classratin'),
                     'jockey': pp.get('jockdisp'),
@@ -262,6 +279,19 @@ class Database:
     
     def save_analysis(self, analysis_data):
         """Save analysis results"""
+        # Cap all score fields at 99.99 to prevent DECIMAL(5,2) overflow
+        score_fields = ['speed_score', 'class_score', 'jockey_score', 'trainer_score', 'overall_score']
+        for field in score_fields:
+            if field in analysis_data and analysis_data[field] is not None:
+                try:
+                    val = float(analysis_data[field])
+                    if val > 99.99:
+                        logger.warning(f"Capping analysis {field} from {val} to 99.99 for entry_id {analysis_data.get('entry_id', 'unknown')}")
+                    analysis_data[field] = min(val, 99.99)
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid value for analysis {field}: {analysis_data[field]}")
+                    analysis_data[field] = 0.0
+        
         with self.get_cursor() as cur:
             cur.execute("""
                 INSERT INTO analysis (

@@ -397,7 +397,9 @@ class RacingXMLParser:
             starts = overall.get('starts', 0)
             wins = overall.get('wins', 0)
             if starts > 0:
-                return round((wins / starts) * 100, 1)
+                # Cap at 99.99 as percentages shouldn't exceed 100%
+                win_pct = (wins / starts) * 100
+                return round(min(win_pct, 99.99), 1)
         return None
     
     def _determine_race_type(self, racedata) -> str:

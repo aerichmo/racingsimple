@@ -17,12 +17,14 @@ class RaceAnalyzer:
         }
         
         # Calculate overall score (weighted average)
-        scores['overall_score'] = (
+        overall = (
             scores['speed_score'] * 0.4 +
             scores['class_score'] * 0.3 +
             scores['jockey_score'] * 0.2 +
             scores['trainer_score'] * 0.1
         )
+        # Cap at 99.99 to prevent DECIMAL(5,2) overflow
+        scores['overall_score'] = min(overall, 99.99)
         
         # Generate recommendation
         if scores['overall_score'] >= 80:
@@ -68,7 +70,7 @@ class RaceAnalyzer:
         elif last >= 60:
             score += 5
         
-        return min(score, 100)
+        return min(score, 99.99)
     
     def _calculate_class_score(self, entry: Dict) -> float:
         """Calculate class rating score"""
@@ -95,7 +97,7 @@ class RaceAnalyzer:
         elif win_pct >= 5:
             score += 5
         
-        return min(score, 100)
+        return min(score, 99.99)
     
     def _calculate_jockey_score(self, entry: Dict) -> float:
         """Calculate jockey performance score"""
@@ -119,7 +121,7 @@ class RaceAnalyzer:
         elif jt_combo >= 20:
             score += 5
         
-        return min(score, 100)
+        return min(score, 99.99)
     
     def _calculate_trainer_score(self, entry: Dict) -> float:
         """Calculate trainer performance score"""
@@ -140,7 +142,7 @@ class RaceAnalyzer:
         if entry.get('race_type') == 'MAIDEN' and trainer_win >= 15:
             score += 10  # Good with first-time winners
         
-        return min(score, 100)
+        return min(score, 99.99)
     
     def find_value_plays(self, entries: List[Dict]) -> List[Dict]:
         """Find potential value plays based on win% vs expected odds"""
