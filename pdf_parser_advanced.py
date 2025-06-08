@@ -205,6 +205,9 @@ class AdvancedPDFParser:
     
     def _parse_with_confidence(self, text: str, method: ExtractionMethod) -> List[ParsedRace]:
         """Parse text with confidence scoring"""
+        if not text:
+            return []
+            
         races = []
         
         # Extract global date
@@ -214,6 +217,9 @@ class AdvancedPDFParser:
         race_texts = self._split_races(text)
         
         for race_num, race_text in race_texts:
+            if not race_text:
+                continue
+                
             race = self._parse_single_race(race_num, race_text, race_date)
             if race and race.entries:
                 race.extraction_notes.append(f"Extracted via {method.value}")
@@ -223,11 +229,14 @@ class AdvancedPDFParser:
     
     def _parse_with_tables(self, text: str, tables: List[Any], method: ExtractionMethod) -> List[ParsedRace]:
         """Parse using table data"""
+        if not text and not tables:
+            return []
+            
         races = []
-        race_date = self._extract_date(text)
+        race_date = self._extract_date(text or "")
         
         # Group tables by race
-        race_tables = self._group_tables_by_race(text, tables)
+        race_tables = self._group_tables_by_race(text or "", tables or [])
         
         for race_num, table_data in race_tables.items():
             race = ParsedRace(race_number=race_num, race_date=race_date)
@@ -237,7 +246,7 @@ class AdvancedPDFParser:
             self._extract_race_details(race, race_text)
             
             # Parse entries from table
-            if 'table' in table_data:
+            if 'table' in table_data and table_data['table']:
                 entries = self._parse_table_entries(table_data['table'])
                 race.entries = entries
                 
@@ -249,11 +258,14 @@ class AdvancedPDFParser:
     
     def _parse_with_blocks(self, text: str, blocks: List[Any], method: ExtractionMethod) -> List[ParsedRace]:
         """Parse using layout blocks"""
+        if not text and not blocks:
+            return []
+            
         races = []
-        race_date = self._extract_date(text)
+        race_date = self._extract_date(text or "")
         
         # Organize blocks by position
-        organized_blocks = self._organize_blocks(blocks)
+        organized_blocks = self._organize_blocks(blocks or [])
         
         # Parse races from organized blocks
         for race_data in organized_blocks:
@@ -266,6 +278,9 @@ class AdvancedPDFParser:
     
     def _split_races(self, text: str) -> List[Tuple[int, str]]:
         """Split text into individual races using multiple strategies"""
+        if not text:
+            return []
+            
         races = []
         
         # Strategy 1: Split by race markers
@@ -278,26 +293,31 @@ class AdvancedPDFParser:
         ]
         
         for pattern in patterns:
-            matches = list(re.finditer(pattern, text, re.IGNORECASE))
-            if len(matches) > 1:
-                for i in range(len(matches)):
-                    start = matches[i].start()
-                    end = matches[i+1].start() if i+1 < len(matches) else len(text)
-                    race_num = int(matches[i].group(1))
-                    race_text = text[start:end]
-                    races.append((race_num, race_text))
-                break
+            try:
+                matches = list(re.finditer(pattern, text, re.IGNORECASE))
+                if len(matches) > 1:
+                    for i in range(len(matches)):
+                        start = matches[i].start()
+                        end = matches[i+1].start() if i+1 < len(matches) else len(text)
+                        race_num = int(matches[i].group(1))
+                        race_text = text[start:end] if start < end else ""
+                        if race_text:
+                            races.append((race_num, race_text))
+                    break
+            except Exception as e:
+                logger.warning(f"Race splitting pattern failed: {e}")
+                continue
         
         # Strategy 2: If no clear markers, look for entry patterns
         if not races:
             # Look for repeating patterns of entries
             entry_pattern = r'^\s*(\d{1,2})\s+(\d{1,2})\s+\(?\d+%?\)?'
-            lines = text.split('\n')
+            lines = text.split('\n') if text else []
             current_race = 1
             current_text = []
             
             for line in lines:
-                if re.match(entry_pattern, line):
+                if line and re.match(entry_pattern, line):
                     current_text.append(line)
                 elif current_text and len(current_text) > 2:
                     races.append((current_race, '\n'.join(current_text)))
@@ -324,9 +344,15 @@ class AdvancedPDFParser:
     
     def _extract_race_details(self, race: ParsedRace, text: str):
         """Extract comprehensive race details"""
-        lines = text[:1000].split('\n')  # Focus on header area
+        if not text:
+            return
+            
+        lines = text[:1000].split('\n') if text else []  # Focus on header area
         
         for line in lines:
+            if not line:
+                continue
+                
             # Distance
             if not race.distance:
                 match = re.search(self.patterns['distance'], line)
@@ -378,6 +404,9 @@ class AdvancedPDFParser:
     
     def _parse_entries_comprehensive(self, text: str) -> List[ParsedEntry]:
         """Parse entries using multiple strategies"""
+        if not text:
+            return []
+            
         entries = []
         
         # Strategy 1: Line-by-line parsing
@@ -396,12 +425,25 @@ class AdvancedPDFParser:
     
     def _parse_entries_by_line(self, text: str) -> List[ParsedEntry]:
         """Parse entries line by line"""
+        if not text:
+            return []
+            
         entries = []
         lines = text.split('\n')
         
         for line in lines:
             # Skip headers and empty lines
-            if not line.strip() or any(header in line for header in ['Pgm', 'Horse', 'Jockey', 'Copyright']):
+            if not line or not line.strip():
+                continue
+                
+            # Check for headers - handle potential None values
+            skip_line = False
+            for header in ['Pgm', 'Horse', 'Jockey', 'Copyright']:
+                if header in line:
+                    skip_line = True
+                    break
+            
+            if skip_line:
                 continue
             
             # Try to parse entry
@@ -445,42 +487,50 @@ class AdvancedPDFParser:
     
     def _parse_jockey_trainer(self, entry: ParsedEntry, text: str):
         """Parse jockey and trainer information"""
+        if not text or not entry:
+            return
+            
         # Look for slash separator
         if '/' in text:
             parts = text.split('/')
-            jockey_part = parts[0].strip()
+            jockey_part = parts[0].strip() if parts else ""
             trainer_part = parts[1].strip() if len(parts) > 1 else ""
             
             # Extract jockey
-            jockey_match = re.match(r'^([A-Za-z\s]+?)(?:\s+(\d+)%)?', jockey_part)
-            if jockey_match:
-                entry.jockey = jockey_match.group(1).strip()
-                if jockey_match.group(2):
-                    entry.jockey_win_pct = float(jockey_match.group(2))
+            if jockey_part:
+                jockey_match = re.match(r'^([A-Za-z\s]+?)(?:\s+(\d+)%)?', jockey_part)
+                if jockey_match:
+                    entry.jockey = jockey_match.group(1).strip()
+                    if jockey_match.group(2):
+                        entry.jockey_win_pct = float(jockey_match.group(2))
             
             # Extract trainer and percentages
-            pct_matches = re.findall(r'(\d+)%', trainer_part)
-            if pct_matches:
-                if len(pct_matches) >= 2:
-                    entry.trainer_win_pct = float(pct_matches[0])
-                    entry.jt_combo_pct = float(pct_matches[1])
-                elif len(pct_matches) == 1:
-                    entry.trainer_win_pct = float(pct_matches[0])
-            
-            # Extract trainer name (text before percentages)
-            trainer_match = re.match(r'^([A-Za-z\s]+?)(?:\s+\d+%)', trainer_part)
-            if trainer_match:
-                entry.trainer = trainer_match.group(1).strip()
+            if trainer_part:
+                pct_matches = re.findall(r'(\d+)%', trainer_part)
+                if pct_matches:
+                    if len(pct_matches) >= 2:
+                        entry.trainer_win_pct = float(pct_matches[0])
+                        entry.jt_combo_pct = float(pct_matches[1])
+                    elif len(pct_matches) == 1:
+                        entry.trainer_win_pct = float(pct_matches[0])
+                
+                # Extract trainer name (text before percentages)
+                trainer_match = re.match(r'^([A-Za-z\s]+?)(?:\s+\d+%)', trainer_part)
+                if trainer_match:
+                    entry.trainer = trainer_match.group(1).strip()
     
     def _parse_entries_by_columns(self, text: str) -> List[ParsedEntry]:
         """Parse entries by detecting column structure"""
+        if not text:
+            return []
+            
         entries = []
         lines = text.split('\n')
         
         # Find header line
         header_idx = -1
         for i, line in enumerate(lines):
-            if 'Pgm' in line and ('Horse' in line or 'PP' in line):
+            if line and 'Pgm' in line and ('Horse' in line or 'PP' in line):
                 header_idx = i
                 break
         
@@ -493,8 +543,11 @@ class AdvancedPDFParser:
         
         # Parse data lines
         for i in range(header_idx + 1, len(lines)):
+            if i >= len(lines):
+                break
+                
             line = lines[i]
-            if not line.strip():
+            if not line or not line.strip():
                 continue
             
             entry = self._parse_by_columns(line, columns)
@@ -564,6 +617,9 @@ class AdvancedPDFParser:
     
     def _parse_entries_by_pattern(self, text: str) -> List[ParsedEntry]:
         """Parse entries using regex patterns"""
+        if not text:
+            return []
+            
         entries = []
         
         # Comprehensive entry pattern
@@ -580,27 +636,30 @@ class AdvancedPDFParser:
             re.MULTILINE
         )
         
-        for match in entry_pattern.finditer(text):
-            entry = ParsedEntry(
-                program_number=int(match.group(1)),
-                post_position=int(match.group(2)) if match.group(2) else None,
-                win_pct=float(match.group(3)) if match.group(3) else None,
-                horse_name=match.group(4).strip()
-            )
-            
-            if match.group(5):
-                entry.class_rating = self._parse_int_or_na(match.group(5))
-            if match.group(6):
-                entry.last_speed = self._parse_int_or_na(match.group(6))
-            if match.group(7):
-                entry.avg_speed = self._parse_int_or_na(match.group(7))
-            if match.group(8):
-                entry.best_speed = self._parse_int_or_na(match.group(8))
-            
-            if match.group(9):
-                self._parse_jockey_trainer(entry, match.group(9))
-            
-            entries.append(entry)
+        try:
+            for match in entry_pattern.finditer(text):
+                entry = ParsedEntry(
+                    program_number=int(match.group(1)),
+                    post_position=int(match.group(2)) if match.group(2) else None,
+                    win_pct=float(match.group(3)) if match.group(3) else None,
+                    horse_name=match.group(4).strip() if match.group(4) else ""
+                )
+                
+                if match.group(5):
+                    entry.class_rating = self._parse_int_or_na(match.group(5))
+                if match.group(6):
+                    entry.last_speed = self._parse_int_or_na(match.group(6))
+                if match.group(7):
+                    entry.avg_speed = self._parse_int_or_na(match.group(7))
+                if match.group(8):
+                    entry.best_speed = self._parse_int_or_na(match.group(8))
+                
+                if match.group(9):
+                    self._parse_jockey_trainer(entry, match.group(9))
+                
+                entries.append(entry)
+        except Exception as e:
+            logger.warning(f"Pattern matching failed: {e}")
         
         return entries
     
@@ -615,10 +674,20 @@ class AdvancedPDFParser:
         header_row = None
         header_idx = 0
         for i, row in enumerate(table):
-            if any('pgm' in str(cell).lower() or 'horse' in str(cell).lower() for cell in row):
-                header_row = [str(cell).lower() for cell in row]
-                header_idx = i
-                break
+            if not row:
+                continue
+            try:
+                # Check each cell safely
+                for cell in row:
+                    if cell and ('pgm' in str(cell).lower() or 'horse' in str(cell).lower()):
+                        header_row = [str(c).lower() if c else '' for c in row]
+                        header_idx = i
+                        break
+                if header_row:
+                    break
+            except Exception as e:
+                logger.warning(f"Error processing table row {i}: {e}")
+                continue
         
         if not header_row:
             return entries
@@ -766,19 +835,31 @@ class AdvancedPDFParser:
     
     def _extract_date(self, text: str) -> date:
         """Extract race date with multiple patterns"""
+        if not text:
+            logger.warning("No text provided for date extraction, using today")
+            return datetime.now().date()
+            
+        # Safely get first 500 chars
+        search_text = text[:500] if len(text) > 500 else text
+        
         for pattern, date_format in self.patterns['date']:
-            match = re.search(pattern, text[:500], re.IGNORECASE)  # Check first 500 chars
-            if match:
-                try:
-                    if '%A' in date_format or '%B' in date_format:
-                        # Handle named months
-                        date_str = match.group(0)
-                        return datetime.strptime(date_str, date_format).date()
-                    else:
-                        # Handle numeric dates
-                        return datetime.strptime(match.group(0), date_format).date()
-                except:
-                    continue
+            try:
+                match = re.search(pattern, search_text, re.IGNORECASE)
+                if match:
+                    try:
+                        if '%A' in date_format or '%B' in date_format:
+                            # Handle named months
+                            date_str = match.group(0)
+                            return datetime.strptime(date_str, date_format).date()
+                        else:
+                            # Handle numeric dates
+                            return datetime.strptime(match.group(0), date_format).date()
+                    except Exception as e:
+                        logger.debug(f"Date parsing failed for pattern {pattern}: {e}")
+                        continue
+            except Exception as e:
+                logger.warning(f"Date pattern search failed: {e}")
+                continue
         
         # Default to today
         logger.warning("Could not extract date, using today")

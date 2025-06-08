@@ -208,15 +208,36 @@ class Database:
     def get_dates_with_data(self):
         """Get all dates that have race data"""
         with self.get_cursor() as cur:
+            # Check if results_scraped column exists
             cur.execute("""
-                SELECT DISTINCT date, 
-                       COUNT(DISTINCT id) as race_count,
-                       MAX(results_scraped) as has_results
-                FROM races 
-                GROUP BY date 
-                ORDER BY date DESC
-                LIMIT 30
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'races' 
+                AND column_name = 'results_scraped'
             """)
+            has_results_column = cur.fetchone() is not None
+            
+            if has_results_column:
+                cur.execute("""
+                    SELECT DISTINCT date, 
+                           COUNT(DISTINCT id) as race_count,
+                           MAX(results_scraped) as has_results
+                    FROM races 
+                    GROUP BY date 
+                    ORDER BY date DESC
+                    LIMIT 30
+                """)
+            else:
+                # Fallback query without results_scraped
+                cur.execute("""
+                    SELECT DISTINCT date, 
+                           COUNT(DISTINCT id) as race_count,
+                           FALSE as has_results
+                    FROM races 
+                    GROUP BY date 
+                    ORDER BY date DESC
+                    LIMIT 30
+                """)
             return cur.fetchall()
     
     def get_race_with_results(self, race_id):
