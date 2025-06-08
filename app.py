@@ -31,7 +31,7 @@ def index():
 def stall10n_simple():
     """Stall10n Simple - PDF analysis page"""
     today = datetime.now().date()
-    return render_template('index_enhanced.html', today=today)
+    return render_template('index_unified.html', today=today)
 
 @app.route('/stall10ncomplex')
 def stall10n_complex():
@@ -493,6 +493,7 @@ def upload_and_analyze():
                 'race_id': race_id,
                 'race_number': race['race_number'],
                 'track_name': race['track'],
+                'date': race['race_date'],
                 'distance': race.get('distance'),
                 'race_type': race.get('race_type'),
                 'purse': race.get('purse'),
@@ -642,6 +643,18 @@ def analysis_page():
     """Analysis and recommendations page"""
     return render_template('analysis.html')
 
+@app.route('/api/clear-date/<date>', methods=['DELETE'])
+def clear_date_data(date):
+    """Clear all race data for a specific date"""
+    try:
+        deleted_count = db.delete_races_by_date(date)
+        return jsonify({
+            'success': True,
+            'message': f'Cleared {deleted_count} races for {date}'
+        })
+    except Exception as e:
+        logger.error(f"Error clearing date data: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/fair-meadows-races')
 def get_fair_meadows_races():

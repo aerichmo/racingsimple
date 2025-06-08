@@ -233,3 +233,15 @@ class Database:
                 ORDER BY COALESCE(e.finish_position, 999), e.post_position
             """, (race_id,))
             return cur.fetchall()
+    
+    def delete_races_by_date(self, date):
+        """Delete all races and associated data for a specific date"""
+        with self.get_cursor() as cur:
+            # Due to cascade deletes, this will also remove entries and analyses
+            cur.execute("""
+                DELETE FROM races 
+                WHERE date = %s
+                RETURNING id
+            """, (date,))
+            deleted_ids = cur.fetchall()
+            return len(deleted_ids)
