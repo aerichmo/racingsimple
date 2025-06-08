@@ -40,7 +40,7 @@ class EquibasePDFParser:
         """Parse races from extracted text"""
         races = []
         
-        # Split text by race markers
+        # Split text by race markers - looking for race number followed by $2 Exacta
         race_splits = re.split(r'(\d+)\$2 Exacta', text)
         
         for i in range(1, len(race_splits), 2):
@@ -98,45 +98,71 @@ class EquibasePDFParser:
                 race['post_time'] = f"{hour}:{minute:02d}"
         
         # Parse entries - look for lines with program numbers
-        entry_pattern = r'^(\d+)\s+(\d+)\s+\((\d+)%\)\s+([A-Za-z\s]+?)\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA)'
-        
         for line in lines:
             # Skip header lines
-            if any(word in line for word in ['PgmPost', 'HorseClass', 'Jockey', 'Copyright']):
+            if any(word in line for word in ['PgmPost', 'HorseClass', 'Jockey', 'Copyright', 'Equibase Speed']):
                 continue
                 
             # Try to parse entry
             parts = line.split()
             if len(parts) >= 10 and parts[0].isdigit() and parts[1].isdigit():
                 try:
+                    # Find where the numeric data starts after horse name
+                    # Look for the class rating (first number after horse name)
+                    horse_name_parts = []
+                    class_idx = -1
+                    
+                    for i in range(3, len(parts)):
+                        if parts[i].isdigit() or parts[i] == 'NA':
+                            class_idx = i
+                            break
+                        horse_name_parts.append(parts[i])
+                    
+                    if class_idx == -1 or not horse_name_parts:
+                        continue
+                    
                     entry = {
                         'program_number': int(parts[0]),
                         'post_position': int(parts[1]),
-                        'win_pct': self._parse_percentage(parts[2]) if len(parts[2]) > 2 else None,
-                        'horse_name': ' '.join(parts[3:]).split(' ', 1)[0] if len(parts) > 3 else 'Unknown',
-                        'class_rating': self._parse_int(parts[4]) if len(parts) > 4 else None,
-                        'last_speed': self._parse_int(parts[5]) if len(parts) > 5 else None,
-                        'avg_speed': self._parse_int(parts[6]) if len(parts) > 6 else None,
-                        'best_speed': self._parse_int(parts[7]) if len(parts) > 7 else None
+                        'win_pct': self._parse_percentage(parts[2]),
+                        'horse_name': ' '.join(horse_name_parts),
+                        'class_rating': self._parse_int(parts[class_idx]) if class_idx < len(parts) else None,
+                        'last_speed': self._parse_int(parts[class_idx + 1]) if class_idx + 1 < len(parts) else None,
+                        'avg_speed': self._parse_int(parts[class_idx + 2]) if class_idx + 2 < len(parts) else None,
+                        'best_speed': self._parse_int(parts[class_idx + 3]) if class_idx + 3 < len(parts) else None
                     }
                     
-                    # Extract jockey/trainer from remaining text
-                    remaining = ' '.join(parts[8:]) if len(parts) > 8 else ''
-                    jt_parts = remaining.split('/')
-                    if len(jt_parts) >= 2:
-                        entry['jockey'] = jt_parts[0].strip()
-                        trainer_part = jt_parts[1].strip()
-                        # Extract trainer name before percentages
-                        trainer_match = re.match(r'([A-Za-z\s]+)', trainer_part)
-                        if trainer_match:
-                            entry['trainer'] = trainer_match.group(1).strip()
+                    # Find the slash that separates jockey and trainer
+                    slash_idx = -1
+                    for i in range(class_idx + 4, len(parts)):
+                        if parts[i] == '/':
+                            slash_idx = i
+                            break
                     
-                    # Extract J/T percentages if present
-                    pct_match = re.findall(r'(\d+)%', remaining)
-                    if len(pct_match) >= 3:
-                        entry['jockey_win_pct'] = int(pct_match[0])
-                        entry['trainer_win_pct'] = int(pct_match[1])
-                        entry['jt_combo_pct'] = int(pct_match[2])
+                    if slash_idx > -1:
+                        # Extract jockey (before slash)
+                        jockey_parts = []
+                        for i in range(class_idx + 4, slash_idx):
+                            if i < len(parts) and not parts[i].endswith('%'):
+                                jockey_parts.append(parts[i])
+                        entry['jockey'] = ' '.join(jockey_parts)
+                        
+                        # Extract trainer (after slash)
+                        trainer_parts = []
+                        for i in range(slash_idx + 1, len(parts)):
+                            if not parts[i].endswith('%'):
+                                trainer_parts.append(parts[i])
+                            else:
+                                break
+                        entry['trainer'] = ' '.join(trainer_parts)
+                    
+                    # Extract J/T percentages from end of line
+                    pct_matches = re.findall(r'(\d+)%', line)
+                    if len(pct_matches) >= 3:
+                        # Skip the win% and get the last 3 percentages
+                        entry['jockey_win_pct'] = int(pct_matches[-3])
+                        entry['trainer_win_pct'] = int(pct_matches[-2])
+                        entry['jt_combo_pct'] = int(pct_matches[-1])
                     
                     # Only add if we have a valid horse name
                     if entry['horse_name'] and not any(skip in entry['horse_name'].lower() 
@@ -144,6 +170,7 @@ class EquibasePDFParser:
                         race['entries'].append(entry)
                         
                 except (IndexError, ValueError) as e:
+                    logger.debug(f"Failed to parse line: {line}, error: {e}")
                     continue
         
         return race
