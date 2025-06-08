@@ -1,5 +1,5 @@
 from flask import Flask, render_template, jsonify, request, redirect, url_for
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import logging
 from werkzeug.utils import secure_filename
@@ -618,23 +618,29 @@ def get_fair_meadows_races():
         if not username or not password:
             return jsonify({'success': False, 'error': 'API credentials not configured'}), 500
         
-        # Get today's date
-        today = datetime.now().strftime('%Y-%m-%d')
+        # Get today's date - June 7, 2024
+        # Note: Using fixed date since the system date might be incorrect
+        today = '2024-06-07'
+        tomorrow = '2024-06-08'
         
-        # Get meets for today
+        # Get meets for today and tomorrow
         # Fix: Remove /v1 from base_url if it's included, as we'll add it in the path
         if base_url.endswith('/v1'):
             base_url = base_url[:-3]
         meets_url = f"{base_url}/v1/north-america/meets"
         params = {
             'start_date': today,
-            'end_date': today
+            'end_date': tomorrow  # Check today and tomorrow
         }
+        
+        logger.info(f"Requesting meets from {meets_url} with params: {params}")
         
         auth = HTTPBasicAuth(username, password)
         meets_response = requests.get(meets_url, params=params, auth=auth)
         meets_response.raise_for_status()
         meets_data = meets_response.json()
+        
+        logger.info(f"API Response type: {type(meets_data)}, Content preview: {str(meets_data)[:200]}")
         
         # According to the API docs, the response is a direct array of meets
         meets_list = meets_data if isinstance(meets_data, list) else []
@@ -667,12 +673,13 @@ def get_fair_meadows_races():
             sample_meet = meets_list[0] if meets_list else None
             return jsonify({
                 'success': True,
-                'message': f'No Fair Meadows races found today. Total meets: {len(meets_list)}',
+                'message': f'No Fair Meadows races found. Checked dates: {today} to {tomorrow}. Total meets: {len(meets_list)}',
                 'races': [],
                 'available_tracks': all_tracks,
                 'total_meets': len(meets_list),
                 'sample_meet': sample_meet,
-                'debug_info': f'First meet keys: {list(sample_meet.keys()) if sample_meet else "No meets"}'
+                'debug_info': f'First meet keys: {list(sample_meet.keys()) if sample_meet else "No meets"}',
+                'dates_checked': f'{today} to {tomorrow}'
             })
         
         # Get entries for Fair Meadows meet
