@@ -721,8 +721,13 @@ def get_fair_meadows_races():
         
         logger.info(f"API Response type: {type(meets_data)}, Content preview: {str(meets_data)[:200]}")
         
-        # According to the API docs, the response is a direct array of meets
-        meets_list = meets_data if isinstance(meets_data, list) else []
+        # The API response has meets in a 'meets' array
+        if isinstance(meets_data, dict) and 'meets' in meets_data:
+            meets_list = meets_data['meets']
+        elif isinstance(meets_data, list):
+            meets_list = meets_data
+        else:
+            meets_list = []
         
         # Find Fair Meadows meet
         fair_meadows_meet = None
@@ -734,15 +739,15 @@ def get_fair_meadows_races():
             logger.info(f"First meet structure: {meets_list[0]}")
         
         for meet in meets_list:
-            # Based on API docs, the fields should be:
-            # meet_id, date, track (3-letter code), status
-            track = meet.get('track', '')  # This should be the 3-letter track code like 'FMT'
+            # Based on actual API response: track_id, track_name, meet_id, date, country
+            track_id = meet.get('track_id', '')
+            track_name = meet.get('track_name', '')
             
-            # Store track code
-            all_tracks.append(track)
+            # Store track info for debugging
+            all_tracks.append(f"{track_id} - {track_name}")
             
             # Check for FMT (Fair Meadows Tulsa)
-            if track.upper() == 'FMT':
+            if track_id == 'FMT':
                 fair_meadows_meet = meet
                 break
         
@@ -829,7 +834,7 @@ def get_fair_meadows_races():
         
         return jsonify({
             'success': True,
-            'track': fair_meadows_meet.get('track'),
+            'track': fair_meadows_meet.get('track_name', 'Fair Meadows Tulsa'),
             'date': fair_meadows_meet.get('date'),
             'races': races_with_analysis
         })
