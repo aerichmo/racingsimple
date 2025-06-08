@@ -835,52 +835,65 @@ def get_fair_meadows_races():
         entries_response.raise_for_status()
         entries_data = entries_response.json()
         
-        logger.info(f"Entries response type: {type(entries_data)}")
-        logger.info(f"Entries response keys: {list(entries_data.keys()) if isinstance(entries_data, dict) else 'Not a dict'}")
-        
-        # Debug: Return raw entries data if no races found
-        if not entries_data.get('races'):
-            return jsonify({
-                'success': True,
-                'track': fair_meadows_meet.get('track_name', 'Fair Meadows Tulsa'),
-                'date': fair_meadows_meet.get('date'),
-                'races': [],
-                'debug_entries': entries_data,
-                'message': 'No races found in entries response'
-            })
         
         # Process races and entries
         races_with_analysis = []
         for race in entries_data.get('races', []):
+            # Extract race info from actual API structure
+            race_key = race.get('race_key', {})
             race_info = {
-                'race_number': race.get('race_number', race.get('number')),
-                'race_time': race.get('race_time', race.get('time')),
-                'distance': race.get('distance'),
-                'race_type': race.get('race_type', race.get('type')),
+                'race_number': race_key.get('race_number'),
+                'race_time': race.get('post_time'),
+                'distance': race.get('distance_description'),
+                'race_type': race.get('race_type_description'),
                 'purse': race.get('purse'),
                 'entries': []
             }
             
-            # Analyze each entry
-            for entry in race.get('entries', []):
+            # Analyze each entry - the API calls them 'runners'
+            for entry in race.get('runners', []):
+                # Skip scratched horses
+                if entry.get('scratch_indicator') == 'Y':
+                    continue
+                    
                 # Simple scoring based on available data
                 score = 50  # Base score
                 
-                # Adjust based on morning line odds
-                ml_odds = entry.get('morning_line_odds', 10)
-                if ml_odds < 3:
+                # Parse morning line odds (format: "5-2" becomes 2.5)
+                ml_odds_str = entry.get('morning_line_odds', '10-1')
+                try:
+                    if '-' in ml_odds_str:
+                        num, den = ml_odds_str.split('-')
+                        ml_odds = float(num) / float(den)
+                    else:
+                        ml_odds = 10.0
+                except:
+                    ml_odds = 10.0
+                
+                # Adjust score based on morning line odds
+                if ml_odds < 2:
+                    score += 25
+                elif ml_odds < 3:
                     score += 20
                 elif ml_odds < 5:
                     score += 15
                 elif ml_odds < 10:
                     score += 10
                 
-                # Adjust based on recent form
-                recent_form = entry.get('recent_form', '')
-                wins = recent_form.count('1')
-                places = recent_form.count('2')
-                shows = recent_form.count('3')
-                score += (wins * 10) + (places * 5) + (shows * 2)
+                # Adjust based on live odds if available
+                live_odds_str = entry.get('live_odds', '')
+                if live_odds_str and '-' in live_odds_str:
+                    try:
+                        num, den = live_odds_str.split('-')
+                        live_odds = float(num) / float(den)
+                        if live_odds < ml_odds:
+                            score += 10  # Money coming in on this horse
+                    except:
+                        pass
+                
+                # Get jockey and trainer info
+                jockey_info = entry.get('jockey', {})
+                trainer_info = entry.get('trainer', {})
                 
                 # Determine recommendation
                 if score >= 80:
@@ -893,12 +906,12 @@ def get_fair_meadows_races():
                     recommendation = 'PASS'
                 
                 entry_info = {
-                    'post_position': entry.get('post_position'),
+                    'post_position': entry.get('post_pos'),
                     'horse_name': entry.get('horse_name'),
-                    'jockey': entry.get('jockey_name'),
-                    'trainer': entry.get('trainer_name'),
-                    'morning_line_odds': ml_odds,
-                    'recent_form': recent_form,
+                    'jockey': jockey_info.get('alias', jockey_info.get('last_name', 'Unknown')),
+                    'trainer': trainer_info.get('alias', trainer_info.get('last_name', 'Unknown')),
+                    'morning_line_odds': ml_odds_str,
+                    'recent_form': '',  # Not in this API
                     'score': score,
                     'recommendation': recommendation
                 }
