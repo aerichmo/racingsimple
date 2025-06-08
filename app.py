@@ -637,8 +637,8 @@ def get_fair_meadows_races():
         for meet in meets_data.get('meets', []):
             track = meet.get('track', '')
             all_tracks.append(track)
-            # More flexible search for Fair Meadows variations
-            if any(term in track.upper() for term in ['FAIR MEADOWS', 'FMT', 'FAIRMEADOWS', 'TULSA']):
+            # Check for FMT (Fair Meadows Tulsa) - exact match or as part of track name
+            if track.upper() == 'FMT' or 'FMT' in track.upper():
                 fair_meadows_meet = meet
                 break
         
