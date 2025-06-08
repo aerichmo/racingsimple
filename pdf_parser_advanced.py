@@ -124,32 +124,38 @@ class AdvancedPDFParser:
         # Method 1: PyPDF2
         try:
             text_pypdf2 = self._extract_text_pypdf2(pdf_path)
+            logger.info(f"PyPDF2 extracted {len(text_pypdf2) if text_pypdf2 else 0} characters")
             if text_pypdf2:
                 races = self._parse_with_confidence(text_pypdf2, ExtractionMethod.PYPDF2)
+                logger.info(f"PyPDF2 found {len(races)} races")
                 if races:
                     all_extractions.append((races, self._calculate_extraction_confidence(races)))
         except Exception as e:
-            logger.warning(f"PyPDF2 extraction failed: {e}")
+            logger.warning(f"PyPDF2 extraction failed: {e}", exc_info=True)
         
         # Method 2: pdfplumber (better for tables)
         try:
             text_plumber, tables = self._extract_text_pdfplumber(pdf_path)
+            logger.info(f"pdfplumber extracted {len(text_plumber) if text_plumber else 0} characters, {len(tables) if tables else 0} tables")
             if text_plumber or tables:
                 races = self._parse_with_tables(text_plumber, tables, ExtractionMethod.PDFPLUMBER)
+                logger.info(f"pdfplumber found {len(races)} races")
                 if races:
                     all_extractions.append((races, self._calculate_extraction_confidence(races)))
         except Exception as e:
-            logger.warning(f"pdfplumber extraction failed: {e}")
+            logger.warning(f"pdfplumber extraction failed: {e}", exc_info=True)
         
         # Method 3: PyMuPDF (handles complex layouts)
         try:
             text_mupdf, blocks = self._extract_text_pymupdf(pdf_path)
+            logger.info(f"PyMuPDF extracted {len(text_mupdf) if text_mupdf else 0} characters, {len(blocks) if blocks else 0} blocks")
             if text_mupdf:
                 races = self._parse_with_blocks(text_mupdf, blocks, ExtractionMethod.PYMUPDF)
+                logger.info(f"PyMuPDF found {len(races)} races")
                 if races:
                     all_extractions.append((races, self._calculate_extraction_confidence(races)))
         except Exception as e:
-            logger.warning(f"PyMuPDF extraction failed: {e}")
+            logger.warning(f"PyMuPDF extraction failed: {e}", exc_info=True)
         
         # Choose best extraction based on confidence
         if all_extractions:
@@ -159,7 +165,7 @@ class AdvancedPDFParser:
             # Convert to dictionary format
             return [race.to_dict() for race in best_races]
         
-        logger.error("All extraction methods failed")
+        logger.error("All extraction methods failed - no races found")
         return []
     
     def _extract_text_pypdf2(self, pdf_path: str) -> str:
@@ -279,6 +285,7 @@ class AdvancedPDFParser:
     def _split_races(self, text: str) -> List[Tuple[int, str]]:
         """Split text into individual races using multiple strategies"""
         if not text:
+            logger.warning("No text provided to split into races")
             return []
             
         races = []
@@ -292,10 +299,13 @@ class AdvancedPDFParser:
             r'Race\s*#\s*(\d+)'
         ]
         
+        logger.debug(f"Attempting to split text of length {len(text)} into races")
+        
         for pattern in patterns:
             try:
                 matches = list(re.finditer(pattern, text, re.IGNORECASE))
-                if len(matches) > 1:
+                logger.debug(f"Pattern '{pattern}' found {len(matches)} matches")
+                if len(matches) >= 1:  # Changed from > 1 to >= 1
                     for i in range(len(matches)):
                         start = matches[i].start()
                         end = matches[i+1].start() if i+1 < len(matches) else len(text)
@@ -303,13 +313,16 @@ class AdvancedPDFParser:
                         race_text = text[start:end] if start < end else ""
                         if race_text:
                             races.append((race_num, race_text))
-                    break
+                    if races:
+                        logger.info(f"Successfully split into {len(races)} races using pattern: {pattern}")
+                        break
             except Exception as e:
-                logger.warning(f"Race splitting pattern failed: {e}")
+                logger.warning(f"Race splitting pattern '{pattern}' failed: {e}")
                 continue
         
         # Strategy 2: If no clear markers, look for entry patterns
         if not races:
+            logger.debug("No race markers found, trying entry pattern strategy")
             # Look for repeating patterns of entries
             entry_pattern = r'^\s*(\d{1,2})\s+(\d{1,2})\s+\(?\d+%?\)?'
             lines = text.split('\n') if text else []
@@ -323,7 +336,20 @@ class AdvancedPDFParser:
                     races.append((current_race, '\n'.join(current_text)))
                     current_race += 1
                     current_text = []
+            
+            # Don't forget the last race
+            if current_text and len(current_text) > 2:
+                races.append((current_race, '\n'.join(current_text)))
+            
+            if races:
+                logger.info(f"Found {len(races)} races using entry pattern strategy")
         
+        # Strategy 3: If still no races, treat entire text as one race
+        if not races and len(text) > 100:
+            logger.warning("No race structure detected, treating entire text as Race 1")
+            races = [(1, text)]
+        
+        logger.info(f"Total races found: {len(races)}")
         return races
     
     def _parse_single_race(self, race_num: int, text: str, race_date: date) -> ParsedRace:
@@ -458,13 +484,34 @@ class AdvancedPDFParser:
         # Remove extra spaces and normalize
         line = ' '.join(line.split())
         
-        # Pattern for entry line
-        # Example: 1 1 (16%) SMACKZILLA 0 78 78 78 Silva A / 12% 13% 17%
-        match = re.match(r'^(\d{1,2})\s+(\d{1,2})\s+\(?([\d.]+)%?\)?\s+([A-Z][A-Z\s\']+?)(?:\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA))?\s*(.*)$', line)
+        # Try multiple patterns for different PDF formats
+        patterns = [
+            # Pattern 1: Full format with percentages
+            (r'^(\d{1,2})\s+(\d{1,2})\s+\(?([\d.]+)%?\)?\s+([A-Z][A-Z\s\']+?)(?:\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA))?\s*(.*)$', 'full'),
+            # Pattern 2: Simple format (just program, horse name)
+            (r'^(\d{1,2})\s+([A-Z][A-Z\s\']+?)\s*(.*)$', 'simple'),
+            # Pattern 3: Program, PP, Horse
+            (r'^(\d{1,2})\s+(\d{1,2})\s+([A-Z][A-Z\s\']+?)\s*(.*)$', 'pp'),
+            # Pattern 4: With odds but no percentages
+            (r'^(\d{1,2})\s+(\d{1,2})\s+([A-Z][A-Z\s\']+?)\s+(\d+-\d+|\d+\.\d+)\s*(.*)$', 'odds')
+        ]
         
-        if not match:
-            return None
+        for pattern, format_type in patterns:
+            match = re.match(pattern, line)
+            if match:
+                if format_type == 'full':  # Full format
+                    return self._parse_full_format_match(match)
+                elif format_type == 'simple':  # Simple format
+                    return self._parse_simple_format_match(match)
+                elif format_type == 'pp':  # Program, PP, Horse
+                    return self._parse_pp_format_match(match)
+                elif format_type == 'odds':  # With odds
+                    return self._parse_odds_format_match(match)
         
+        return None
+    
+    def _parse_full_format_match(self, match) -> ParsedEntry:
+        """Parse full format match"""
         entry = ParsedEntry(
             program_number=int(match.group(1)),
             post_position=int(match.group(2)),
@@ -482,6 +529,48 @@ class AdvancedPDFParser:
         # Parse jockey/trainer info
         if match.group(9):
             self._parse_jockey_trainer(entry, match.group(9))
+        
+        return entry
+    
+    def _parse_simple_format_match(self, match) -> ParsedEntry:
+        """Parse simple format match"""
+        entry = ParsedEntry(
+            program_number=int(match.group(1)),
+            horse_name=match.group(2).strip()
+        )
+        
+        # Parse remaining text for jockey/trainer
+        if match.group(3):
+            self._parse_jockey_trainer(entry, match.group(3))
+        
+        return entry
+    
+    def _parse_pp_format_match(self, match) -> ParsedEntry:
+        """Parse PP format match"""
+        entry = ParsedEntry(
+            program_number=int(match.group(1)),
+            post_position=int(match.group(2)),
+            horse_name=match.group(3).strip()
+        )
+        
+        # Parse remaining text
+        if match.group(4):
+            self._parse_jockey_trainer(entry, match.group(4))
+        
+        return entry
+    
+    def _parse_odds_format_match(self, match) -> ParsedEntry:
+        """Parse odds format match"""
+        entry = ParsedEntry(
+            program_number=int(match.group(1)),
+            post_position=int(match.group(2)),
+            horse_name=match.group(3).strip(),
+            morning_line_odds=match.group(4)
+        )
+        
+        # Parse remaining text
+        if match.group(5):
+            self._parse_jockey_trainer(entry, match.group(5))
         
         return entry
     
@@ -622,22 +711,63 @@ class AdvancedPDFParser:
             
         entries = []
         
-        # Comprehensive entry pattern
-        entry_pattern = re.compile(
-            r'^(\d{1,2})\s+'  # Program number
-            r'(\d{1,2})?\s*'  # Post position (optional)
-            r'\(?([\d.]+)%?\)?\s*'  # Win percentage
-            r'([A-Z][A-Z\s\']+?)\s+'  # Horse name
-            r'(?:(\d+|NA)\s+)?'  # Class rating
-            r'(?:(\d+|NA)\s+)?'  # Last speed
-            r'(?:(\d+|NA)\s+)?'  # Avg speed
-            r'(?:(\d+|NA)\s+)?'  # Best speed
-            r'(.+)?$',  # Remaining text (jockey/trainer/percentages)
-            re.MULTILINE
-        )
+        # Try multiple comprehensive patterns
+        patterns = [
+            # Pattern 1: Full format with percentages
+            re.compile(
+                r'^(\d{1,2})\s+'  # Program number
+                r'(\d{1,2})?\s*'  # Post position (optional)
+                r'\(?([\d.]+)%?\)?\s*'  # Win percentage
+                r'([A-Z][A-Z\s\']+?)\s+'  # Horse name
+                r'(?:(\d+|NA)\s+)?'  # Class rating
+                r'(?:(\d+|NA)\s+)?'  # Last speed
+                r'(?:(\d+|NA)\s+)?'  # Avg speed
+                r'(?:(\d+|NA)\s+)?'  # Best speed
+                r'(.+)?$',  # Remaining text (jockey/trainer/percentages)
+                re.MULTILINE
+            ),
+            # Pattern 2: Simpler format - just program and horse
+            re.compile(
+                r'^(\d{1,2})\s+'  # Program number
+                r'([A-Z][A-Z0-9\s\'-]+?)\s*'  # Horse name (allow numbers)
+                r'(?:\s+([A-Z][a-z]+.*?))?$',  # Optional jockey/trainer info
+                re.MULTILINE | re.IGNORECASE
+            ),
+            # Pattern 3: Very simple - any line starting with a number
+            re.compile(
+                r'^(\d{1,2})\s+'  # Program number
+                r'(.+?)$',  # Everything else
+                re.MULTILINE
+            )
+        ]
         
+        best_entries = []
+        best_count = 0
+        
+        for pattern in patterns:
+            current_entries = []
+            try:
+                for match in pattern.finditer(text):
+                    entry = self._create_entry_from_pattern_match(match, len(match.groups()))
+                    if entry and entry.horse_name:
+                        current_entries.append(entry)
+                
+                # Use the pattern that finds the most entries
+                if len(current_entries) > best_count:
+                    best_entries = current_entries
+                    best_count = len(current_entries)
+                    logger.debug(f"Pattern found {len(current_entries)} entries")
+                    
+            except Exception as e:
+                logger.warning(f"Pattern matching failed: {e}")
+                continue
+        
+        return best_entries
+    
+    def _create_entry_from_pattern_match(self, match, group_count: int) -> Optional[ParsedEntry]:
+        """Create entry from pattern match based on number of groups"""
         try:
-            for match in entry_pattern.finditer(text):
+            if group_count >= 9:  # Full format
                 entry = ParsedEntry(
                     program_number=int(match.group(1)),
                     post_position=int(match.group(2)) if match.group(2) else None,
@@ -656,12 +786,52 @@ class AdvancedPDFParser:
                 
                 if match.group(9):
                     self._parse_jockey_trainer(entry, match.group(9))
+                    
+            elif group_count >= 3:  # Simpler format
+                entry = ParsedEntry(
+                    program_number=int(match.group(1)),
+                    horse_name=match.group(2).strip()
+                )
+                if group_count > 2 and match.group(3):
+                    self._parse_jockey_trainer(entry, match.group(3))
+                    
+            else:  # Very simple format
+                pgm = int(match.group(1))
+                rest = match.group(2).strip()
                 
-                entries.append(entry)
+                # Try to extract horse name (usually uppercase words at start)
+                horse_match = re.match(r'^([A-Z][A-Z0-9\s\'-]+?)(?:\s+[A-Z][a-z]|\s+\d|$)', rest)
+                if horse_match:
+                    entry = ParsedEntry(
+                        program_number=pgm,
+                        horse_name=horse_match.group(1).strip()
+                    )
+                else:
+                    # Fallback - take first few words as horse name
+                    words = rest.split()
+                    if words:
+                        # Take uppercase words as horse name
+                        horse_words = []
+                        for word in words:
+                            if word[0].isupper():
+                                horse_words.append(word)
+                            else:
+                                break
+                        if horse_words:
+                            entry = ParsedEntry(
+                                program_number=pgm,
+                                horse_name=' '.join(horse_words)
+                            )
+                        else:
+                            return None
+                    else:
+                        return None
+                        
+            return entry
+            
         except Exception as e:
-            logger.warning(f"Pattern matching failed: {e}")
-        
-        return entries
+            logger.warning(f"Failed to create entry from match: {e}")
+            return None
     
     def _parse_table_entries(self, table: List[List[str]]) -> List[ParsedEntry]:
         """Parse entries from table data"""
