@@ -472,6 +472,25 @@ def upload_and_analyze():
         
         if not races:
             return jsonify({'success': False, 'error': 'No races found in PDF'}), 400
+            
+        logger.info(f"Parsed {len(races)} races from PDF")
+        
+        # Validate races have required fields
+        valid_races = []
+        for race in races:
+            if not race.get('race_number'):
+                logger.warning(f"Skipping race without race_number: {race}")
+                continue
+            if not race.get('entries') or len(race.get('entries', [])) == 0:
+                logger.warning(f"Skipping race {race.get('race_number')} with no entries")
+                continue
+            valid_races.append(race)
+            
+        if not valid_races:
+            return jsonify({'success': False, 'error': 'No valid races found in PDF (races must have entries)'}), 400
+            
+        races = valid_races
+        logger.info(f"Found {len(races)} valid races with entries")
         
         # Get the date from form data (if provided) or use the PDF date
         form_date = request.form.get('date')
@@ -566,7 +585,8 @@ def upload_and_analyze():
         
     except Exception as e:
         logger.error(f"Upload and analyze error: {e}", exc_info=True)
-        return jsonify({'success': False, 'error': str(e)}), 500
+        # Make sure we always return JSON
+        return jsonify({'success': False, 'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/api/races/<date>')
 def get_races(date):
@@ -809,6 +829,15 @@ def clear_date_data(date):
     except Exception as e:
         logger.error(f"Error clearing date data: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/test')
+def test_endpoint():
+    """Test endpoint to verify server is responding with JSON"""
+    return jsonify({
+        'success': True,
+        'message': 'Server is working',
+        'timestamp': datetime.now().isoformat()
+    })
 
 @app.route('/api/fair-meadows-races')
 def get_fair_meadows_races():
