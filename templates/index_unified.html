@@ -83,7 +83,7 @@
     <div class="container">
         <div class="header">
             <h1>Stall10n Simple</h1>
-            <p>Upload Racing Data (PDF/XML) or View Historical Analysis</p>
+            <p>Upload Racing Data (PDF/XML/ZIP) or View Historical Analysis</p>
         </div>
         
         <div class="control-panel">
@@ -92,7 +92,7 @@
                 <div class="controls-row">
                     <div class="form-group">
                         <label for="pdfFile">Upload Racing Data:</label>
-                        <input type="file" id="pdfFile" name="pdf" accept=".pdf,.xml">
+                        <input type="file" id="pdfFile" name="pdf" accept=".pdf,.xml,.zip">
                     </div>
                     <div class="form-group">
                         <label for="uploadDate">For Date:</label>
@@ -186,7 +186,7 @@
         console.log('Date value:', dateInput?.value);
         
         if (!fileInput.files || !fileInput.files[0]) {
-            alert('Please select a PDF or XML file');
+            alert('Please select a PDF, XML, or ZIP file');
             return;
         }
         

@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 import tempfile
 import requests
 from requests.auth import HTTPBasicAuth
+import zipfile
 
 app = Flask(__name__, static_folder='static')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
@@ -354,14 +355,40 @@ def upload_pdf():
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
         filename_lower = file.filename.lower()
-        if not (filename_lower.endswith('.pdf') or filename_lower.endswith('.xml')):
-            return jsonify({'success': False, 'error': 'File must be a PDF or XML file'}), 400
+        if not (filename_lower.endswith('.pdf') or filename_lower.endswith('.xml') or filename_lower.endswith('.zip')):
+            return jsonify({'success': False, 'error': 'File must be a PDF, XML, or ZIP file'}), 400
         
         # Save file temporarily
-        suffix = '.xml' if filename_lower.endswith('.xml') else '.pdf'
+        suffix = '.zip' if filename_lower.endswith('.zip') else ('.xml' if filename_lower.endswith('.xml') else '.pdf')
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
             file.save(tmp_file.name)
             tmp_path = tmp_file.name
+        
+        # Handle ZIP files
+        if filename_lower.endswith('.zip'):
+            # Extract XML from ZIP
+            xml_path = None
+            try:
+                with zipfile.ZipFile(tmp_path, 'r') as zip_file:
+                    # Find XML file in ZIP
+                    xml_files = [f for f in zip_file.namelist() if f.lower().endswith('.xml')]
+                    if not xml_files:
+                        return jsonify({'success': False, 'error': 'No XML file found in ZIP'}), 400
+                    
+                    # Extract the first XML file
+                    xml_filename = xml_files[0]
+                    with tempfile.NamedTemporaryFile(suffix='.xml', delete=False) as xml_tmp:
+                        xml_tmp.write(zip_file.read(xml_filename))
+                        xml_path = xml_tmp.name
+                
+                # Clean up ZIP file
+                os.unlink(tmp_path)
+                tmp_path = xml_path
+            except Exception as e:
+                logger.error(f"Error extracting XML from ZIP: {e}")
+                if xml_path and os.path.exists(xml_path):
+                    os.unlink(xml_path)
+                return jsonify({'success': False, 'error': f'Error extracting XML from ZIP: {str(e)}'}), 400
         
         # Parse the file
         parser = EquibasePDFParser()
@@ -457,14 +484,40 @@ def upload_and_analyze():
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
         filename_lower = file.filename.lower()
-        if not (filename_lower.endswith('.pdf') or filename_lower.endswith('.xml')):
-            return jsonify({'success': False, 'error': 'File must be a PDF or XML file'}), 400
+        if not (filename_lower.endswith('.pdf') or filename_lower.endswith('.xml') or filename_lower.endswith('.zip')):
+            return jsonify({'success': False, 'error': 'File must be a PDF, XML, or ZIP file'}), 400
         
         # Save file temporarily
-        suffix = '.xml' if filename_lower.endswith('.xml') else '.pdf'
+        suffix = '.zip' if filename_lower.endswith('.zip') else ('.xml' if filename_lower.endswith('.xml') else '.pdf')
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
             file.save(tmp_file.name)
             tmp_path = tmp_file.name
+        
+        # Handle ZIP files
+        if filename_lower.endswith('.zip'):
+            # Extract XML from ZIP
+            xml_path = None
+            try:
+                with zipfile.ZipFile(tmp_path, 'r') as zip_file:
+                    # Find XML file in ZIP
+                    xml_files = [f for f in zip_file.namelist() if f.lower().endswith('.xml')]
+                    if not xml_files:
+                        return jsonify({'success': False, 'error': 'No XML file found in ZIP'}), 400
+                    
+                    # Extract the first XML file
+                    xml_filename = xml_files[0]
+                    with tempfile.NamedTemporaryFile(suffix='.xml', delete=False) as xml_tmp:
+                        xml_tmp.write(zip_file.read(xml_filename))
+                        xml_path = xml_tmp.name
+                
+                # Clean up ZIP file
+                os.unlink(tmp_path)
+                tmp_path = xml_path
+            except Exception as e:
+                logger.error(f"Error extracting XML from ZIP: {e}")
+                if xml_path and os.path.exists(xml_path):
+                    os.unlink(xml_path)
+                return jsonify({'success': False, 'error': f'Error extracting XML from ZIP: {str(e)}'}), 400
         
         # Parse the file
         parser = EquibasePDFParser()
@@ -699,10 +752,36 @@ def parse_diagnostic():
         
         # Save file temporarily
         filename_lower = file.filename.lower()
-        suffix = '.xml' if filename_lower.endswith('.xml') else '.pdf'
+        suffix = '.zip' if filename_lower.endswith('.zip') else ('.xml' if filename_lower.endswith('.xml') else '.pdf')
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
             file.save(tmp_file.name)
             tmp_path = tmp_file.name
+        
+        # Handle ZIP files
+        if filename_lower.endswith('.zip'):
+            # Extract XML from ZIP
+            xml_path = None
+            try:
+                with zipfile.ZipFile(tmp_path, 'r') as zip_file:
+                    # Find XML file in ZIP
+                    xml_files = [f for f in zip_file.namelist() if f.lower().endswith('.xml')]
+                    if not xml_files:
+                        return jsonify({'success': False, 'error': 'No XML file found in ZIP'}), 400
+                    
+                    # Extract the first XML file
+                    xml_filename = xml_files[0]
+                    with tempfile.NamedTemporaryFile(suffix='.xml', delete=False) as xml_tmp:
+                        xml_tmp.write(zip_file.read(xml_filename))
+                        xml_path = xml_tmp.name
+                
+                # Clean up ZIP file
+                os.unlink(tmp_path)
+                tmp_path = xml_path
+            except Exception as e:
+                logger.error(f"Error extracting XML from ZIP: {e}")
+                if xml_path and os.path.exists(xml_path):
+                    os.unlink(xml_path)
+                return jsonify({'success': False, 'error': f'Error extracting XML from ZIP: {str(e)}'}), 400
         
         diagnostic_info = {
             'filename': file.filename,
