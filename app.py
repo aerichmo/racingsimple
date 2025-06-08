@@ -194,7 +194,7 @@ def stall10n_complex():
     <div class="container">
         <div class="header">
             <h1>STALL10N Complex</h1>
-            <p class="subtitle">Fair Meadows Tulsa - June 7, 2025</p>
+            <p class="subtitle">Fair Meadows Tulsa - June 7, 2025 Race Results</p>
             <button class="refresh-btn" onclick="loadRaces()">Refresh Data</button>
         </div>
         
@@ -231,35 +231,7 @@ def stall10n_complex():
                 return;
             }
             
-            // Find top plays across all races
-            const topPlays = [];
-            data.races.forEach(race => {
-                race.entries.forEach(entry => {
-                    if (entry.score >= 70) {
-                        topPlays.push({
-                            race_number: race.race_number,
-                            ...entry
-                        });
-                    }
-                });
-            });
-            
             let html = '';
-            
-            // Show top plays if any
-            if (topPlays.length > 0) {
-                const sortedPlays = topPlays.sort((a, b) => b.score - a.score).slice(0, 5);
-                html += `
-                    <div class="top-plays">
-                        <h3>🎯 June 7, 2025 Best Bets at Fair Meadows</h3>
-                        <div class="best-bets">
-                            ${sortedPlays.map(play => 
-                                `<div class="best-bet">R${play.race_number} - #${play.post_position} ${play.horse_name} (${play.score})</div>`
-                            ).join('')}
-                        </div>
-                    </div>
-                `;
-            }
             
             // Display each race
             data.races.forEach(race => {
@@ -281,17 +253,20 @@ def stall10n_complex():
                         <table>
                             <thead>
                                 <tr>
+                                    <th>Finish</th>
                                     <th>PP</th>
                                     <th>Horse</th>
                                     <th>Jockey / Trainer</th>
                                     <th>ML Odds</th>
-                                    <th>Score</th>
-                                    <th>Recommendation</th>
+                                    <th>Final Odds</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${race.entries.map(entry => `
                                     <tr>
+                                        <td>
+                                            <span class="badge ${entry.finish_position <= 3 ? 'strong-play' : 'pass'}">${entry.result}</span>
+                                        </td>
                                         <td>${entry.post_position}</td>
                                         <td class="horse-name">${entry.horse_name}</td>
                                         <td>
@@ -299,10 +274,7 @@ def stall10n_complex():
                                             <div style="font-size: 0.85rem; color: #666;">${entry.trainer || ''}</div>
                                         </td>
                                         <td>${entry.morning_line_odds || '-'}</td>
-                                        <td class="score">${entry.score}</td>
-                                        <td>
-                                            <span class="badge ${entry.recommendation.toLowerCase().replace(' ', '-')}">${entry.recommendation}</span>
-                                        </td>
+                                        <td>${entry.final_odds || '-'}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -593,7 +565,7 @@ def analysis_page():
 
 @app.route('/api/fair-meadows-races')
 def get_fair_meadows_races():
-    """Get June 7, 2025 races from Fair Meadows Tulsa via TheRacingAPI"""
+    """Get June 7, 2025 race results from Fair Meadows Tulsa via TheRacingAPI"""
     try:
         # Get API credentials from environment
         base_url = os.environ.get('RACING_API_BASE_URL', 'https://api.theracingapi.com/v1')
@@ -655,18 +627,18 @@ def get_fair_meadows_races():
                 'races': []
             })
         
-        # Get entries for Fair Meadows meet
+        # Get results for Fair Meadows meet (actual race results, not entries)
         meet_id = fair_meadows_meet['meet_id']
-        entries_url = f"{base_url}/v1/north-america/meets/{meet_id}/entries"
+        results_url = f"{base_url}/v1/north-america/meets/{meet_id}/results"
         
-        entries_response = requests.get(entries_url, auth=auth)
-        entries_response.raise_for_status()
-        entries_data = entries_response.json()
+        results_response = requests.get(results_url, auth=auth)
+        results_response.raise_for_status()
+        results_data = results_response.json()
         
         
-        # Process races and entries
+        # Process races and results
         races_with_analysis = []
-        for race in entries_data.get('races', []):
+        for race in results_data.get('races', []):
             # Extract race info from actual API structure
             race_key = race.get('race_key', {})
             race_info = {
@@ -739,13 +711,14 @@ def get_fair_meadows_races():
                     'jockey': jockey_info.get('alias') or jockey_info.get('last_name') or '',
                     'trainer': trainer_info.get('alias') or trainer_info.get('last_name') or '',
                     'morning_line_odds': ml_odds_str,
-                    'score': score,
-                    'recommendation': recommendation
+                    'final_odds': final_odds_str,
+                    'finish_position': finish_position,
+                    'result': result_text
                 }
                 race_info['entries'].append(entry_info)
             
-            # Sort entries by score
-            race_info['entries'].sort(key=lambda x: x['score'], reverse=True)
+            # Sort entries by finish position
+            race_info['entries'].sort(key=lambda x: x.get('finish_position') or 999)
             races_with_analysis.append(race_info)
         
         return jsonify({
