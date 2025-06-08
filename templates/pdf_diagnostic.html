@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Parser Diagnostic</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #333; }
+        .upload-form { margin: 20px 0; padding: 20px; background: #f9f9f9; border-radius: 4px; }
+        .btn { padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn:hover { background: #45a049; }
+        .btn:disabled { background: #ccc; }
+        .results { margin-top: 20px; }
+        .section { margin: 15px 0; padding: 15px; background: #f5f5f5; border-radius: 4px; }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        pre { background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .method-card { margin: 10px 0; padding: 10px; background: white; border: 1px solid #ddd; border-radius: 4px; }
+        .confidence { font-weight: bold; }
+        .high-confidence { color: #4CAF50; }
+        .medium-confidence { color: #ff9800; }
+        .low-confidence { color: #f44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDF Parser Diagnostic Tool</h1>
+        <p>Upload an Equibase PDF to see detailed parsing diagnostics</p>
+        
+        <div class="upload-form">
+            <form id="diagnosticForm">
+                <input type="file" id="pdfFile" accept=".pdf" required>
+                <button type="submit" class="btn" id="analyzeBtn">Analyze PDF</button>
+            </form>
+        </div>
+        
+        <div id="results" class="results"></div>
+    </div>
+    
+    <script>
+    document.getElementById('diagnosticForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const fileInput = document.getElementById('pdfFile');
+        const resultsDiv = document.getElementById('results');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        
+        if (!fileInput.files || !fileInput.files[0]) {
+            alert('Please select a PDF file');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('pdf', fileInput.files[0]);
+        
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = 'Analyzing...';
+        resultsDiv.innerHTML = '<p>Processing PDF...</p>';
+        
+        try {
+            const response = await fetch('/api/parse-diagnostic', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                displayDiagnostics(data.diagnostic, data.races);
+            } else {
+                resultsDiv.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+            }
+        } catch (error) {
+            resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.textContent = 'Analyze PDF';
+        }
+    });
+    
+    function displayDiagnostics(diagnostic, races) {
+        const resultsDiv = document.getElementById('results');
+        
+        let html = `
+            <div class="section">
+                <h2>Overview</h2>
+                <p><strong>Filename:</strong> ${diagnostic.filename}</p>
+                <p><strong>Parser Type:</strong> ${diagnostic.parser_type}</p>
+                <p><strong>Races Found:</strong> ${diagnostic.races_found}</p>
+                <p><strong>Total Entries:</strong> ${diagnostic.total_entries}</p>
+            </div>
+        `;
+        
+        // Extraction methods
+        if (diagnostic.extraction_methods && diagnostic.extraction_methods.length > 0) {
+            html += '<div class="section"><h2>Extraction Methods</h2>';
+            diagnostic.extraction_methods.forEach(method => {
+                html += `
+                    <div class="method-card">
+                        <h3>${method.method}</h3>
+                        <p class="${method.success ? 'success' : 'error'}">
+                            ${method.success ? 'Success' : 'Failed'}
+                        </p>
+                        ${method.success ? `
+                            <p>Text Length: ${method.text_length || 0} characters</p>
+                            ${method.tables_found !== undefined ? `<p>Tables Found: ${method.tables_found}</p>` : ''}
+                            ${method.sample ? `<p>Sample:<pre>${escapeHtml(method.sample)}</pre></p>` : ''}
+                        ` : `
+                            <p>Error: ${method.error}</p>
+                        `}
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+        
+        // Warnings
+        if (diagnostic.warnings && diagnostic.warnings.length > 0) {
+            html += '<div class="section"><h2>Warnings</h2><ul>';
+            diagnostic.warnings.forEach(warning => {
+                html += `<li class="warning">${warning}</li>`;
+            });
+            html += '</ul></div>';
+        }
+        
+        // Confidence scores
+        if (diagnostic.confidence_scores && diagnostic.confidence_scores.length > 0) {
+            html += '<div class="section"><h2>Confidence Scores</h2>';
+            diagnostic.confidence_scores.forEach(score => {
+                const level = score.confidence > 0.8 ? 'high' : score.confidence > 0.6 ? 'medium' : 'low';
+                html += `<p>Race ${score.race}: <span class="confidence ${level}-confidence">${(score.confidence * 100).toFixed(1)}%</span></p>`;
+            });
+            html += '</div>';
+        }
+        
+        // Sample data
+        if (diagnostic.sample_data) {
+            html += `
+                <div class="section">
+                    <h2>Sample Parsed Data</h2>
+                    <h3>First Race:</h3>
+                    <pre>${JSON.stringify(diagnostic.sample_data.race, null, 2)}</pre>
+                    ${diagnostic.sample_data.sample_entry ? `
+                        <h3>First Entry:</h3>
+                        <pre>${JSON.stringify(diagnostic.sample_data.sample_entry, null, 2)}</pre>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        // Full parsed data
+        if (races && races.length > 0) {
+            html += `
+                <div class="section">
+                    <h2>Full Parsed Data</h2>
+                    <details>
+                        <summary>Click to expand (${races.length} races)</summary>
+                        <pre>${JSON.stringify(races, null, 2)}</pre>
+                    </details>
+                </div>
+            `;
+        }
+        
+        resultsDiv.innerHTML = html;
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    </script>
+</body>
+</html>

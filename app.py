@@ -7,17 +7,22 @@ import tempfile
 import requests
 from requests.auth import HTTPBasicAuth
 
-from database import Database
-from pdf_parser import EquibasePDFParser
-from analyzer import RaceAnalyzer
-from otb_scraper import OTBResultsScraper
-
 app = Flask(__name__, static_folder='static')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+from database import Database
+try:
+    from pdf_parser_advanced import EquibasePDFParser
+    logger.info("Using advanced PDF parser")
+except ImportError:
+    from pdf_parser import EquibasePDFParser
+    logger.warning("Advanced parser not available, using basic parser")
+from analyzer import RaceAnalyzer
+from otb_scraper import OTBResultsScraper
 
 # Initialize database
 db = Database(os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimple'))
@@ -649,6 +654,148 @@ def get_race_with_results(race_id):
 def analysis_page():
     """Analysis and recommendations page"""
     return render_template('analysis.html')
+
+@app.route('/pdf-diagnostic')
+def pdf_diagnostic_page():
+    """PDF parser diagnostic page"""
+    return render_template('pdf_diagnostic.html')
+
+@app.route('/api/parse-diagnostic', methods=['POST'])
+def parse_diagnostic():
+    """Diagnostic endpoint for PDF parsing with detailed feedback"""
+    try:
+        if 'pdf' not in request.files:
+            return jsonify({'success': False, 'error': 'No PDF file uploaded'}), 400
+        
+        file = request.files['pdf']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        # Save file temporarily
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
+            file.save(tmp_file.name)
+            tmp_path = tmp_file.name
+        
+        diagnostic_info = {
+            'filename': file.filename,
+            'parser_type': 'unknown',
+            'extraction_methods': [],
+            'races_found': 0,
+            'total_entries': 0,
+            'confidence_scores': [],
+            'warnings': [],
+            'sample_data': None
+        }
+        
+        try:
+            # Check which parser is being used
+            if 'pdf_parser_advanced' in str(EquibasePDFParser.__module__):
+                diagnostic_info['parser_type'] = 'advanced'
+                
+                # Get detailed parsing info if using advanced parser
+                parser = EquibasePDFParser()
+                if hasattr(parser, 'parser'):
+                    advanced_parser = parser.parser
+                    
+                    # Try each extraction method
+                    try:
+                        text = advanced_parser._extract_text_pypdf2(tmp_path)
+                        if text:
+                            diagnostic_info['extraction_methods'].append({
+                                'method': 'PyPDF2',
+                                'success': True,
+                                'text_length': len(text),
+                                'sample': text[:200]
+                            })
+                    except Exception as e:
+                        diagnostic_info['extraction_methods'].append({
+                            'method': 'PyPDF2',
+                            'success': False,
+                            'error': str(e)
+                        })
+                    
+                    try:
+                        text, tables = advanced_parser._extract_text_pdfplumber(tmp_path)
+                        if text or tables:
+                            diagnostic_info['extraction_methods'].append({
+                                'method': 'pdfplumber',
+                                'success': True,
+                                'text_length': len(text) if text else 0,
+                                'tables_found': len(tables) if tables else 0,
+                                'sample': text[:200] if text else None
+                            })
+                    except Exception as e:
+                        diagnostic_info['extraction_methods'].append({
+                            'method': 'pdfplumber',
+                            'success': False,
+                            'error': str(e)
+                        })
+            else:
+                diagnostic_info['parser_type'] = 'basic'
+            
+            # Parse the PDF
+            parser = EquibasePDFParser()
+            races = parser.parse_pdf_file(tmp_path)
+            
+            diagnostic_info['races_found'] = len(races)
+            
+            # Analyze results
+            for race in races:
+                entries = race.get('entries', [])
+                diagnostic_info['total_entries'] += len(entries)
+                
+                # Get confidence if available
+                if hasattr(race, 'confidence'):
+                    diagnostic_info['confidence_scores'].append({
+                        'race': race['race_number'],
+                        'confidence': race.confidence
+                    })
+                
+                # Check for missing data
+                if not race.get('distance'):
+                    diagnostic_info['warnings'].append(f"Race {race['race_number']}: Missing distance")
+                if not race.get('race_type'):
+                    diagnostic_info['warnings'].append(f"Race {race['race_number']}: Missing race type")
+                
+                for entry in entries[:2]:  # Check first 2 entries
+                    if not entry.get('jockey'):
+                        diagnostic_info['warnings'].append(
+                            f"Race {race['race_number']}, Entry {entry.get('program_number')}: Missing jockey"
+                        )
+                    if not entry.get('trainer'):
+                        diagnostic_info['warnings'].append(
+                            f"Race {race['race_number']}, Entry {entry.get('program_number')}: Missing trainer"
+                        )
+            
+            # Include sample of parsed data
+            if races:
+                sample_race = races[0]
+                diagnostic_info['sample_data'] = {
+                    'race': {
+                        'race_number': sample_race.get('race_number'),
+                        'distance': sample_race.get('distance'),
+                        'race_type': sample_race.get('race_type'),
+                        'entries_count': len(sample_race.get('entries', []))
+                    },
+                    'sample_entry': sample_race.get('entries', [{}])[0] if sample_race.get('entries') else None
+                }
+            
+            return jsonify({
+                'success': True,
+                'diagnostic': diagnostic_info,
+                'races': races
+            })
+            
+        finally:
+            # Clean up temp file
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
+        
+    except Exception as e:
+        logger.error(f"Parse diagnostic error: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/clear-date/<date>', methods=['DELETE'])
 def clear_date_data(date):
