@@ -609,7 +609,10 @@ def get_fair_meadows_races():
         today = datetime.now().strftime('%Y-%m-%d')
         
         # Get meets for today
-        meets_url = f"{base_url}/north-america/meets"
+        # Fix: Remove /v1 from base_url if it's included, as we'll add it in the path
+        if base_url.endswith('/v1'):
+            base_url = base_url[:-3]
+        meets_url = f"{base_url}/v1/north-america/meets"
         params = {
             'date_from': today,
             'date_to': today
@@ -636,7 +639,7 @@ def get_fair_meadows_races():
         
         # Get entries for Fair Meadows meet
         meet_id = fair_meadows_meet['meet_id']
-        entries_url = f"{base_url}/north-america/meets/{meet_id}/entries"
+        entries_url = f"{base_url}/v1/north-america/meets/{meet_id}/entries"
         entries_response = requests.get(entries_url, auth=auth)
         entries_response.raise_for_status()
         entries_data = entries_response.json()
