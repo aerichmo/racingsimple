@@ -227,7 +227,14 @@ def stall10n_complex():
             }
             
             if (!data.races || data.races.length === 0) {
-                contentDiv.innerHTML = '<div class="no-races">No Fair Meadows races scheduled for today.</div>';
+                let noRacesMsg = '<div class="no-races">';
+                noRacesMsg += data.message || 'No Fair Meadows races scheduled for today.';
+                if (data.available_tracks && data.available_tracks.length > 0) {
+                    noRacesMsg += '<br><br><strong>Available tracks today:</strong><br>';
+                    noRacesMsg += data.available_tracks.join('<br>');
+                }
+                noRacesMsg += '</div>';
+                contentDiv.innerHTML = noRacesMsg;
                 return;
             }
             
@@ -625,16 +632,24 @@ def get_fair_meadows_races():
         
         # Find Fair Meadows meet
         fair_meadows_meet = None
+        all_tracks = []
+        
         for meet in meets_data.get('meets', []):
-            if 'Fair Meadows' in meet.get('track', '') or 'FMT' in meet.get('track', ''):
+            track = meet.get('track', '')
+            all_tracks.append(track)
+            # More flexible search for Fair Meadows variations
+            if any(term in track.upper() for term in ['FAIR MEADOWS', 'FMT', 'FAIRMEADOWS', 'TULSA']):
                 fair_meadows_meet = meet
                 break
         
         if not fair_meadows_meet:
+            # Return list of all available tracks for debugging
             return jsonify({
                 'success': True,
-                'message': 'No Fair Meadows races today',
-                'races': []
+                'message': f'No Fair Meadows races found today. Available tracks: {", ".join(all_tracks)}',
+                'races': [],
+                'available_tracks': all_tracks,
+                'total_meets': len(meets_data.get('meets', []))
             })
         
         # Get entries for Fair Meadows meet
