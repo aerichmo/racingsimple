@@ -85,10 +85,10 @@ class Database:
                                     logger.warning(f"Capping {field} from {val} to 9999.9 for horse {entry_data.get('horse_name', 'unknown')}")
                                 entry_data[field] = min(val, 9999.9)
                             elif field.endswith('_pct'):
-                                # percentage fields are DECIMAL(5,2) but should be capped at 99.99 (100%)
-                                if val > 99.99:
-                                    logger.warning(f"Capping {field} from {val} to 99.99 for horse {entry_data.get('horse_name', 'unknown')}")
-                                entry_data[field] = min(val, 99.99)
+                                # percentage fields are DECIMAL(5,2) but should be capped at 99.9 to avoid rounding to 100
+                                if val > 99.9:
+                                    logger.warning(f"Capping {field} from {val} to 99.9 for horse {entry_data.get('horse_name', 'unknown')}")
+                                entry_data[field] = min(val, 99.9)
                         except (ValueError, TypeError):
                             logger.warning(f"Invalid value for {field}: {entry_data[field]}")
                             entry_data[field] = None
@@ -268,7 +268,7 @@ class Database:
                     'distance': pp.get('distance'),
                     'surface': pp.get('surface'),
                     'finish_position': pp.get('positionfi'),
-                    'beaten_lengths': min(float(pp.get('lenbackfin', 0) or 0), 999.99) if pp.get('lenbackfin') else None,
+                    'beaten_lengths': min(float(pp.get('lenbackfin', 0) or 0), 999.9) if pp.get('lenbackfin') else None,
                     'speed_figure': pp.get('speedfigur'),
                     'class_rating': pp.get('classratin'),
                     'jockey': pp.get('jockdisp'),
@@ -285,9 +285,9 @@ class Database:
             if field in analysis_data and analysis_data[field] is not None:
                 try:
                     val = float(analysis_data[field])
-                    if val > 99.99:
-                        logger.warning(f"Capping analysis {field} from {val} to 99.99 for entry_id {analysis_data.get('entry_id', 'unknown')}")
-                    analysis_data[field] = min(val, 99.99)
+                    if val > 99.9:
+                        logger.warning(f"Capping analysis {field} from {val} to 99.9 for entry_id {analysis_data.get('entry_id', 'unknown')}")
+                    analysis_data[field] = min(val, 99.9)
                 except (ValueError, TypeError):
                     logger.warning(f"Invalid value for analysis {field}: {analysis_data[field]}")
                     analysis_data[field] = 0.0
