@@ -25,7 +25,9 @@ from analyzer import RaceAnalyzer
 from otb_scraper import OTBResultsScraper
 
 # Initialize database
-db = Database(os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimple'))
+db_url = os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimple')
+logger.info(f"Database URL configured: {'Yes' if 'DATABASE_URL' in os.environ else 'No (using default)'}")
+db = Database(db_url)
 
 @app.route('/')
 def index():
@@ -839,6 +841,37 @@ def test_endpoint():
         'timestamp': datetime.now().isoformat()
     })
 
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint that also tests database connection"""
+    health_status = {
+        'server': 'ok',
+        'timestamp': datetime.now().isoformat(),
+        'database': 'unknown',
+        'pdf_parser': 'unknown'
+    }
+    
+    # Test database connection
+    try:
+        with db.get_cursor() as cur:
+            cur.execute('SELECT 1')
+            health_status['database'] = 'ok'
+    except Exception as e:
+        health_status['database'] = f'error: {str(e)}'
+    
+    # Check PDF parser
+    try:
+        from pdf_parser_advanced import AdvancedPDFParser, HAS_PDFPLUMBER, HAS_PYMUPDF
+        health_status['pdf_parser'] = {
+            'pypdf2': 'ok',
+            'pdfplumber': 'ok' if HAS_PDFPLUMBER else 'not installed',
+            'pymupdf': 'ok' if HAS_PYMUPDF else 'not installed'
+        }
+    except ImportError:
+        health_status['pdf_parser'] = 'using basic parser'
+    
+    return jsonify(health_status)
+
 @app.route('/api/fair-meadows-races')
 def get_fair_meadows_races():
     """Get June 7, 2025 races from Fair Meadows Tulsa via TheRacingAPI"""
@@ -1017,13 +1050,14 @@ def get_fair_meadows_races():
         logger.error(f"Fair Meadows races error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# Initialize database tables on startup
+try:
+    db.create_tables()
+    logger.info("Database tables created/verified successfully")
+except Exception as e:
+    logger.error(f"Database initialization error: {e}", exc_info=True)
+    logger.error("Application will continue but database operations may fail")
+
 if __name__ == '__main__':
-    # Initialize database on startup
-    try:
-        db.create_tables()
-        logger.info("Database tables verified")
-    except Exception as e:
-        logger.error(f"Database startup error: {e}")
-    
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)

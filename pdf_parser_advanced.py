@@ -9,9 +9,22 @@ from typing import List, Dict, Optional, Tuple, Any
 from dataclasses import dataclass, field
 from enum import Enum
 import PyPDF2
-import pdfplumber
-import fitz  # PyMuPDF
 from collections import defaultdict
+
+# Try to import optional packages
+try:
+    import pdfplumber
+    HAS_PDFPLUMBER = True
+except ImportError:
+    HAS_PDFPLUMBER = False
+    logging.warning("pdfplumber not available, some parsing features will be limited")
+
+try:
+    import fitz  # PyMuPDF
+    HAS_PYMUPDF = True
+except ImportError:
+    HAS_PYMUPDF = False
+    logging.warning("PyMuPDF not available, some parsing features will be limited")
 
 logger = logging.getLogger(__name__)
 
@@ -136,32 +149,38 @@ class AdvancedPDFParser:
             logger.warning(f"PyPDF2 extraction failed: {e}", exc_info=True)
         
         # Method 2: pdfplumber (better for tables)
-        try:
-            text_plumber, tables = self._extract_text_pdfplumber(pdf_path)
-            logger.info(f"pdfplumber extracted {len(text_plumber) if text_plumber else 0} characters, {len(tables) if tables else 0} tables")
-            if text_plumber:
-                all_texts.append(text_plumber)
-                
-            if text_plumber or tables:
-                races = self._parse_with_tables(text_plumber, tables, ExtractionMethod.PDFPLUMBER)
-                logger.info(f"pdfplumber found {len(races)} races")
-                if races:
-                    all_extractions.append((races, self._calculate_extraction_confidence(races)))
-        except Exception as e:
-            logger.warning(f"pdfplumber extraction failed: {e}", exc_info=True)
+        if HAS_PDFPLUMBER:
+            try:
+                text_plumber, tables = self._extract_text_pdfplumber(pdf_path)
+                logger.info(f"pdfplumber extracted {len(text_plumber) if text_plumber else 0} characters, {len(tables) if tables else 0} tables")
+                if text_plumber:
+                    all_texts.append(text_plumber)
+                    
+                if text_plumber or tables:
+                    races = self._parse_with_tables(text_plumber, tables, ExtractionMethod.PDFPLUMBER)
+                    logger.info(f"pdfplumber found {len(races)} races")
+                    if races:
+                        all_extractions.append((races, self._calculate_extraction_confidence(races)))
+            except Exception as e:
+                logger.warning(f"pdfplumber extraction failed: {e}", exc_info=True)
+        else:
+            logger.info("Skipping pdfplumber extraction (not installed)")
         
         # Method 3: PyMuPDF (handles complex layouts)
-        try:
-            text_mupdf, blocks = self._extract_text_pymupdf(pdf_path)
-            logger.info(f"PyMuPDF extracted {len(text_mupdf) if text_mupdf else 0} characters, {len(blocks) if blocks else 0} blocks")
-            if text_mupdf:
-                all_texts.append(text_mupdf)
-                races = self._parse_with_blocks(text_mupdf, blocks, ExtractionMethod.PYMUPDF)
-                logger.info(f"PyMuPDF found {len(races)} races")
-                if races:
-                    all_extractions.append((races, self._calculate_extraction_confidence(races)))
-        except Exception as e:
-            logger.warning(f"PyMuPDF extraction failed: {e}", exc_info=True)
+        if HAS_PYMUPDF:
+            try:
+                text_mupdf, blocks = self._extract_text_pymupdf(pdf_path)
+                logger.info(f"PyMuPDF extracted {len(text_mupdf) if text_mupdf else 0} characters, {len(blocks) if blocks else 0} blocks")
+                if text_mupdf:
+                    all_texts.append(text_mupdf)
+                    races = self._parse_with_blocks(text_mupdf, blocks, ExtractionMethod.PYMUPDF)
+                    logger.info(f"PyMuPDF found {len(races)} races")
+                    if races:
+                        all_extractions.append((races, self._calculate_extraction_confidence(races)))
+            except Exception as e:
+                logger.warning(f"PyMuPDF extraction failed: {e}", exc_info=True)
+        else:
+            logger.info("Skipping PyMuPDF extraction (not installed)")
         
         # Choose best extraction based on confidence
         if all_extractions:
@@ -198,6 +217,9 @@ class AdvancedPDFParser:
     
     def _extract_text_pdfplumber(self, pdf_path: str) -> Tuple[str, List[Any]]:
         """Extract text and tables using pdfplumber"""
+        if not HAS_PDFPLUMBER:
+            return "", []
+            
         text = ""
         all_tables = []
         
@@ -216,6 +238,9 @@ class AdvancedPDFParser:
     
     def _extract_text_pymupdf(self, pdf_path: str) -> Tuple[str, List[Any]]:
         """Extract text and layout blocks using PyMuPDF"""
+        if not HAS_PYMUPDF:
+            return "", []
+            
         text = ""
         all_blocks = []
         
