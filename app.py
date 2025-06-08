@@ -344,24 +344,26 @@ def upload_page():
 
 @app.route('/api/upload', methods=['POST'])
 def upload_pdf():
-    """Handle PDF upload and processing"""
+    """Handle PDF/XML upload and processing"""
     try:
         if 'pdf' not in request.files:
-            return jsonify({'success': False, 'error': 'No PDF file uploaded'}), 400
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
         
         file = request.files['pdf']
         if file.filename == '':
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
-        if not file.filename.lower().endswith('.pdf'):
-            return jsonify({'success': False, 'error': 'File must be a PDF'}), 400
+        filename_lower = file.filename.lower()
+        if not (filename_lower.endswith('.pdf') or filename_lower.endswith('.xml')):
+            return jsonify({'success': False, 'error': 'File must be a PDF or XML file'}), 400
         
         # Save file temporarily
-        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
+        suffix = '.xml' if filename_lower.endswith('.xml') else '.pdf'
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
             file.save(tmp_file.name)
             tmp_path = tmp_file.name
         
-        # Parse the PDF
+        # Parse the file
         parser = EquibasePDFParser()
         races = parser.parse_pdf_file(tmp_path)
         
@@ -445,24 +447,26 @@ def upload_pdf():
 
 @app.route('/api/upload-and-analyze', methods=['POST'])
 def upload_and_analyze():
-    """Handle PDF upload, processing, and return full analysis data"""
+    """Handle PDF/XML upload, processing, and return full analysis data"""
     try:
         if 'pdf' not in request.files:
-            return jsonify({'success': False, 'error': 'No PDF file uploaded'}), 400
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
         
         file = request.files['pdf']
         if file.filename == '':
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
-        if not file.filename.lower().endswith('.pdf'):
-            return jsonify({'success': False, 'error': 'File must be a PDF'}), 400
+        filename_lower = file.filename.lower()
+        if not (filename_lower.endswith('.pdf') or filename_lower.endswith('.xml')):
+            return jsonify({'success': False, 'error': 'File must be a PDF or XML file'}), 400
         
         # Save file temporarily
-        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
+        suffix = '.xml' if filename_lower.endswith('.xml') else '.pdf'
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
             file.save(tmp_file.name)
             tmp_path = tmp_file.name
         
-        # Parse the PDF
+        # Parse the file
         parser = EquibasePDFParser()
         races = parser.parse_pdf_file(tmp_path)
         
@@ -684,17 +688,19 @@ def pdf_diagnostic_page():
 
 @app.route('/api/parse-diagnostic', methods=['POST'])
 def parse_diagnostic():
-    """Diagnostic endpoint for PDF parsing with detailed feedback"""
+    """Diagnostic endpoint for PDF/XML parsing with detailed feedback"""
     try:
         if 'pdf' not in request.files:
-            return jsonify({'success': False, 'error': 'No PDF file uploaded'}), 400
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
         
         file = request.files['pdf']
         if file.filename == '':
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
         # Save file temporarily
-        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
+        filename_lower = file.filename.lower()
+        suffix = '.xml' if filename_lower.endswith('.xml') else '.pdf'
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
             file.save(tmp_file.name)
             tmp_path = tmp_file.name
         
