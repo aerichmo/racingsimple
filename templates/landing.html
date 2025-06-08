@@ -3,108 +3,188 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stall10n - Choose Your Experience</title>
+    <title>STALL10N</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            background: #1a1a1a;
-            color: white;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #ffffff;
+            color: #333;
+            line-height: 1.6;
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-        }
-        .container {
-            max-width: 1200px;
-            width: 100%;
             padding: 20px;
         }
-        h1 {
+        
+        .container {
+            max-width: 600px;
+            width: 100%;
             text-align: center;
-            font-size: 3rem;
+            padding: 40px 20px;
+        }
+        
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #333;
             margin-bottom: 3rem;
-            font-weight: 300;
-            letter-spacing: 2px;
+            letter-spacing: 3px;
         }
-        .choices {
+        
+        .product-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 3rem;
-            max-width: 900px;
-            margin: 0 auto;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            margin-bottom: 3rem;
         }
-        .choice {
-            position: relative;
-            overflow: hidden;
+        
+        .product-card {
+            background: #f8f8f8;
             border-radius: 12px;
+            overflow: hidden;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             cursor: pointer;
-        }
-        .choice:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-        }
-        .choice img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-        .choice-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
-            padding: 2rem;
-            transform: translateY(20px);
-            transition: transform 0.3s ease;
-        }
-        .choice:hover .choice-overlay {
-            transform: translateY(0);
-        }
-        .choice-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        .choice-description {
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-        a {
             text-decoration: none;
             color: inherit;
         }
-        @media (max-width: 900px) {
-            .choices {
+        
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .product-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #e0e0e0;
+        }
+        
+        .product-info {
+            padding: 1.5rem;
+        }
+        
+        .product-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        .product-description {
+            font-size: 0.875rem;
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+        
+        .feature {
+            text-align: center;
+            padding: 1rem;
+        }
+        
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 1rem;
+            background: #f0f0f0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        
+        .feature-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        .feature-description {
+            font-size: 0.75rem;
+            color: #666;
+            line-height: 1.4;
+        }
+        
+        @media (max-width: 768px) {
+            .product-grid {
                 grid-template-columns: 1fr;
-                gap: 2rem;
             }
-            h1 {
+            
+            .features {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .logo {
                 font-size: 2rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px 10px;
+            }
+            
+            .product-image {
+                height: 150px;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>STALL10N</h1>
-        <div class="choices">
-            <a href="/stall10nsimple" class="choice">
-                <img src="{{ url_for('static', filename='images/simple.png') }}" alt="Stall10n Simple">
-                <div class="choice-overlay">
-                    <div class="choice-title">Simple</div>
-                    <div class="choice-description">Quick PDF analysis for race insights</div>
+        <h1 class="logo">STALL10N</h1>
+        
+        <div class="product-grid">
+            <a href="/stall10nsimple" class="product-card">
+                <img src="{{ url_for('static', filename='images/simple.png') }}" alt="Simple" class="product-image">
+                <div class="product-info">
+                    <h2 class="product-title">SIMPLE</h2>
+                    <p class="product-description">Quick PDF analysis for instant race insights</p>
                 </div>
             </a>
-            <a href="/stall10ncomplex" class="choice">
-                <img src="{{ url_for('static', filename='images/complex.png') }}" alt="Stall10n Complex">
-                <div class="choice-overlay">
-                    <div class="choice-title">Complex</div>
-                    <div class="choice-description">Advanced analytics coming soon</div>
+            
+            <a href="/stall10ncomplex" class="product-card">
+                <img src="{{ url_for('static', filename='images/complex.png') }}" alt="Complex" class="product-image">
+                <div class="product-info">
+                    <h2 class="product-title">COMPLEX</h2>
+                    <p class="product-description">Advanced analytics and deep insights</p>
                 </div>
             </a>
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <h3 class="feature-title">Data Analysis</h3>
+                <p class="feature-description">Comprehensive race data processing</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <h3 class="feature-title">Fast Results</h3>
+                <p class="feature-description">Instant analysis and recommendations</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🎯</div>
+                <h3 class="feature-title">Accurate Picks</h3>
+                <p class="feature-description">Data-driven selection strategies</p>
+            </div>
         </div>
     </div>
 </body>
