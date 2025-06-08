@@ -227,23 +227,7 @@ def stall10n_complex():
             }
             
             if (!data.races || data.races.length === 0) {
-                let noRacesMsg = '<div class="no-races">';
-                noRacesMsg += data.message || 'No Fair Meadows races scheduled for today.';
-                if (data.debug_info) {
-                    noRacesMsg += '<br><br><strong>Debug Info:</strong> ' + data.debug_info;
-                }
-                if (data.debug_entries) {
-                    noRacesMsg += '<br><br><strong>Entries API Response:</strong><pre>' + JSON.stringify(data.debug_entries, null, 2) + '</pre>';
-                }
-                if (data.sample_meet) {
-                    noRacesMsg += '<br><br><strong>Sample meet data:</strong><pre>' + JSON.stringify(data.sample_meet, null, 2) + '</pre>';
-                }
-                if (data.available_tracks && data.available_tracks.length > 0) {
-                    noRacesMsg += '<br><br><strong>Available tracks today:</strong><br>';
-                    noRacesMsg += data.available_tracks.join('<br>');
-                }
-                noRacesMsg += '</div>';
-                contentDiv.innerHTML = noRacesMsg;
+                contentDiv.innerHTML = '<div class="no-races">No Fair Meadows races scheduled for today.</div>';
                 return;
             }
             
@@ -609,138 +593,6 @@ def analysis_page():
     return render_template('analysis.html')
 
 
-@app.route('/api/debug-fmt-entries')
-def debug_fmt_entries():
-    """Debug endpoint to test Fair Meadows entries"""
-    try:
-        base_url = os.environ.get('RACING_API_BASE_URL', 'https://api.theracingapi.com/v1')
-        username = os.environ.get('RACING_API_USERNAME')
-        password = os.environ.get('RACING_API_PASSWORD')
-        
-        if not username or not password:
-            return jsonify({'success': False, 'error': 'API credentials not configured'})
-        
-        # Remove /v1 if present
-        if base_url.endswith('/v1'):
-            base_url = base_url[:-3]
-            
-        # Use the exact meet_id from the debug output
-        meet_id = "FMT_1749268800000"
-        entries_url = f"{base_url}/v1/north-america/meets/{meet_id}/entries"
-        
-        auth = HTTPBasicAuth(username, password)
-        
-        try:
-            response = requests.get(entries_url, auth=auth, timeout=10)
-            
-            debug_info = {
-                'url': entries_url,
-                'status_code': response.status_code,
-                'headers': dict(response.headers)
-            }
-            
-            if response.status_code == 200:
-                data = response.json()
-                debug_info['response'] = {
-                    'type': str(type(data)),
-                    'keys': list(data.keys()) if isinstance(data, dict) else 'Not a dict',
-                    'data': data
-                }
-            else:
-                debug_info['error'] = {
-                    'status_code': response.status_code,
-                    'text': response.text[:500]
-                }
-                
-        except requests.exceptions.RequestException as e:
-            debug_info = {'request_error': str(e)}
-            
-        return jsonify({
-            'success': True,
-            'debug': debug_info
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
-
-@app.route('/api/debug-racing-api')
-def debug_racing_api():
-    """Debug endpoint to test TheRacingAPI connection"""
-    try:
-        base_url = os.environ.get('RACING_API_BASE_URL', 'https://api.theracingapi.com/v1')
-        username = os.environ.get('RACING_API_USERNAME')
-        password = os.environ.get('RACING_API_PASSWORD')
-        
-        debug_info = {
-            'credentials_present': {
-                'username': bool(username),
-                'password': bool(password),
-                'base_url': base_url
-            }
-        }
-        
-        if not username or not password:
-            return jsonify({
-                'success': False,
-                'error': 'API credentials not configured',
-                'debug': debug_info
-            })
-        
-        # Test basic API connection
-        if base_url.endswith('/v1'):
-            base_url = base_url[:-3]
-            
-        # Try a simple request to test authentication
-        test_url = f"{base_url}/v1/north-america/meets"
-        test_params = {
-            'start_date': '2025-06-07',
-            'end_date': '2025-06-07'
-        }
-        
-        auth = HTTPBasicAuth(username, password)
-        
-        # Make request with detailed error handling
-        try:
-            response = requests.get(test_url, params=test_params, auth=auth, timeout=10)
-            debug_info['request'] = {
-                'url': test_url,
-                'params': test_params,
-                'status_code': response.status_code,
-                'headers': dict(response.headers)
-            }
-            
-            if response.status_code == 200:
-                data = response.json()
-                debug_info['response'] = {
-                    'type': str(type(data)),
-                    'is_list': isinstance(data, list),
-                    'length': len(data) if isinstance(data, list) else 'N/A',
-                    'sample': data[:2] if isinstance(data, list) and len(data) > 0 else data
-                }
-            else:
-                debug_info['error'] = {
-                    'status_code': response.status_code,
-                    'text': response.text[:500]
-                }
-                
-        except requests.exceptions.RequestException as e:
-            debug_info['request_error'] = str(e)
-            
-        return jsonify({
-            'success': True,
-            'debug': debug_info
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'type': str(type(e))
-        })
-
 @app.route('/api/fair-meadows-races')
 def get_fair_meadows_races():
     """Get today's races from Fair Meadows Tulsa via TheRacingAPI"""
@@ -759,8 +611,6 @@ def get_fair_meadows_races():
         end_date = (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
         today = datetime.now().strftime('%Y-%m-%d')
         
-        # Log the dates being used
-        logger.info(f"Searching for meets from {start_date} to {end_date}")
         
         # Get meets for date range
         # Fix: Remove /v1 from base_url if it's included, as we'll add it in the path
@@ -772,14 +622,12 @@ def get_fair_meadows_races():
             'end_date': end_date
         }
         
-        logger.info(f"Requesting meets from {meets_url} with params: {params}")
         
         auth = HTTPBasicAuth(username, password)
         meets_response = requests.get(meets_url, params=params, auth=auth)
         meets_response.raise_for_status()
         meets_data = meets_response.json()
         
-        logger.info(f"API Response type: {type(meets_data)}, Content preview: {str(meets_data)[:200]}")
         
         # The API response has meets in a 'meets' array
         if isinstance(meets_data, dict) and 'meets' in meets_data:
@@ -791,20 +639,12 @@ def get_fair_meadows_races():
         
         # Find Fair Meadows meet
         fair_meadows_meet = None
-        all_tracks = []
         
-        # Log the structure to understand the API response
-        logger.info(f"Total meets found: {len(meets_list)}")
-        if meets_list and len(meets_list) > 0:
-            logger.info(f"First meet structure: {meets_list[0]}")
         
         for meet in meets_list:
             # Based on actual API response: track_id, track_name, meet_id, date, country
             track_id = meet.get('track_id', '')
-            track_name = meet.get('track_name', '')
             
-            # Store track info for debugging
-            all_tracks.append(f"{track_id} - {track_name}")
             
             # Check for FMT (Fair Meadows Tulsa)
             if track_id == 'FMT':
@@ -812,24 +652,15 @@ def get_fair_meadows_races():
                 break
         
         if not fair_meadows_meet:
-            # Return list of all available tracks for debugging
-            # Also return first meet to see structure
-            sample_meet = meets_list[0] if meets_list else None
             return jsonify({
                 'success': True,
-                'message': f'No Fair Meadows races found. Searched dates: {start_date} to {end_date}. Total meets: {len(meets_list)}',
-                'races': [],
-                'available_tracks': all_tracks,
-                'total_meets': len(meets_list),
-                'sample_meet': sample_meet,
-                'debug_info': f'First meet keys: {list(sample_meet.keys()) if sample_meet else "No meets"}',
-                'dates_checked': f'{start_date} to {end_date}'
+                'message': 'No Fair Meadows races found',
+                'races': []
             })
         
         # Get entries for Fair Meadows meet
         meet_id = fair_meadows_meet['meet_id']
         entries_url = f"{base_url}/v1/north-america/meets/{meet_id}/entries"
-        logger.info(f"Fetching entries from: {entries_url}")
         
         entries_response = requests.get(entries_url, auth=auth)
         entries_response.raise_for_status()
