@@ -21,9 +21,19 @@ db = Database(os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimpl
 
 @app.route('/')
 def index():
-    """Home page showing today's races and top plays"""
+    """Redirect to stall10nsimple"""
+    return redirect('/stall10nsimple')
+
+@app.route('/stall10nsimple')
+def stall10n_simple():
+    """Stall10n Simple - PDF analysis page"""
     today = datetime.now().date()
     return render_template('index.html', today=today)
+
+@app.route('/stall10ncomplex')
+def stall10n_complex():
+    """Stall10n Complex - placeholder page"""
+    return "Hello World"
 
 @app.route('/upload')
 def upload_page():
