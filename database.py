@@ -268,7 +268,8 @@ class Database:
                     'distance': pp.get('distance'),
                     'surface': pp.get('surface'),
                     'finish_position': pp.get('positionfi'),
-                    'beaten_lengths': min(float(pp.get('lenbackfin', 0) or 0), 999.9) if pp.get('lenbackfin') else None,
+                    # beaten_lengths in XML is in hundredths (e.g., 1300 = 13.00 lengths)
+                    'beaten_lengths': min(float(pp.get('lenbackfin', 0) or 0) / 100, 999.9) if pp.get('lenbackfin') else None,
                     'speed_figure': pp.get('speedfigur'),
                     'class_rating': pp.get('classratin'),
                     'jockey': pp.get('jockdisp'),
