@@ -131,6 +131,125 @@ def upload_pdf():
         logger.error(f"Upload error: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/upload-and-analyze', methods=['POST'])
+def upload_and_analyze():
+    """Handle PDF upload, processing, and return full analysis data"""
+    try:
+        if 'pdf' not in request.files:
+            return jsonify({'success': False, 'error': 'No PDF file uploaded'}), 400
+        
+        file = request.files['pdf']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.pdf'):
+            return jsonify({'success': False, 'error': 'File must be a PDF'}), 400
+        
+        # Save file temporarily
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
+            file.save(tmp_file.name)
+            tmp_path = tmp_file.name
+        
+        # Parse the PDF
+        parser = EquibasePDFParser()
+        races = parser.parse_pdf_file(tmp_path)
+        
+        # Clean up temp file
+        try:
+            os.unlink(tmp_path)
+        except:
+            pass
+        
+        if not races:
+            return jsonify({'success': False, 'error': 'No races found in PDF'}), 400
+        
+        # Save to database and analyze
+        analyzer = RaceAnalyzer()
+        total_entries = 0
+        analysis_results = []
+        
+        for race in races:
+            # Save race
+            race_data = {
+                'date': race['race_date'],
+                'race_number': race['race_number'],
+                'track_name': race['track'],
+                'distance': race.get('distance'),
+                'race_type': race.get('race_type'),
+                'purse': race.get('purse'),
+                'post_time': race.get('post_time'),
+                'surface': race.get('surface', 'Dirt'),
+                'pdf_filename': secure_filename(file.filename)
+            }
+            race_id = db.save_race(race_data)
+            
+            # Prepare race analysis data
+            race_analysis = {
+                'race_id': race_id,
+                'race_number': race['race_number'],
+                'track_name': race['track'],
+                'distance': race.get('distance'),
+                'race_type': race.get('race_type'),
+                'purse': race.get('purse'),
+                'post_time': race.get('post_time'),
+                'entries': []
+            }
+            
+            # Save and analyze entries
+            for entry in race['entries']:
+                entry_data = {
+                    'race_id': race_id,
+                    'program_number': entry['program_number'],
+                    'post_position': entry.get('post_position', entry['program_number']),
+                    'horse_name': entry['horse_name'],
+                    'jockey': entry.get('jockey'),
+                    'trainer': entry.get('trainer'),
+                    'win_pct': entry.get('win_pct'),
+                    'class_rating': entry.get('class_rating'),
+                    'last_speed': entry.get('last_speed'),
+                    'avg_speed': entry.get('avg_speed'),
+                    'best_speed': entry.get('best_speed'),
+                    'jockey_win_pct': entry.get('jockey_win_pct'),
+                    'trainer_win_pct': entry.get('trainer_win_pct'),
+                    'jt_combo_pct': entry.get('jt_combo_pct')
+                }
+                entry_id = db.save_entry(entry_data)
+                
+                # Analyze
+                analysis = analyzer.analyze_entry(entry_data)
+                analysis['entry_id'] = entry_id
+                db.save_analysis(analysis)
+                
+                # Add to race entries with analysis
+                entry_with_analysis = {
+                    **entry_data,
+                    'overall_score': analysis['overall_score'],
+                    'speed_score': analysis['speed_score'],
+                    'class_score': analysis['class_score'],
+                    'jockey_score': analysis['jockey_score'],
+                    'trainer_score': analysis['trainer_score'],
+                    'recommendation': analysis['recommendation'],
+                    'confidence': analysis['confidence']
+                }
+                race_analysis['entries'].append(entry_with_analysis)
+                
+                total_entries += 1
+            
+            # Sort entries by score
+            race_analysis['entries'].sort(key=lambda x: x['overall_score'], reverse=True)
+            analysis_results.append(race_analysis)
+        
+        return jsonify({
+            'success': True,
+            'races_count': len(races),
+            'entries_count': total_entries,
+            'analysis': analysis_results
+        })
+        
+    except Exception as e:
+        logger.error(f"Upload and analyze error: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/races/<date>')
 def get_races(date):
     """Get races for a specific date"""

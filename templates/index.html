@@ -1,106 +1,231 @@
-{% extends "base.html" %}
-
-{% block title %}Racing Simple - Home{% endblock %}
-
-{% block content %}
-<div class="header-section">
-    <h1>Racing Simple</h1>
-    <p>Upload Equibase PDFs → Get Analysis → Find Best Plays</p>
-</div>
-
-<div class="quick-actions">
-    <a href="/upload" class="btn btn-primary">Upload PDF</a>
-    <a href="/analysis" class="btn btn-secondary">View Analysis</a>
-</div>
-
-<div class="races-section">
-    <h2>Today's Races - {{ today.strftime('%B %d, %Y') }}</h2>
-    <div id="races-container">
-        <p class="loading">Loading races...</p>
-    </div>
-</div>
-
-<div class="top-plays-section">
-    <h2>Top Plays</h2>
-    <div id="top-plays">
-        <p class="loading">Loading recommendations...</p>
-    </div>
-</div>
-
-<script>
-// Load today's races
-async function loadRaces() {
-    const container = document.getElementById('races-container');
-    const today = '{{ today }}';
-    
-    try {
-        const response = await fetch(`/api/races/${today}`);
-        const data = await response.json();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Racing Simple - PDF Analysis</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         
-        if (data.success && data.races.length > 0) {
-            container.innerHTML = data.races.map(race => `
-                <div class="race-card">
-                    <h3>Race ${race.race_number} - ${race.post_time || 'TBA'}</h3>
-                    <p>${race.distance || 'Distance TBA'} | ${race.race_type || 'Type TBA'} | Purse: $${race.purse || 'TBA'}</p>
-                    <p>${race.horse_count} horses entered</p>
-                    <button onclick="viewRace(${race.id})" class="btn btn-small">View Entries</button>
+        .header { text-align: center; margin-bottom: 2rem; }
+        .header h1 { color: #1a1a1a; margin-bottom: 0.5rem; }
+        .header p { color: #666; }
+        
+        .upload-section { background: white; padding: 2rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .upload-form { display: flex; gap: 1rem; align-items: end; }
+        .form-group { flex: 1; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        .form-group input { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; }
+        
+        .btn { padding: 0.5rem 1.5rem; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+        .btn-primary { background: #4CAF50; color: white; }
+        .btn-primary:hover { background: #45a049; }
+        .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .status { margin-top: 1rem; padding: 1rem; border-radius: 4px; display: none; }
+        .status.success { background: #e8f5e9; color: #1b5e20; display: block; }
+        .status.error { background: #ffebee; color: #b71c1c; display: block; }
+        .status.loading { background: #e3f2fd; color: #0d47a1; display: block; }
+        
+        .analysis-section { margin-top: 2rem; }
+        .race-card { background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .race-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid #f0f0f0; }
+        .race-info { color: #666; font-size: 0.9rem; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f0f0f0; padding: 0.75rem; text-align: left; font-weight: 600; }
+        td { padding: 0.75rem; border-bottom: 1px solid #eee; }
+        tr:hover { background: #f9f9f9; }
+        
+        .horse-name { font-weight: bold; }
+        .trainer { font-size: 0.85rem; color: #666; }
+        .score { font-weight: bold; font-size: 1.1rem; }
+        
+        .badge { padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: bold; }
+        .strong-play { background: #4CAF50; color: white; }
+        .play { background: #2196F3; color: white; }
+        .consider { background: #FF9800; color: white; }
+        .pass { background: #9E9E9E; color: white; }
+        
+        tr.highlight-strong { background: #e8f5e9; }
+        tr.highlight-play { background: #e3f2fd; }
+        tr.highlight-consider { background: #fff3e0; }
+        
+        .summary { background: #f0f7ff; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .summary h3 { margin-bottom: 0.5rem; }
+        .top-plays { display: flex; gap: 1rem; flex-wrap: wrap; }
+        .top-play { background: white; padding: 0.5rem 1rem; border-radius: 4px; border: 2px solid #4CAF50; }
+        
+        .no-data { text-align: center; padding: 3rem; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Racing Simple</h1>
+            <p>Upload Equibase PDF → Get Instant Analysis</p>
+        </div>
+        
+        <div class="upload-section">
+            <form id="uploadForm" class="upload-form">
+                <div class="form-group">
+                    <label for="pdfFile">Select Equibase PDF:</label>
+                    <input type="file" id="pdfFile" name="pdf" accept=".pdf" required>
                 </div>
-            `).join('');
-        } else {
-            container.innerHTML = '<p class="no-data">No races for today. <a href="/upload">Upload a PDF</a> to get started.</p>';
-        }
-    } catch (error) {
-        container.innerHTML = '<p class="error">Error loading races</p>';
-    }
-}
-
-// Load top plays
-async function loadTopPlays() {
-    const container = document.getElementById('top-plays');
-    
-    try {
-        const response = await fetch('/api/top-plays');
-        const data = await response.json();
+                <button type="submit" class="btn btn-primary" id="uploadBtn">Analyze PDF</button>
+            </form>
+            
+            <div id="status" class="status"></div>
+        </div>
         
-        if (data.success && data.plays.length > 0) {
-            container.innerHTML = `
-                <table class="plays-table">
+        <div id="analysis" class="analysis-section"></div>
+    </div>
+    
+    <script>
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const fileInput = document.getElementById('pdfFile');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const statusDiv = document.getElementById('status');
+        const analysisDiv = document.getElementById('analysis');
+        
+        if (!fileInput.files || !fileInput.files[0]) {
+            alert('Please select a PDF file');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('pdf', fileInput.files[0]);
+        
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = 'Analyzing...';
+        statusDiv.className = 'status loading';
+        statusDiv.textContent = 'Processing PDF and analyzing races...';
+        analysisDiv.innerHTML = '';
+        
+        try {
+            const response = await fetch('/api/upload-and-analyze', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                statusDiv.className = 'status success';
+                statusDiv.textContent = `Success! Analyzed ${data.races_count} races with ${data.entries_count} horses.`;
+                
+                // Display full analysis
+                displayAnalysis(data.analysis);
+                
+                // Clear file input for next upload
+                fileInput.value = '';
+            } else {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `Error: ${data.error}`;
+            }
+        } catch (error) {
+            statusDiv.className = 'status error';
+            statusDiv.textContent = `Error: ${error.message}`;
+        } finally {
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Analyze PDF';
+        }
+    });
+    
+    function displayAnalysis(analysis) {
+        const analysisDiv = document.getElementById('analysis');
+        
+        if (!analysis || analysis.length === 0) {
+            analysisDiv.innerHTML = '<div class="no-data">No race data found</div>';
+            return;
+        }
+        
+        // Find top plays across all races
+        const allPlays = [];
+        analysis.forEach(race => {
+            race.entries.forEach(entry => {
+                if (entry.overall_score >= 70) {
+                    allPlays.push({
+                        race_number: race.race_number,
+                        ...entry
+                    });
+                }
+            });
+        });
+        
+        // Show summary if we have top plays
+        if (allPlays.length > 0) {
+            const topPlays = allPlays.sort((a, b) => b.overall_score - a.overall_score).slice(0, 5);
+            analysisDiv.innerHTML = `
+                <div class="summary">
+                    <h3>Top Plays:</h3>
+                    <div class="top-plays">
+                        ${topPlays.map(play => 
+                            `<div class="top-play">R${play.race_number} - #${play.program_number} ${play.horse_name} (${play.overall_score.toFixed(1)})</div>`
+                        ).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Display each race
+        analysis.forEach(race => {
+            const raceDiv = document.createElement('div');
+            raceDiv.className = 'race-card';
+            
+            raceDiv.innerHTML = `
+                <div class="race-header">
+                    <div>
+                        <h2>Race ${race.race_number}</h2>
+                        <div class="race-info">${race.distance || 'Distance TBA'} | ${race.race_type || 'Type TBA'} | Purse: $${race.purse || 'TBA'} | Post: ${race.post_time || 'TBA'}</div>
+                    </div>
+                    <div class="race-info">${race.track_name}</div>
+                </div>
+                
+                <table>
                     <thead>
                         <tr>
-                            <th>Race</th>
+                            <th>Pgm</th>
                             <th>Horse</th>
+                            <th>Jockey / Trainer</th>
+                            <th>Win%</th>
+                            <th>Speed (L/A/B)</th>
+                            <th>Class</th>
                             <th>Score</th>
                             <th>Recommendation</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${data.plays.map(play => `
-                            <tr class="${play.recommendation.toLowerCase().replace(' ', '-')}">
-                                <td>R${play.race_number}</td>
-                                <td>${play.horse_name}</td>
-                                <td>${play.overall_score.toFixed(1)}</td>
-                                <td><span class="badge">${play.recommendation}</span></td>
+                        ${race.entries.map(entry => `
+                            <tr class="${entry.recommendation ? 'highlight-' + entry.recommendation.toLowerCase().replace(' ', '-') : ''}">
+                                <td>${entry.program_number}</td>
+                                <td class="horse-name">${entry.horse_name}</td>
+                                <td>
+                                    <div>${entry.jockey || '-'}</div>
+                                    <div class="trainer">${entry.trainer || '-'}</div>
+                                </td>
+                                <td>${entry.win_pct ? entry.win_pct + '%' : '-'}</td>
+                                <td>${entry.last_speed || '-'} / ${entry.avg_speed || '-'} / ${entry.best_speed || '-'}</td>
+                                <td>${entry.class_rating || '-'}</td>
+                                <td class="score">${entry.overall_score ? entry.overall_score.toFixed(1) : '-'}</td>
+                                <td>
+                                    ${entry.recommendation ? 
+                                        `<span class="badge ${entry.recommendation.toLowerCase().replace(' ', '-')}">${entry.recommendation}</span>` 
+                                        : '-'}
+                                </td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
             `;
-        } else {
-            container.innerHTML = '<p class="no-data">No recommendations yet. Upload race data to see analysis.</p>';
-        }
-    } catch (error) {
-        container.innerHTML = '<p class="error">Error loading recommendations</p>';
+            
+            analysisDiv.appendChild(raceDiv);
+        });
     }
-}
-
-function viewRace(raceId) {
-    window.location.href = `/analysis#race-${raceId}`;
-}
-
-// Load data on page load
-document.addEventListener('DOMContentLoaded', () => {
-    loadRaces();
-    loadTopPlays();
-});
-</script>
-{% endblock %}
+    </script>
+</body>
+</html>
