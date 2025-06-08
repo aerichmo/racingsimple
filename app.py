@@ -285,7 +285,6 @@ def stall10n_complex():
                                     <th>Horse</th>
                                     <th>Jockey / Trainer</th>
                                     <th>ML Odds</th>
-                                    <th>Form</th>
                                     <th>Score</th>
                                     <th>Recommendation</th>
                                 </tr>
@@ -296,11 +295,10 @@ def stall10n_complex():
                                         <td>${entry.post_position}</td>
                                         <td class="horse-name">${entry.horse_name}</td>
                                         <td>
-                                            <div>${entry.jockey || '-'}</div>
-                                            <div style="font-size: 0.85rem; color: #666;">${entry.trainer || '-'}</div>
+                                            <div>${entry.jockey || ''}</div>
+                                            <div style="font-size: 0.85rem; color: #666;">${entry.trainer || ''}</div>
                                         </td>
                                         <td>${entry.morning_line_odds || '-'}</td>
-                                        <td>${entry.recent_form || '-'}</td>
                                         <td class="score">${entry.score}</td>
                                         <td>
                                             <span class="badge ${entry.recommendation.toLowerCase().replace(' ', '-')}">${entry.recommendation}</span>
@@ -739,10 +737,9 @@ def get_fair_meadows_races():
                 entry_info = {
                     'post_position': entry.get('post_pos'),
                     'horse_name': entry.get('horse_name'),
-                    'jockey': jockey_info.get('alias', jockey_info.get('last_name', 'Unknown')),
-                    'trainer': trainer_info.get('alias', trainer_info.get('last_name', 'Unknown')),
+                    'jockey': jockey_info.get('alias') or jockey_info.get('last_name') or '',
+                    'trainer': trainer_info.get('alias') or trainer_info.get('last_name') or '',
                     'morning_line_odds': ml_odds_str,
-                    'recent_form': '',  # Not in this API
                     'score': score,
                     'recommendation': recommendation
                 }
