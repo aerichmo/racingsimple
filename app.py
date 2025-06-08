@@ -9,7 +9,7 @@ from database import Database
 from pdf_parser import EquibasePDFParser
 from analyzer import RaceAnalyzer
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 
 # Set up logging
@@ -21,8 +21,8 @@ db = Database(os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimpl
 
 @app.route('/')
 def index():
-    """Redirect to stall10nsimple"""
-    return redirect('/stall10nsimple')
+    """Landing page with choice between Simple and Complex"""
+    return render_template('landing.html')
 
 @app.route('/stall10nsimple')
 def stall10n_simple():

@@ -1,0 +1,5 @@
+Place the following images in this directory:
+- simple.png: The "ChatGPT Image Jun 7, 2025, 07_50_39 PM.png" from GitHub
+- complex.png: The "ChatGPT Image Jun 7, 2025, 07_51_36 PM.png" from GitHub
+
+These images will be displayed on the landing page as clickable options.

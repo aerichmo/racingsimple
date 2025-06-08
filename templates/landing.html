@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stall10n - Choose Your Experience</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: #1a1a1a;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 3rem;
+            margin-bottom: 3rem;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+        .choices {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 3rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .choice {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+        .choice:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .choice img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .choice-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            padding: 2rem;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+        .choice:hover .choice-overlay {
+            transform: translateY(0);
+        }
+        .choice-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .choice-description {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+        @media (max-width: 900px) {
+            .choices {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>STALL10N</h1>
+        <div class="choices">
+            <a href="/stall10nsimple" class="choice">
+                <img src="{{ url_for('static', filename='images/simple.png') }}" alt="Stall10n Simple">
+                <div class="choice-overlay">
+                    <div class="choice-title">Simple</div>
+                    <div class="choice-description">Quick PDF analysis for race insights</div>
+                </div>
+            </a>
+            <a href="/stall10ncomplex" class="choice">
+                <img src="{{ url_for('static', filename='images/complex.png') }}" alt="Stall10n Complex">
+                <div class="choice-overlay">
+                    <div class="choice-title">Complex</div>
+                    <div class="choice-description">Advanced analytics coming soon</div>
+                </div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
