@@ -194,19 +194,19 @@ def stall10n_complex():
     <div class="container">
         <div class="header">
             <h1>STALL10N Complex</h1>
-            <p class="subtitle">Fair Meadows Tulsa - Live Race Recommendations</p>
+            <p class="subtitle">Fair Meadows Tulsa - June 7, 2025</p>
             <button class="refresh-btn" onclick="loadRaces()">Refresh Data</button>
         </div>
         
         <div id="content">
-            <div class="loading">Loading Fair Meadows races...</div>
+            <div class="loading">Loading Fair Meadows races for June 7, 2025...</div>
         </div>
     </div>
     
     <script>
     async function loadRaces() {
         const contentDiv = document.getElementById('content');
-        contentDiv.innerHTML = '<div class="loading">Loading Fair Meadows races...</div>';
+        contentDiv.innerHTML = '<div class="loading">Loading Fair Meadows races for June 7, 2025...</div>';
         
         try {
             const response = await fetch('/api/fair-meadows-races');
@@ -227,7 +227,7 @@ def stall10n_complex():
             }
             
             if (!data.races || data.races.length === 0) {
-                contentDiv.innerHTML = '<div class="no-races">No Fair Meadows races scheduled for today.</div>';
+                contentDiv.innerHTML = '<div class="no-races">No Fair Meadows races scheduled for June 7, 2025.</div>';
                 return;
             }
             
@@ -251,7 +251,7 @@ def stall10n_complex():
                 const sortedPlays = topPlays.sort((a, b) => b.score - a.score).slice(0, 5);
                 html += `
                     <div class="top-plays">
-                        <h3>🎯 Today's Best Bets at Fair Meadows</h3>
+                        <h3>🎯 June 7, 2025 Best Bets at Fair Meadows</h3>
                         <div class="best-bets">
                             ${sortedPlays.map(play => 
                                 `<div class="best-bet">R${play.race_number} - #${play.post_position} ${play.horse_name} (${play.score})</div>`
@@ -593,7 +593,7 @@ def analysis_page():
 
 @app.route('/api/fair-meadows-races')
 def get_fair_meadows_races():
-    """Get today's races from Fair Meadows Tulsa via TheRacingAPI"""
+    """Get June 7, 2025 races from Fair Meadows Tulsa via TheRacingAPI"""
     try:
         # Get API credentials from environment
         base_url = os.environ.get('RACING_API_BASE_URL', 'https://api.theracingapi.com/v1')
@@ -603,11 +603,10 @@ def get_fair_meadows_races():
         if not username or not password:
             return jsonify({'success': False, 'error': 'API credentials not configured'}), 500
         
-        # Get a wider date range to find races
-        # Check 3 days back to 3 days forward to account for any timezone issues
-        start_date = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')
-        end_date = (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
-        today = datetime.now().strftime('%Y-%m-%d')
+        # Only get races for June 7, 2025
+        start_date = '2025-06-07'
+        end_date = '2025-06-07'
+        target_date = '2025-06-07'
         
         
         # Get meets for date range
@@ -644,15 +643,15 @@ def get_fair_meadows_races():
             track_id = meet.get('track_id', '')
             
             
-            # Check for FMT (Fair Meadows Tulsa)
-            if track_id == 'FMT':
+            # Check for FMT (Fair Meadows Tulsa) on June 7, 2025
+            if track_id == 'FMT' and meet.get('date') == '2025-06-07':
                 fair_meadows_meet = meet
                 break
         
         if not fair_meadows_meet:
             return jsonify({
                 'success': True,
-                'message': 'No Fair Meadows races found',
+                'message': 'No Fair Meadows races found for June 7, 2025',
                 'races': []
             })
         
