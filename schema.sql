@@ -6,16 +6,17 @@ DROP TABLE IF EXISTS races CASCADE;
 -- Races table
 CREATE TABLE races (
     id SERIAL PRIMARY KEY,
-    race_date DATE NOT NULL,
+    date DATE NOT NULL,
     race_number INT NOT NULL,
-    track VARCHAR(50) NOT NULL,
+    track_name VARCHAR(50) NOT NULL,
     distance VARCHAR(30),
     race_type VARCHAR(30),
     purse INT,
     post_time TIME,
+    surface VARCHAR(20) DEFAULT 'Dirt',
     pdf_filename VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(race_date, race_number, track)
+    UNIQUE(date, race_number, track_name)
 );
 
 -- Entries table
@@ -53,7 +54,7 @@ CREATE TABLE analysis (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_races_date ON races(race_date);
+CREATE INDEX idx_races_date ON races(date);
 CREATE INDEX idx_entries_race ON entries(race_id);
 CREATE INDEX idx_analysis_entry ON analysis(entry_id);
 CREATE INDEX idx_analysis_score ON analysis(overall_score DESC);

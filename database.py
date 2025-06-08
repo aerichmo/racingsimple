@@ -39,11 +39,11 @@ class Database:
         """Save race and return race_id"""
         with self.get_cursor() as cur:
             cur.execute("""
-                INSERT INTO races (race_date, race_number, track, distance, 
-                                 race_type, purse, post_time, pdf_filename)
-                VALUES (%(race_date)s, %(race_number)s, %(track)s, %(distance)s,
-                       %(race_type)s, %(purse)s, %(post_time)s, %(pdf_filename)s)
-                ON CONFLICT (race_date, race_number, track) 
+                INSERT INTO races (date, race_number, track_name, distance, 
+                                 race_type, purse, post_time, surface, pdf_filename)
+                VALUES (%(date)s, %(race_number)s, %(track_name)s, %(distance)s,
+                       %(race_type)s, %(purse)s, %(post_time)s, %(surface)s, %(pdf_filename)s)
+                ON CONFLICT (date, race_number, track_name) 
                 DO UPDATE SET 
                     distance = EXCLUDED.distance,
                     race_type = EXCLUDED.race_type,
@@ -96,7 +96,7 @@ class Database:
                 SELECT r.*, COUNT(e.id) as horse_count
                 FROM races r
                 LEFT JOIN entries e ON e.race_id = r.id
-                WHERE r.race_date = %s
+                WHERE r.date = %s
                 GROUP BY r.id
                 ORDER BY r.race_number
             """, (date,))
@@ -118,7 +118,7 @@ class Database:
         """Get top recommended plays"""
         with self.get_cursor() as cur:
             query = """
-                SELECT r.race_date, r.race_number, r.track, r.post_time,
+                SELECT r.date as race_date, r.race_number, r.track_name, r.post_time,
                        e.program_number, e.horse_name, e.jockey, e.trainer,
                        a.overall_score, a.recommendation, a.confidence
                 FROM analysis a
@@ -127,8 +127,8 @@ class Database:
                 WHERE a.overall_score >= 70
             """
             if date:
-                query += " AND r.race_date = %s"
+                query += " AND r.date = %s"
                 cur.execute(query + " ORDER BY a.overall_score DESC", (date,))
             else:
-                cur.execute(query + " ORDER BY r.race_date DESC, a.overall_score DESC LIMIT 20")
+                cur.execute(query + " ORDER BY r.date DESC, a.overall_score DESC LIMIT 20")
             return cur.fetchall()

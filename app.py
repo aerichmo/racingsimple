@@ -70,13 +70,14 @@ def upload_pdf():
         for race in races:
             # Save race
             race_data = {
-                'race_date': race['race_date'],
+                'date': race['race_date'],
                 'race_number': race['race_number'],
-                'track': race['track'],
+                'track_name': race['track'],
                 'distance': race.get('distance'),
                 'race_type': race.get('race_type'),
                 'purse': race.get('purse'),
                 'post_time': race.get('post_time'),
+                'surface': race.get('surface', 'Dirt'),
                 'pdf_filename': secure_filename(file.filename)
             }
             race_id = db.save_race(race_data)
