@@ -4,6 +4,8 @@ import os
 import logging
 from werkzeug.utils import secure_filename
 import tempfile
+import requests
+from requests.auth import HTTPBasicAuth
 
 from database import Database
 from pdf_parser import EquibasePDFParser
@@ -32,94 +34,289 @@ def stall10n_simple():
 
 @app.route('/stall10ncomplex')
 def stall10n_complex():
-    """Stall10n Complex - main page"""
+    """Stall10n Complex - Fair Meadows Tulsa recommendations page"""
     HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>STALL10N - Horse Racing Platform</title>
+    <title>STALL10N Complex - Fair Meadows Tulsa</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
             padding: 0;
             background: #f5f5f5;
+            color: #333;
         }
         .container {
-            max-width: 800px;
-            margin: 50px auto;
+            max-width: 1200px;
+            margin: 0 auto;
             padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
             background: white;
+            padding: 2rem;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         h1 {
             color: #4CAF50;
-            text-align: center;
+            margin-bottom: 0.5rem;
         }
-        .info {
-            background: #e8f5e9;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 20px 0;
-        }
-        .endpoints {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 4px;
-        }
-        pre {
-            background: #263238;
-            color: #aed581;
-            padding: 15px;
-            border-radius: 4px;
-            overflow-x: auto;
-        }
-        .note {
+        .subtitle {
             color: #666;
-            font-style: italic;
+        }
+        .loading {
             text-align: center;
-            margin-top: 30px;
+            padding: 3rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        .no-races {
+            text-align: center;
+            padding: 3rem;
+            background: white;
+            border-radius: 8px;
+            color: #666;
+        }
+        .race-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .race-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .race-info {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: #f0f0f0;
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #eee;
+        }
+        tr:hover {
+            background: #f9f9f9;
+        }
+        .horse-name {
+            font-weight: bold;
+        }
+        .score {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .strong-play {
+            background: #4CAF50;
+            color: white;
+        }
+        .play {
+            background: #2196F3;
+            color: white;
+        }
+        .consider {
+            background: #FF9800;
+            color: white;
+        }
+        .pass {
+            background: #9E9E9E;
+            color: white;
+        }
+        .refresh-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .refresh-btn:hover {
+            background: #45a049;
+        }
+        .top-plays {
+            background: #e8f5e9;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 2rem;
+        }
+        .top-plays h3 {
+            margin-top: 0;
+            color: #2e7d32;
+        }
+        .best-bets {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .best-bet {
+            background: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            border: 2px solid #4CAF50;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>STALL10N Horse Racing Platform</h1>
-        
-        <div class="info">
-            <h2>About</h2>
-            <p>STALL10N is an automated horse racing analysis and betting platform that uses machine learning to predict race outcomes and make informed betting decisions.</p>
+        <div class="header">
+            <h1>STALL10N Complex</h1>
+            <p class="subtitle">Fair Meadows Tulsa - Live Race Recommendations</p>
+            <button class="refresh-btn" onclick="loadRaces()">Refresh Data</button>
         </div>
         
-        <div class="endpoints">
-            <h2>API Endpoints</h2>
-            <ul>
-                <li><strong>/api/races</strong> - Race information and entries</li>
-                <li><strong>/api/predictions</strong> - ML-powered race predictions</li>
-                <li><strong>/api/bets</strong> - Betting management</li>
-                <li><strong>/api/analytics</strong> - Performance analytics</li>
-                <li><strong>/api/sync</strong> - Data synchronization</li>
-            </ul>
-        </div>
-        
-        <h2>Features</h2>
-        <ul>
-            <li>Real-time integration with TheRacingAPI</li>
-            <li>Random Forest ML models for prediction</li>
-            <li>Kelly Criterion betting strategy</li>
-            <li>Track bias analysis</li>
-            <li>Automated data syncing</li>
-            <li>$100/track daily budget management</li>
-        </ul>
-        
-        <h2>Deployment Note</h2>
-        <p>This is a simplified deployment. For full functionality including the React frontend and background workers, deploy using the render.yaml Blueprint configuration.</p>
-        
-        <div class="note">
-            <p>View the full documentation and source code at <a href="https://github.com/aerichmo/racingsimple">GitHub</a></p>
+        <div id="content">
+            <div class="loading">Loading Fair Meadows races...</div>
         </div>
     </div>
+    
+    <script>
+    async function loadRaces() {
+        const contentDiv = document.getElementById('content');
+        contentDiv.innerHTML = '<div class="loading">Loading Fair Meadows races...</div>';
+        
+        try {
+            const response = await fetch('/api/fair-meadows-races');
+            const data = await response.json();
+            
+            if (!data.success) {
+                contentDiv.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                return;
+            }
+            
+            if (!data.races || data.races.length === 0) {
+                contentDiv.innerHTML = '<div class="no-races">No Fair Meadows races scheduled for today.</div>';
+                return;
+            }
+            
+            // Find top plays across all races
+            const topPlays = [];
+            data.races.forEach(race => {
+                race.entries.forEach(entry => {
+                    if (entry.score >= 70) {
+                        topPlays.push({
+                            race_number: race.race_number,
+                            ...entry
+                        });
+                    }
+                });
+            });
+            
+            let html = '';
+            
+            // Show top plays if any
+            if (topPlays.length > 0) {
+                const sortedPlays = topPlays.sort((a, b) => b.score - a.score).slice(0, 5);
+                html += `
+                    <div class="top-plays">
+                        <h3>🎯 Today's Best Bets at Fair Meadows</h3>
+                        <div class="best-bets">
+                            ${sortedPlays.map(play => 
+                                `<div class="best-bet">R${play.race_number} - #${play.post_position} ${play.horse_name} (${play.score})</div>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Display each race
+            data.races.forEach(race => {
+                html += `
+                    <div class="race-card">
+                        <div class="race-header">
+                            <div>
+                                <h2>Race ${race.race_number}</h2>
+                                <div class="race-info">
+                                    ${race.race_time || 'Time TBA'} | 
+                                    ${race.distance || 'Distance TBA'} | 
+                                    ${race.race_type || 'Type TBA'} | 
+                                    Purse: $${race.purse || 'TBA'}
+                                </div>
+                            </div>
+                            <div class="race-info">${data.track}</div>
+                        </div>
+                        
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>PP</th>
+                                    <th>Horse</th>
+                                    <th>Jockey / Trainer</th>
+                                    <th>ML Odds</th>
+                                    <th>Form</th>
+                                    <th>Score</th>
+                                    <th>Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${race.entries.map(entry => `
+                                    <tr>
+                                        <td>${entry.post_position}</td>
+                                        <td class="horse-name">${entry.horse_name}</td>
+                                        <td>
+                                            <div>${entry.jockey || '-'}</div>
+                                            <div style="font-size: 0.85rem; color: #666;">${entry.trainer || '-'}</div>
+                                        </td>
+                                        <td>${entry.morning_line_odds || '-'}</td>
+                                        <td>${entry.recent_form || '-'}</td>
+                                        <td class="score">${entry.score}</td>
+                                        <td>
+                                            <span class="badge ${entry.recommendation.toLowerCase().replace(' ', '-')}">${entry.recommendation}</span>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+            
+            contentDiv.innerHTML = html;
+            
+        } catch (error) {
+            contentDiv.innerHTML = `<div class="error">Error loading races: ${error.message}</div>`;
+        }
+    }
+    
+    // Load races on page load
+    loadRaces();
+    
+    // Auto-refresh every 5 minutes
+    setInterval(loadRaces, 5 * 60 * 1000);
+    </script>
 </body>
 </html>
 """
@@ -386,41 +583,126 @@ def analysis_page():
     """Analysis and recommendations page"""
     return render_template('analysis.html')
 
-@app.route('/init-db')
-def init_db():
-    """Initialize database tables"""
-    try:
-        db.create_tables()
-        return jsonify({'success': True, 'message': 'Database initialized'})
-    except Exception as e:
-        logger.error(f"Database init error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/migrate-db')
-def migrate_db():
-    """Run database migrations"""
+@app.route('/api/fair-meadows-races')
+def get_fair_meadows_races():
+    """Get today's races from Fair Meadows Tulsa via TheRacingAPI"""
     try:
-        with open('migrate.sql', 'r') as f:
-            migration = f.read()
+        # Get API credentials from environment
+        base_url = os.environ.get('RACING_API_BASE_URL', 'https://api.theracingapi.com/v1')
+        username = os.environ.get('RACING_API_USERNAME')
+        password = os.environ.get('RACING_API_PASSWORD')
         
-        from database import Database
-        db_instance = Database(os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimple'))
-        with db_instance.get_cursor(dict_cursor=False) as cur:
-            cur.execute(migration)
+        if not username or not password:
+            return jsonify({'success': False, 'error': 'API credentials not configured'}), 500
         
-        return jsonify({'success': True, 'message': 'Database migrated successfully'})
+        # Get today's date
+        today = datetime.now().strftime('%Y-%m-%d')
+        
+        # Get meets for today
+        meets_url = f"{base_url}/north-america/meets"
+        params = {
+            'date_from': today,
+            'date_to': today
+        }
+        
+        auth = HTTPBasicAuth(username, password)
+        meets_response = requests.get(meets_url, params=params, auth=auth)
+        meets_response.raise_for_status()
+        meets_data = meets_response.json()
+        
+        # Find Fair Meadows meet
+        fair_meadows_meet = None
+        for meet in meets_data.get('meets', []):
+            if 'Fair Meadows' in meet.get('track', '') or 'FMT' in meet.get('track', ''):
+                fair_meadows_meet = meet
+                break
+        
+        if not fair_meadows_meet:
+            return jsonify({
+                'success': True,
+                'message': 'No Fair Meadows races today',
+                'races': []
+            })
+        
+        # Get entries for Fair Meadows meet
+        meet_id = fair_meadows_meet['meet_id']
+        entries_url = f"{base_url}/north-america/meets/{meet_id}/entries"
+        entries_response = requests.get(entries_url, auth=auth)
+        entries_response.raise_for_status()
+        entries_data = entries_response.json()
+        
+        # Process races and entries
+        races_with_analysis = []
+        for race in entries_data.get('races', []):
+            race_info = {
+                'race_number': race.get('race_number'),
+                'race_time': race.get('race_time'),
+                'distance': race.get('distance'),
+                'race_type': race.get('race_type'),
+                'purse': race.get('purse'),
+                'entries': []
+            }
+            
+            # Analyze each entry
+            for entry in race.get('entries', []):
+                # Simple scoring based on available data
+                score = 50  # Base score
+                
+                # Adjust based on morning line odds
+                ml_odds = entry.get('morning_line_odds', 10)
+                if ml_odds < 3:
+                    score += 20
+                elif ml_odds < 5:
+                    score += 15
+                elif ml_odds < 10:
+                    score += 10
+                
+                # Adjust based on recent form
+                recent_form = entry.get('recent_form', '')
+                wins = recent_form.count('1')
+                places = recent_form.count('2')
+                shows = recent_form.count('3')
+                score += (wins * 10) + (places * 5) + (shows * 2)
+                
+                # Determine recommendation
+                if score >= 80:
+                    recommendation = 'STRONG PLAY'
+                elif score >= 70:
+                    recommendation = 'PLAY'
+                elif score >= 60:
+                    recommendation = 'CONSIDER'
+                else:
+                    recommendation = 'PASS'
+                
+                entry_info = {
+                    'post_position': entry.get('post_position'),
+                    'horse_name': entry.get('horse_name'),
+                    'jockey': entry.get('jockey_name'),
+                    'trainer': entry.get('trainer_name'),
+                    'morning_line_odds': ml_odds,
+                    'recent_form': recent_form,
+                    'score': score,
+                    'recommendation': recommendation
+                }
+                race_info['entries'].append(entry_info)
+            
+            # Sort entries by score
+            race_info['entries'].sort(key=lambda x: x['score'], reverse=True)
+            races_with_analysis.append(race_info)
+        
+        return jsonify({
+            'success': True,
+            'track': fair_meadows_meet.get('track'),
+            'date': fair_meadows_meet.get('date'),
+            'races': races_with_analysis
+        })
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Racing API error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to fetch racing data'}), 500
     except Exception as e:
-        logger.error(f"Database migration error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/reset-db')
-def reset_db():
-    """Drop and recreate all tables (WARNING: This will delete all data)"""
-    try:
-        db.create_tables()
-        return jsonify({'success': True, 'message': 'Database reset successfully'})
-    except Exception as e:
-        logger.error(f"Database reset error: {e}")
+        logger.error(f"Fair Meadows races error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
