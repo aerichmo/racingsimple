@@ -606,6 +606,81 @@ def analysis_page():
     return render_template('analysis.html')
 
 
+@app.route('/api/debug-racing-api')
+def debug_racing_api():
+    """Debug endpoint to test TheRacingAPI connection"""
+    try:
+        base_url = os.environ.get('RACING_API_BASE_URL', 'https://api.theracingapi.com/v1')
+        username = os.environ.get('RACING_API_USERNAME')
+        password = os.environ.get('RACING_API_PASSWORD')
+        
+        debug_info = {
+            'credentials_present': {
+                'username': bool(username),
+                'password': bool(password),
+                'base_url': base_url
+            }
+        }
+        
+        if not username or not password:
+            return jsonify({
+                'success': False,
+                'error': 'API credentials not configured',
+                'debug': debug_info
+            })
+        
+        # Test basic API connection
+        if base_url.endswith('/v1'):
+            base_url = base_url[:-3]
+            
+        # Try a simple request to test authentication
+        test_url = f"{base_url}/v1/north-america/meets"
+        test_params = {
+            'start_date': '2025-06-07',
+            'end_date': '2025-06-07'
+        }
+        
+        auth = HTTPBasicAuth(username, password)
+        
+        # Make request with detailed error handling
+        try:
+            response = requests.get(test_url, params=test_params, auth=auth, timeout=10)
+            debug_info['request'] = {
+                'url': test_url,
+                'params': test_params,
+                'status_code': response.status_code,
+                'headers': dict(response.headers)
+            }
+            
+            if response.status_code == 200:
+                data = response.json()
+                debug_info['response'] = {
+                    'type': str(type(data)),
+                    'is_list': isinstance(data, list),
+                    'length': len(data) if isinstance(data, list) else 'N/A',
+                    'sample': data[:2] if isinstance(data, list) and len(data) > 0 else data
+                }
+            else:
+                debug_info['error'] = {
+                    'status_code': response.status_code,
+                    'text': response.text[:500]
+                }
+                
+        except requests.exceptions.RequestException as e:
+            debug_info['request_error'] = str(e)
+            
+        return jsonify({
+            'success': True,
+            'debug': debug_info
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'type': str(type(e))
+        })
+
 @app.route('/api/fair-meadows-races')
 def get_fair_meadows_races():
     """Get today's races from Fair Meadows Tulsa via TheRacingAPI"""
