@@ -618,18 +618,23 @@ def get_fair_meadows_races():
         if not username or not password:
             return jsonify({'success': False, 'error': 'API credentials not configured'}), 500
         
-        # Get today's date - June 7, 2025
-        today = '2025-06-07'
-        tomorrow = '2025-06-08'
+        # Get a wider date range to find races
+        # Check 3 days back to 3 days forward to account for any timezone issues
+        start_date = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')
+        end_date = (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
+        today = datetime.now().strftime('%Y-%m-%d')
         
-        # Get meets for today and tomorrow
+        # Log the dates being used
+        logger.info(f"Searching for meets from {start_date} to {end_date}")
+        
+        # Get meets for date range
         # Fix: Remove /v1 from base_url if it's included, as we'll add it in the path
         if base_url.endswith('/v1'):
             base_url = base_url[:-3]
         meets_url = f"{base_url}/v1/north-america/meets"
         params = {
-            'start_date': today,
-            'end_date': tomorrow  # Check today and tomorrow
+            'start_date': start_date,
+            'end_date': end_date
         }
         
         logger.info(f"Requesting meets from {meets_url} with params: {params}")
@@ -672,13 +677,13 @@ def get_fair_meadows_races():
             sample_meet = meets_list[0] if meets_list else None
             return jsonify({
                 'success': True,
-                'message': f'No Fair Meadows races found. Checked dates: {today} to {tomorrow}. Total meets: {len(meets_list)}',
+                'message': f'No Fair Meadows races found. Searched dates: {start_date} to {end_date}. Total meets: {len(meets_list)}',
                 'races': [],
                 'available_tracks': all_tracks,
                 'total_meets': len(meets_list),
                 'sample_meet': sample_meet,
                 'debug_info': f'First meet keys: {list(sample_meet.keys()) if sample_meet else "No meets"}',
-                'dates_checked': f'{today} to {tomorrow}'
+                'dates_checked': f'{start_date} to {end_date}'
             })
         
         # Get entries for Fair Meadows meet
