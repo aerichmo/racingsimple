@@ -1,11 +1,13 @@
-from flask import Flask, render_template, jsonify, request, session
+from flask import Flask, render_template, jsonify, request, redirect, url_for
 from datetime import datetime
 import os
 import logging
 from werkzeug.utils import secure_filename
-from pdf_parser import parse_pdf_file
 import tempfile
-import json
+
+from database import Database
+from pdf_parser import EquibasePDFParser
+from analyzer import RaceAnalyzer
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
@@ -14,54 +16,33 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-produ
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Store races in memory (in production, you might want to use Redis or file storage)
-races_data = {}
-
-@app.route('/test')
-def test():
-    """Test endpoint to verify app is running"""
-    return jsonify({
-        'status': 'ok',
-        'message': 'Flask app is running',
-        'time': datetime.now().isoformat()
-    })
+# Initialize database
+db = Database(os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimple'))
 
 @app.route('/')
 def index():
-    """Home page showing uploaded races"""
-    return render_template('index.html')
+    """Home page showing today's races and top plays"""
+    today = datetime.now().date()
+    return render_template('index.html', today=today)
 
-@app.route('/pdf-upload')
-def pdf_upload():
+@app.route('/upload')
+def upload_page():
     """PDF upload page"""
-    return render_template('pdf_upload.html')
+    return render_template('upload.html')
 
-@app.route('/api/upload-pdf', methods=['POST'])
+@app.route('/api/upload', methods=['POST'])
 def upload_pdf():
-    """Handle PDF file upload and parsing"""
+    """Handle PDF upload and processing"""
     try:
-        # Check if file was uploaded
         if 'pdf' not in request.files:
-            return jsonify({
-                'success': False,
-                'error': 'No PDF file uploaded'
-            }), 400
+            return jsonify({'success': False, 'error': 'No PDF file uploaded'}), 400
         
         file = request.files['pdf']
-        
-        # Check if file is selected
         if file.filename == '':
-            return jsonify({
-                'success': False,
-                'error': 'No file selected'
-            }), 400
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
         
-        # Check file extension
         if not file.filename.lower().endswith('.pdf'):
-            return jsonify({
-                'success': False,
-                'error': 'File must be a PDF'
-            }), 400
+            return jsonify({'success': False, 'error': 'File must be a PDF'}), 400
         
         # Save file temporarily
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
@@ -69,8 +50,8 @@ def upload_pdf():
             tmp_path = tmp_file.name
         
         # Parse the PDF
-        logger.info(f"Parsing uploaded PDF: {secure_filename(file.filename)}")
-        success, message, races = parse_pdf_file(tmp_path)
+        parser = EquibasePDFParser()
+        races = parser.parse_pdf_file(tmp_path)
         
         # Clean up temp file
         try:
@@ -78,197 +59,130 @@ def upload_pdf():
         except:
             pass
         
-        if success and races:
-            # Store races in memory with timestamp
-            upload_id = datetime.now().isoformat()
-            races_data[upload_id] = {
-                'filename': secure_filename(file.filename),
-                'uploaded_at': datetime.now().isoformat(),
-                'races': races
+        if not races:
+            return jsonify({'success': False, 'error': 'No races found in PDF'}), 400
+        
+        # Save to database and analyze
+        analyzer = RaceAnalyzer()
+        total_entries = 0
+        top_plays = []
+        
+        for race in races:
+            # Save race
+            race_data = {
+                'race_date': race['race_date'],
+                'race_number': race['race_number'],
+                'track': race['track'],
+                'distance': race.get('distance'),
+                'race_type': race.get('race_type'),
+                'purse': race.get('purse'),
+                'post_time': race.get('post_time'),
+                'pdf_filename': secure_filename(file.filename)
             }
+            race_id = db.save_race(race_data)
             
-            # Store in session for easy access
-            if 'uploads' not in session:
-                session['uploads'] = []
-            session['uploads'].append(upload_id)
-            
-            return jsonify({
-                'success': True,
-                'message': message,
-                'filename': secure_filename(file.filename),
-                'upload_id': upload_id,
-                'races_count': len(races)
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': message
-            }), 500
-            
-    except Exception as e:
-        logger.error(f"PDF upload error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'error': f'Error processing PDF: {str(e)}'
-        }), 500
-
-@app.route('/api/races')
-def get_all_races():
-    """Get all uploaded races"""
-    try:
-        all_races = []
-        
-        # Get races from all uploads
-        for upload_id, upload_data in races_data.items():
-            for race in upload_data['races']:
-                race_copy = race.copy()
-                race_copy['upload_id'] = upload_id
-                race_copy['filename'] = upload_data['filename']
-                all_races.append(race_copy)
-        
-        # Sort by date and race number
-        all_races.sort(key=lambda x: (x.get('date', ''), x.get('race_number', 0)))
+            # Save and analyze entries
+            for entry in race['entries']:
+                entry_data = {
+                    'race_id': race_id,
+                    'program_number': entry['program_number'],
+                    'post_position': entry.get('post_position', entry['program_number']),
+                    'horse_name': entry['horse_name'],
+                    'jockey': entry.get('jockey'),
+                    'trainer': entry.get('trainer'),
+                    'win_pct': entry.get('win_pct'),
+                    'class_rating': entry.get('class_rating'),
+                    'last_speed': entry.get('last_speed'),
+                    'avg_speed': entry.get('avg_speed'),
+                    'best_speed': entry.get('best_speed'),
+                    'jockey_win_pct': entry.get('jockey_win_pct'),
+                    'trainer_win_pct': entry.get('trainer_win_pct'),
+                    'jt_combo_pct': entry.get('jt_combo_pct')
+                }
+                entry_id = db.save_entry(entry_data)
+                
+                # Analyze
+                analysis = analyzer.analyze_entry(entry_data)
+                analysis['entry_id'] = entry_id
+                db.save_analysis(analysis)
+                
+                # Track top plays
+                if analysis['overall_score'] >= 70:
+                    play = {
+                        'race_number': race['race_number'],
+                        'horse_name': entry['horse_name'],
+                        'score': analysis['overall_score'],
+                        'recommendation': analysis['recommendation']
+                    }
+                    top_plays.append(play)
+                
+                total_entries += 1
         
         return jsonify({
             'success': True,
-            'races': all_races,
-            'total_uploads': len(races_data)
+            'message': f'Processed {len(races)} races with {total_entries} entries',
+            'races_count': len(races),
+            'entries_count': total_entries,
+            'top_plays': sorted(top_plays, key=lambda x: x['score'], reverse=True)[:5]
         })
+        
+    except Exception as e:
+        logger.error(f"Upload error: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/races/<date>')
+def get_races(date):
+    """Get races for a specific date"""
+    try:
+        races = db.get_races_by_date(date)
+        return jsonify({'success': True, 'races': races})
     except Exception as e:
         logger.error(f"Error fetching races: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/races/<upload_id>')
-def get_races_by_upload(upload_id):
-    """Get races from a specific upload"""
+@app.route('/api/race/<int:race_id>/entries')
+def get_race_entries(race_id):
+    """Get entries for a specific race"""
     try:
-        if upload_id not in races_data:
-            return jsonify({
-                'success': False,
-                'error': 'Upload not found'
-            }), 404
-        
-        upload_data = races_data[upload_id]
-        
-        return jsonify({
-            'success': True,
-            'filename': upload_data['filename'],
-            'uploaded_at': upload_data['uploaded_at'],
-            'races': upload_data['races']
-        })
+        entries = db.get_race_entries(race_id)
+        return jsonify({'success': True, 'entries': entries})
     except Exception as e:
-        logger.error(f"Error fetching races: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        logger.error(f"Error fetching entries: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/clear')
-def clear_data():
-    """Clear all uploaded data"""
-    global races_data
-    races_data = {}
-    session.pop('uploads', None)
-    
-    return jsonify({
-        'success': True,
-        'message': 'All data cleared'
-    })
-
-@app.route('/stats')
-def stats():
-    """Statistics page"""
-    return render_template('stats.html')
-
-@app.route('/api/stats')
-def get_stats():
-    """Get statistics from uploaded data"""
+@app.route('/api/top-plays')
+def get_top_plays():
+    """Get top recommended plays"""
     try:
-        # Collect all horses from all races
-        all_horses = []
-        for upload_data in races_data.values():
-            for race in upload_data['races']:
-                for horse in race.get('horses', []):
-                    horse_copy = horse.copy()
-                    horse_copy['track'] = race.get('track_name', 'Unknown')
-                    horse_copy['date'] = race.get('date')
-                    all_horses.append(horse_copy)
-        
-        # Calculate jockey stats
-        jockey_stats = {}
-        for horse in all_horses:
-            jockey = horse.get('jockey', 'Unknown')
-            if jockey and jockey != '-':
-                if jockey not in jockey_stats:
-                    jockey_stats[jockey] = {
-                        'name': jockey,
-                        'mounts': 0,
-                        'tracks': set()
-                    }
-                jockey_stats[jockey]['mounts'] += 1
-                jockey_stats[jockey]['tracks'].add(horse['track'])
-        
-        # Calculate trainer stats
-        trainer_stats = {}
-        for horse in all_horses:
-            trainer = horse.get('trainer', 'Unknown')
-            if trainer and trainer != '-':
-                if trainer not in trainer_stats:
-                    trainer_stats[trainer] = {
-                        'name': trainer,
-                        'entries': 0,
-                        'tracks': set()
-                    }
-                trainer_stats[trainer]['entries'] += 1
-                trainer_stats[trainer]['tracks'].add(horse['track'])
-        
-        # Convert sets to lists for JSON serialization
-        jockey_list = []
-        for jockey, stats in jockey_stats.items():
-            jockey_list.append({
-                'name': stats['name'],
-                'mounts': stats['mounts'],
-                'tracks': list(stats['tracks'])
-            })
-        
-        trainer_list = []
-        for trainer, stats in trainer_stats.items():
-            trainer_list.append({
-                'name': stats['name'],
-                'entries': stats['entries'],
-                'tracks': list(stats['tracks'])
-            })
-        
-        # Sort by activity
-        jockey_list.sort(key=lambda x: x['mounts'], reverse=True)
-        trainer_list.sort(key=lambda x: x['entries'], reverse=True)
-        
-        return jsonify({
-            'success': True,
-            'jockeys': jockey_list[:20],  # Top 20
-            'trainers': trainer_list[:20],  # Top 20
-            'total_races': sum(len(upload['races']) for upload in races_data.values()),
-            'total_horses': len(all_horses)
-        })
-        
+        date = request.args.get('date')
+        plays = db.get_top_plays(date)
+        return jsonify({'success': True, 'plays': plays})
     except Exception as e:
-        logger.error(f"Error calculating stats: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        logger.error(f"Error fetching top plays: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/health')
-def health():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.now().isoformat()
-    })
+@app.route('/analysis')
+def analysis_page():
+    """Analysis and recommendations page"""
+    return render_template('analysis.html')
+
+@app.route('/init-db')
+def init_db():
+    """Initialize database tables"""
+    try:
+        db.create_tables()
+        return jsonify({'success': True, 'message': 'Database initialized'})
+    except Exception as e:
+        logger.error(f"Database init error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
+    # Initialize database on startup
+    try:
+        db.create_tables()
+        logger.info("Database tables verified")
+    except Exception as e:
+        logger.error(f"Database startup error: {e}")
+    
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=True)

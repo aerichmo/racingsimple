@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Upload PDF - Racing Simple{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <h1>Upload Equibase PDF</h1>
+    
+    <div class="upload-form">
+        <form id="uploadForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="pdfFile">Select PDF File:</label>
+                <input type="file" id="pdfFile" name="pdf" accept=".pdf" required>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" id="uploadBtn">Upload and Analyze</button>
+        </form>
+        
+        <div id="uploadStatus" class="status-message" style="display: none;"></div>
+    </div>
+    
+    <div class="info-box">
+        <h3>What happens next?</h3>
+        <ol>
+            <li>PDF is parsed to extract race and horse data</li>
+            <li>Each horse is analyzed based on:
+                <ul>
+                    <li>Speed figures (40% weight)</li>
+                    <li>Class rating (30% weight)</li>
+                    <li>Jockey performance (20% weight)</li>
+                    <li>Trainer performance (10% weight)</li>
+                </ul>
+            </li>
+            <li>Recommendations are generated:
+                <ul>
+                    <li><strong>STRONG PLAY</strong>: Score 80+</li>
+                    <li><strong>PLAY</strong>: Score 70-79</li>
+                    <li><strong>CONSIDER</strong>: Score 60-69</li>
+                    <li><strong>PASS</strong>: Score below 60</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+</div>
+
+<script>
+document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('pdfFile');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const statusDiv = document.getElementById('uploadStatus');
+    
+    if (!fileInput.files || !fileInput.files[0]) {
+        alert('Please select a PDF file');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('pdf', fileInput.files[0]);
+    
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Processing...';
+    statusDiv.style.display = 'block';
+    statusDiv.className = 'status-message info';
+    statusDiv.innerHTML = 'Uploading and analyzing PDF...';
+    
+    try {
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            statusDiv.className = 'status-message success';
+            statusDiv.innerHTML = `
+                <h3>Success!</h3>
+                <p>${data.message}</p>
+                ${data.top_plays && data.top_plays.length > 0 ? `
+                    <h4>Top Plays Found:</h4>
+                    <ul>
+                        ${data.top_plays.map(play => 
+                            `<li>Race ${play.race_number}: <strong>${play.horse_name}</strong> - ${play.recommendation} (${play.score.toFixed(1)})</li>`
+                        ).join('')}
+                    </ul>
+                ` : ''}
+                <div class="actions">
+                    <a href="/" class="btn btn-secondary">View Races</a>
+                    <a href="/analysis" class="btn btn-primary">See Full Analysis</a>
+                </div>
+            `;
+            fileInput.value = '';
+        } else {
+            statusDiv.className = 'status-message error';
+            statusDiv.innerHTML = `<h3>Error</h3><p>${data.error}</p>`;
+        }
+    } catch (error) {
+        statusDiv.className = 'status-message error';
+        statusDiv.innerHTML = `<h3>Error</h3><p>Failed to upload: ${error.message}</p>`;
+    } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = 'Upload and Analyze';
+    }
+});
+</script>
+{% endblock %}

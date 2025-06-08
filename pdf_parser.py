@@ -1,576 +1,187 @@
-"""
-PDF Parser for Equibase Chart Files
-Extracts race data including entries, morning line odds, and race details
-"""
-import os
+"""Enhanced PDF Parser for Equibase Speed Figure PDFs"""
 import re
 import logging
-from datetime import datetime, date, time
-from typing import List, Dict, Optional, Tuple
-import pdfplumber
+from datetime import datetime, date
+from typing import List, Dict, Optional
 import PyPDF2
-from tabula import read_pdf
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-
 class EquibasePDFParser:
-    """Parse Equibase PDF chart files to extract race data"""
-    
-    def __init__(self):
-        self.track_patterns = {
-            'FMT': 'Fonner Park',
-            'GP': 'Gulfstream Park',
-            'SA': 'Santa Anita',
-            'CD': 'Churchill Downs',
-            'BEL': 'Belmont Park',
-            'AQU': 'Aqueduct',
-            'KEE': 'Keeneland',
-            'DMR': 'Del Mar',
-            'SAR': 'Saratoga'
-        }
+    """Parse Equibase Speed Figure Analysis PDFs"""
     
     def parse_pdf_file(self, pdf_path: str) -> List[Dict]:
-        """Parse a single PDF file and return list of races"""
-        logger.info(f"Parsing PDF file: {pdf_path}")
-        
-        races = []
-        
-        # Try multiple parsing methods
-        try:
-            # Method 1: pdfplumber (best for text extraction)
-            races = self._parse_with_pdfplumber(pdf_path)
-            
-            if not races:
-                # Method 2: tabula-py (best for tables)
-                races = self._parse_with_tabula(pdf_path)
-            
-            if not races:
-                # Method 3: PyPDF2 (fallback)
-                races = self._parse_with_pypdf2(pdf_path)
-                
-        except Exception as e:
-            logger.error(f"Error parsing PDF {pdf_path}: {e}")
-            
-        return races
-    
-    def _parse_with_pdfplumber(self, pdf_path: str) -> List[Dict]:
-        """Parse PDF using pdfplumber library"""
-        races = []
-        
-        try:
-            with pdfplumber.open(pdf_path) as pdf:
-                for page_num, page in enumerate(pdf.pages):
-                    text = page.extract_text()
-                    tables = page.extract_tables()
-                    
-                    # Extract race date from filename or header
-                    race_date = self._extract_date(pdf_path, text)
-                    
-                    # Parse races from text
-                    page_races = self._parse_text_content(text, race_date)
-                    races.extend(page_races)
-                    
-                    # Parse races from tables
-                    for table in tables:
-                        table_races = self._parse_table_content(table, race_date)
-                        races.extend(table_races)
-                        
-        except Exception as e:
-            logger.error(f"pdfplumber error: {e}")
-            
-        return races
-    
-    def _parse_with_tabula(self, pdf_path: str) -> List[Dict]:
-        """Parse PDF using tabula-py for table extraction"""
-        races = []
-        
-        try:
-            # Read all tables from PDF
-            tables = read_pdf(pdf_path, pages='all', multiple_tables=True)
-            
-            # Extract date from filename
-            race_date = self._extract_date_from_filename(pdf_path)
-            
-            for df in tables:
-                if df.empty:
-                    continue
-                    
-                # Try to identify if this is a race entries table
-                if self._is_entries_table(df):
-                    race = self._parse_entries_dataframe(df, race_date)
-                    if race:
-                        races.append(race)
-                        
-        except Exception as e:
-            logger.error(f"tabula-py error: {e}")
-            
-        return races
-    
-    def _parse_with_pypdf2(self, pdf_path: str) -> List[Dict]:
-        """Parse PDF using PyPDF2 as fallback"""
+        """Parse PDF and return list of races with entries"""
         races = []
         
         try:
             with open(pdf_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
                 
+                # Extract text from all pages
                 full_text = ""
-                for page_num in range(len(pdf_reader.pages)):
-                    page = pdf_reader.pages[page_num]
-                    full_text += page.extract_text()
+                for page in pdf_reader.pages:
+                    full_text += page.extract_text() + "\n"
                 
-                # Extract date and parse content
-                race_date = self._extract_date(pdf_path, full_text)
-                races = self._parse_text_content(full_text, race_date)
+                # Parse the text
+                races = self._parse_races_from_text(full_text)
                 
+                # Extract date from text
+                race_date = self._extract_date(full_text)
+                for race in races:
+                    race['race_date'] = race_date
+                    
         except Exception as e:
-            logger.error(f"PyPDF2 error: {e}")
+            logger.error(f"Error parsing PDF: {e}")
             
         return races
     
-    def _parse_text_content(self, text: str, race_date: date) -> List[Dict]:
-        """Parse race data from text content"""
+    def _parse_races_from_text(self, text: str) -> List[Dict]:
+        """Parse races from extracted text"""
         races = []
         
-        # Split by race markers
-        race_sections = self._split_by_races(text)
+        # Split text by race markers
+        race_splits = re.split(r'(\d+)\$2 Exacta', text)
         
-        for section in race_sections:
-            race = self._parse_race_section(section, race_date)
-            if race and race.get('horses'):
-                races.append(race)
+        for i in range(1, len(race_splits), 2):
+            if i+1 < len(race_splits):
+                race_num = race_splits[i].strip()
+                race_text = race_splits[i+1]
                 
+                race = self._parse_single_race(race_num, race_text)
+                if race and race.get('entries'):
+                    races.append(race)
+        
         return races
     
-    def _split_by_races(self, text: str) -> List[str]:
-        """Split text into individual race sections"""
-        sections = []
-        
-        # Common race markers
-        markers = [
-            r'RACE\s+(\d+)',
-            r'(\d+)(?:ST|ND|RD|TH)\s+RACE',
-            r'Race\s+(\d+)',
-            r'RACE NUMBER\s+(\d+)'
-        ]
-        
-        # Find all race markers
-        positions = []
-        for marker in markers:
-            for match in re.finditer(marker, text, re.IGNORECASE):
-                positions.append((match.start(), match.group(1)))
-        
-        # Sort by position
-        positions.sort(key=lambda x: x[0])
-        
-        # Extract sections
-        for i, (pos, race_num) in enumerate(positions):
-            end_pos = positions[i+1][0] if i+1 < len(positions) else len(text)
-            section = text[pos:end_pos]
-            sections.append(section)
-            
-        return sections
-    
-    def _parse_race_section(self, section: str, race_date: date) -> Dict:
-        """Parse a single race section"""
+    def _parse_single_race(self, race_num: str, text: str) -> Dict:
+        """Parse a single race from text"""
         race = {
-            'date': race_date,
-            'horses': []
+            'race_number': int(race_num) if race_num.isdigit() else 0,
+            'track': 'Fair Meadows',  # Default, can be extracted
+            'entries': []
         }
         
-        # Extract race number
-        race_num_match = re.search(r'RACE\s+(\d+)', section, re.IGNORECASE)
-        if race_num_match:
-            race['race_number'] = int(race_num_match.group(1))
+        # Extract race details
+        lines = text.split('\n')
         
-        # Extract track name
-        race['track_name'] = self._extract_track_name(section)
+        # Parse distance and race type from first few lines
+        for line in lines[:5]:
+            # Distance pattern: "350 Yards" or "6 Furlongs"
+            dist_match = re.search(r'(\d+(?:\.\d+)?)\s*(Yards?|Furlongs?|Miles?)', line)
+            if dist_match:
+                race['distance'] = f"{dist_match.group(1)} {dist_match.group(2)}"
+            
+            # Race type and purse
+            if 'MAIDEN' in line:
+                race['race_type'] = 'MAIDEN'
+            elif 'ALLOWANCE' in line:
+                race['race_type'] = 'ALLOWANCE'
+            elif 'CLAIMING' in line:
+                race['race_type'] = 'CLAIMING'
+            elif 'STAKES' in line:
+                race['race_type'] = 'STAKES'
+            
+            # Purse
+            purse_match = re.search(r'Purse:\s*\$?([\d,]+)', line)
+            if purse_match:
+                race['purse'] = int(purse_match.group(1).replace(',', ''))
         
-        # Extract post time
-        post_time = self._extract_post_time(section)
-        if post_time:
-            race['post_time'] = post_time
+        # Post time
+        time_match = re.search(r'Post Time:\s*(\d{1,2}:\d{2})\s*(PM|AM)?', text)
+        if time_match:
+            race['post_time'] = time_match.group(1)
+            if time_match.group(2) == 'PM':
+                hour, minute = map(int, race['post_time'].split(':'))
+                if hour != 12:
+                    hour += 12
+                race['post_time'] = f"{hour}:{minute:02d}"
         
-        # Extract distance
-        distance = self._extract_distance(section)
-        if distance:
-            race['distance'] = distance
+        # Parse entries - look for lines with program numbers
+        entry_pattern = r'^(\d+)\s+(\d+)\s+\((\d+)%\)\s+([A-Za-z\s]+?)\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA)\s+(\d+|NA)'
         
-        # Extract purse
-        purse = self._extract_purse(section)
-        if purse:
-            race['purse'] = purse
-        
-        # Extract race type
-        race_type = self._extract_race_type(section)
-        if race_type:
-            race['race_type'] = race_type
-        
-        # Extract horses
-        horses = self._extract_horses(section)
-        race['horses'] = horses
+        for line in lines:
+            # Skip header lines
+            if any(word in line for word in ['PgmPost', 'HorseClass', 'Jockey', 'Copyright']):
+                continue
+                
+            # Try to parse entry
+            parts = line.split()
+            if len(parts) >= 10 and parts[0].isdigit() and parts[1].isdigit():
+                try:
+                    entry = {
+                        'program_number': int(parts[0]),
+                        'post_position': int(parts[1]),
+                        'win_pct': self._parse_percentage(parts[2]) if len(parts[2]) > 2 else None,
+                        'horse_name': ' '.join(parts[3:]).split(' ', 1)[0] if len(parts) > 3 else 'Unknown',
+                        'class_rating': self._parse_int(parts[4]) if len(parts) > 4 else None,
+                        'last_speed': self._parse_int(parts[5]) if len(parts) > 5 else None,
+                        'avg_speed': self._parse_int(parts[6]) if len(parts) > 6 else None,
+                        'best_speed': self._parse_int(parts[7]) if len(parts) > 7 else None
+                    }
+                    
+                    # Extract jockey/trainer from remaining text
+                    remaining = ' '.join(parts[8:]) if len(parts) > 8 else ''
+                    jt_parts = remaining.split('/')
+                    if len(jt_parts) >= 2:
+                        entry['jockey'] = jt_parts[0].strip()
+                        trainer_part = jt_parts[1].strip()
+                        # Extract trainer name before percentages
+                        trainer_match = re.match(r'([A-Za-z\s]+)', trainer_part)
+                        if trainer_match:
+                            entry['trainer'] = trainer_match.group(1).strip()
+                    
+                    # Extract J/T percentages if present
+                    pct_match = re.findall(r'(\d+)%', remaining)
+                    if len(pct_match) >= 3:
+                        entry['jockey_win_pct'] = int(pct_match[0])
+                        entry['trainer_win_pct'] = int(pct_match[1])
+                        entry['jt_combo_pct'] = int(pct_match[2])
+                    
+                    # Only add if we have a valid horse name
+                    if entry['horse_name'] and not any(skip in entry['horse_name'].lower() 
+                                                      for skip in ['copyright', 'equibase', 'page']):
+                        race['entries'].append(entry)
+                        
+                except (IndexError, ValueError) as e:
+                    continue
         
         return race
     
-    def _extract_horses(self, text: str) -> List[Dict]:
-        """Extract horse entries from race text"""
-        horses = []
-        
-        # Pattern for horse entries (multiple variations)
-        patterns = [
-            # Pattern 1: Program# Horse Name M/L Jockey Trainer
-            r'(\d+)\s+([A-Z][A-Za-z\s\']+?)(?:\s+\(L\))?\s+(\d+(?:-\d+)?)\s+([A-Z][A-Za-z\s\.]+?)\s+([A-Z][A-Za-z\s\.]+?)(?:\s+\d+)?$',
-            # Pattern 2: Number. Horse Name - Jockey/Trainer ML
-            r'(\d+)\.\s*([A-Z][A-Za-z\s\']+?)\s*[-–]\s*([A-Za-z\s\.]+?)/([A-Za-z\s\.]+?)\s+(\d+-\d+)',
-            # Pattern 3: Simple format
-            r'(\d+)\s+([A-Z][A-Za-z\s\']+?)\s+(\d+-\d+)',
-        ]
-        
-        # Try each pattern
-        for pattern in patterns:
-            matches = re.finditer(pattern, text, re.MULTILINE)
-            for match in matches:
-                horse = self._create_horse_entry(match, pattern)
-                if horse and self._is_valid_horse(horse):
-                    horses.append(horse)
-            
-            if horses:
-                break
-        
-        # If no horses found, try line-by-line parsing
-        if not horses:
-            horses = self._parse_horses_by_lines(text)
-        
-        return horses
-    
-    def _create_horse_entry(self, match: re.Match, pattern: str) -> Dict:
-        """Create horse entry from regex match"""
-        groups = match.groups()
-        
-        horse = {}
-        
-        # Determine format based on number of groups
-        if len(groups) == 5:
-            # Full format with all details
-            horse = {
-                'program_number': int(groups[0]),
-                'horse_name': groups[1].strip(),
-                'morning_line_odds': groups[2],
-                'jockey': groups[3].strip(),
-                'trainer': groups[4].strip()
-            }
-        elif len(groups) == 4:
-            # Format without ML odds in expected position
-            horse = {
-                'program_number': int(groups[0]),
-                'horse_name': groups[1].strip(),
-                'jockey': groups[2].strip(),
-                'trainer': groups[3].strip()
-            }
-        elif len(groups) == 3:
-            # Simple format
-            horse = {
-                'program_number': int(groups[0]),
-                'horse_name': groups[1].strip(),
-                'morning_line_odds': groups[2]
-            }
-            
-        return horse
-    
-    def _parse_horses_by_lines(self, text: str) -> List[Dict]:
-        """Parse horses line by line when regex fails"""
-        horses = []
-        lines = text.split('\n')
-        
-        for line in lines:
-            # Skip empty lines and headers
-            if not line.strip() or 'HORSE' in line.upper() or 'JOCKEY' in line.upper():
-                continue
-            
-            # Look for lines starting with a number (program number)
-            if re.match(r'^\d+\s', line):
-                horse = self._parse_horse_line(line)
-                if horse and self._is_valid_horse(horse):
-                    horses.append(horse)
-                    
-        return horses
-    
-    def _parse_horse_line(self, line: str) -> Optional[Dict]:
-        """Parse a single line containing horse data"""
-        # Remove extra spaces and split
-        parts = re.split(r'\s{2,}', line.strip())
-        
-        if len(parts) < 2:
-            return None
-        
-        try:
-            horse = {
-                'program_number': int(parts[0]),
-                'horse_name': parts[1]
-            }
-            
-            # Try to identify other fields
-            for part in parts[2:]:
-                if re.match(r'\d+-\d+', part):
-                    horse['morning_line_odds'] = part
-                elif '.' in part and part.count('.') >= 2:
-                    # Likely a jockey name (e.g., J. Smith)
-                    horse['jockey'] = part
-                elif part.isupper() or (part[0].isupper() and ' ' in part):
-                    # Likely a trainer name
-                    if 'trainer' not in horse:
-                        horse['trainer'] = part
-                        
-            return horse
-            
-        except (ValueError, IndexError):
-            return None
-    
-    def _is_valid_horse(self, horse: Dict) -> bool:
-        """Check if horse entry is valid"""
-        # Must have at least program number and name
-        if not horse.get('program_number') or not horse.get('horse_name'):
-            return False
-        
-        # Name shouldn't be a header or invalid entry
-        invalid_names = ['horse', 'name', 'scratch', 'entry', 'program', 'number']
-        if horse['horse_name'].lower() in invalid_names:
-            return False
-        
-        # Program number should be reasonable (1-20)
-        if horse['program_number'] < 1 or horse['program_number'] > 20:
-            return False
-        
-        return True
-    
-    def _extract_date(self, filename: str, text: str) -> date:
-        """Extract race date from filename or text"""
-        # Try filename first
-        date_from_filename = self._extract_date_from_filename(filename)
-        if date_from_filename:
-            return date_from_filename
-        
-        # Try text content
+    def _extract_date(self, text: str) -> date:
+        """Extract race date from PDF text"""
+        # Look for date patterns
         date_patterns = [
-            r'(\d{1,2})[/-](\d{1,2})[/-](\d{4})',
-            r'(\w+)\s+(\d{1,2}),\s+(\d{4})',
-            r'(\d{4})-(\d{2})-(\d{2})'
+            r'(\w+),\s+(\w+)\s+(\d{1,2}),\s+(\d{4})',  # Saturday, June 07, 2025
+            r'(\d{2})/(\d{2})/(\d{4})',  # 06/07/2025
+            r'(\d{4})-(\d{2})-(\d{2})'   # 2025-06-07
         ]
         
         for pattern in date_patterns:
             match = re.search(pattern, text)
             if match:
                 try:
-                    # Parse based on pattern
-                    if '/' in pattern or '-' in pattern:
+                    if 'June' in match.group(0):
+                        return datetime.strptime(match.group(0), '%A, %B %d, %Y').date()
+                    elif '/' in match.group(0):
                         return datetime.strptime(match.group(0), '%m/%d/%Y').date()
-                    else:
-                        return datetime.strptime(match.group(0), '%B %d, %Y').date()
+                    elif '-' in match.group(0):
+                        return datetime.strptime(match.group(0), '%Y-%m-%d').date()
                 except:
                     continue
         
         # Default to today
         return datetime.now().date()
     
-    def _extract_date_from_filename(self, filename: str) -> Optional[date]:
-        """Extract date from filename like FMT060725USA-EQB.pdf"""
-        # Pattern: FMT060725 -> 06/07/25
-        match = re.search(r'(\d{6})', filename)
+    def _parse_percentage(self, text: str) -> Optional[float]:
+        """Parse percentage from text like '(16%)'"""
+        match = re.search(r'(\d+)%', text)
         if match:
-            date_str = match.group(1)
-            try:
-                # Assume MMDDYY format
-                month = int(date_str[0:2])
-                day = int(date_str[2:4])
-                year = 2000 + int(date_str[4:6])
-                return date(year, month, day)
-            except:
-                pass
+            return float(match.group(1))
         return None
     
-    def _extract_track_name(self, text: str) -> str:
-        """Extract track name from text"""
-        # Check for track codes
-        for code, name in self.track_patterns.items():
-            if code in text.upper():
-                return name
-        
-        # Look for explicit track names
-        track_match = re.search(r'(?:at|@)\s+([A-Z][A-Za-z\s]+(?:Park|Downs|Track))', text)
-        if track_match:
-            return track_match.group(1).strip()
-        
-        return "Fonner Park"  # Default
-    
-    def _extract_post_time(self, text: str) -> Optional[time]:
-        """Extract post time from text"""
-        patterns = [
-            r'Post\s*Time:?\s*(\d{1,2}):(\d{2})\s*(PM|AM)?',
-            r'Post:?\s*(\d{1,2}):(\d{2})\s*(PM|AM)?',
-            r'(\d{1,2}):(\d{2})\s*(PM|AM)\s*Post'
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                hour = int(match.group(1))
-                minute = int(match.group(2))
-                meridiem = match.group(3).upper() if match.group(3) else 'PM'
-                
-                if meridiem == 'PM' and hour != 12:
-                    hour += 12
-                elif meridiem == 'AM' and hour == 12:
-                    hour = 0
-                    
-                return time(hour, minute)
-        
-        return None
-    
-    def _extract_distance(self, text: str) -> Optional[str]:
-        """Extract race distance from text"""
-        patterns = [
-            r'(\d+(?:\.\d+)?)\s*(Miles?|Furlongs?|Yards?|f)',
-            r'Distance:?\s*(\d+(?:\.\d+)?)\s*(Miles?|Furlongs?|Yards?|f)',
-            r'(\d+)\s*YDS',
-            r'(\d+)F'
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group(0).strip()
-        
-        return None
-    
-    def _extract_purse(self, text: str) -> Optional[int]:
-        """Extract purse amount from text"""
-        patterns = [
-            r'\$(\d{1,3}(?:,\d{3})*)',
-            r'Purse:?\s*\$?(\d{1,3}(?:,\d{3})*)',
-            r'PURSE\s*\$?(\d{1,3}(?:,\d{3})*)'
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                # Remove commas and convert to int
-                purse_str = match.group(1).replace(',', '')
-                try:
-                    return int(purse_str)
-                except:
-                    pass
-        
-        return None
-    
-    def _extract_race_type(self, text: str) -> Optional[str]:
-        """Extract race type from text"""
-        race_types = [
-            'MAIDEN', 'CLAIMING', 'ALLOWANCE', 'STAKES',
-            'HANDICAP', 'STARTER', 'TRIAL', 'OPTIONAL CLAIMING'
-        ]
-        
-        for race_type in race_types:
-            if race_type in text.upper():
-                return race_type.title()
-        
-        return None
-    
-    def _parse_table_content(self, table: List[List], race_date: date) -> List[Dict]:
-        """Parse race data from extracted table"""
-        races = []
-        
-        # Convert table to DataFrame for easier handling
-        if not table or len(table) < 2:
-            return races
-        
-        try:
-            df = pd.DataFrame(table[1:], columns=table[0])
-            
-            # Clean column names
-            df.columns = [str(col).strip().upper() for col in df.columns]
-            
-            # Look for horse entries table
-            if self._is_entries_table(df):
-                race = self._parse_entries_dataframe(df, race_date)
-                if race:
-                    races.append(race)
-                    
-        except Exception as e:
-            logger.error(f"Table parsing error: {e}")
-            
-        return races
-    
-    def _is_entries_table(self, df: pd.DataFrame) -> bool:
-        """Check if DataFrame contains race entries"""
-        # Check for common column patterns
-        columns = [str(col).upper() for col in df.columns]
-        
-        entry_indicators = ['HORSE', 'JOCKEY', 'TRAINER', 'PP', 'ML', 'ODDS']
-        matches = sum(1 for indicator in entry_indicators if any(indicator in col for col in columns))
-        
-        return matches >= 2
-    
-    def _parse_entries_dataframe(self, df: pd.DataFrame, race_date: date) -> Optional[Dict]:
-        """Parse entries from DataFrame"""
-        race = {
-            'date': race_date,
-            'track_name': 'Fonner Park',
-            'horses': []
-        }
-        
-        # Map columns
-        column_mapping = {
-            'PP': 'program_number',
-            'PROGRAM': 'program_number',
-            'HORSE': 'horse_name',
-            'HORSE NAME': 'horse_name',
-            'JOCKEY': 'jockey',
-            'TRAINER': 'trainer',
-            'ML': 'morning_line_odds',
-            'M/L': 'morning_line_odds',
-            'MORNING LINE': 'morning_line_odds',
-            'WT': 'weight',
-            'WEIGHT': 'weight'
-        }
-        
-        # Iterate through rows
-        for _, row in df.iterrows():
-            horse = {}
-            
-            for col in df.columns:
-                col_upper = str(col).upper()
-                for key, field in column_mapping.items():
-                    if key in col_upper:
-                        value = row[col]
-                        if pd.notna(value) and str(value).strip():
-                            if field == 'program_number':
-                                try:
-                                    horse[field] = int(value)
-                                except:
-                                    pass
-                            else:
-                                horse[field] = str(value).strip()
-            
-            if self._is_valid_horse(horse):
-                race['horses'].append(horse)
-        
-        return race if race['horses'] else None
-    
-
-
-def parse_pdf_file(pdf_path: str) -> Tuple[bool, str, List[Dict]]:
-    """Parse a PDF file and return races data"""
-    try:
-        parser = EquibasePDFParser()
-        races = parser.parse_pdf_file(pdf_path)
-        
-        if races:
-            return True, f"Successfully parsed {len(races)} races from PDF", races
-        else:
-            return False, "No races found in PDF", []
-            
-    except Exception as e:
-        logger.error(f"PDF parsing error: {e}")
-        return False, f"Error parsing PDF: {str(e)}", []
+    def _parse_int(self, text: str) -> Optional[int]:
+        """Parse integer, return None for 'NA'"""
+        if text == 'NA' or not text.isdigit():
+            return None
+        return int(text)

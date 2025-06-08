@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis - Racing Simple{% endblock %}
+
+{% block content %}
+<div class="analysis-container">
+    <h1>Race Analysis & Recommendations</h1>
+    
+    <div class="date-selector">
+        <label for="raceDate">Select Date:</label>
+        <input type="date" id="raceDate" value="{{ today }}">
+        <button onclick="loadAnalysis()" class="btn btn-secondary">Load</button>
+    </div>
+    
+    <div id="analysisContent">
+        <p class="loading">Loading analysis...</p>
+    </div>
+</div>
+
+<script>
+async function loadAnalysis() {
+    const date = document.getElementById('raceDate').value;
+    const container = document.getElementById('analysisContent');
+    
+    if (!date) {
+        container.innerHTML = '<p class="error">Please select a date</p>';
+        return;
+    }
+    
+    container.innerHTML = '<p class="loading">Loading analysis...</p>';
+    
+    try {
+        // Load races for the date
+        const racesResponse = await fetch(`/api/races/${date}`);
+        const racesData = await racesResponse.json();
+        
+        if (!racesData.success || racesData.races.length === 0) {
+            container.innerHTML = '<p class="no-data">No races found for this date.</p>';
+            return;
+        }
+        
+        let html = '';
+        
+        // Load entries for each race
+        for (const race of racesData.races) {
+            const entriesResponse = await fetch(`/api/race/${race.id}/entries`);
+            const entriesData = await entriesResponse.json();
+            
+            if (entriesData.success) {
+                html += `
+                    <div class="race-analysis" id="race-${race.id}">
+                        <h2>Race ${race.race_number} - ${race.post_time || 'TBA'}</h2>
+                        <p class="race-info">${race.distance || 'Distance TBA'} | ${race.race_type || 'Type TBA'} | Purse: $${race.purse || 'TBA'}</p>
+                        
+                        <table class="entries-table">
+                            <thead>
+                                <tr>
+                                    <th>Pgm</th>
+                                    <th>Horse</th>
+                                    <th>Jockey/Trainer</th>
+                                    <th>Win%</th>
+                                    <th>Speed</th>
+                                    <th>Class</th>
+                                    <th>Score</th>
+                                    <th>Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${entriesData.entries.map(entry => `
+                                    <tr class="${entry.recommendation ? entry.recommendation.toLowerCase().replace(' ', '-') : ''}">
+                                        <td>${entry.program_number}</td>
+                                        <td class="horse-name">${entry.horse_name}</td>
+                                        <td>
+                                            <div>${entry.jockey || '-'}</div>
+                                            <div class="trainer">${entry.trainer || '-'}</div>
+                                        </td>
+                                        <td>${entry.win_pct ? entry.win_pct + '%' : '-'}</td>
+                                        <td>
+                                            <div>L: ${entry.last_speed || '-'}</div>
+                                            <div>A: ${entry.avg_speed || '-'}</div>
+                                        </td>
+                                        <td>${entry.class_rating || '-'}</td>
+                                        <td class="score">${entry.overall_score ? entry.overall_score.toFixed(1) : '-'}</td>
+                                        <td>
+                                            ${entry.recommendation ? 
+                                                `<span class="badge ${entry.recommendation.toLowerCase().replace(' ', '-')}">${entry.recommendation}</span>` 
+                                                : '-'}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+        }
+        
+        container.innerHTML = html || '<p class="no-data">No analysis available.</p>';
+        
+    } catch (error) {
+        container.innerHTML = `<p class="error">Error loading analysis: ${error.message}</p>`;
+    }
+}
+
+// Load today's analysis on page load
+document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('raceDate').value = today;
+    loadAnalysis();
+});
+</script>
+
+<style>
+.race-analysis {
+    margin-bottom: 2rem;
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.entries-table {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.entries-table th {
+    background: #f0f0f0;
+    padding: 0.5rem;
+    text-align: left;
+}
+
+.entries-table td {
+    padding: 0.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.entries-table .trainer {
+    font-size: 0.9em;
+    color: #666;
+}
+
+.entries-table .score {
+    font-weight: bold;
+}
+
+.entries-table tr.strong-play {
+    background: #e8f5e9;
+}
+
+.entries-table tr.play {
+    background: #e3f2fd;
+}
+
+.entries-table tr.consider {
+    background: #fff3e0;
+}
+
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+.badge.strong-play {
+    background: #4caf50;
+    color: white;
+}
+
+.badge.play {
+    background: #2196f3;
+    color: white;
+}
+
+.badge.consider {
+    background: #ff9800;
+    color: white;
+}
+
+.badge.pass {
+    background: #9e9e9e;
+    color: white;
+}
+</style>
+{% endblock %}
