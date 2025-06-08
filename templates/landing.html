@@ -42,7 +42,6 @@
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 2rem;
-            margin-bottom: 3rem;
         }
         
         .product-card {
@@ -84,51 +83,9 @@
             line-height: 1.5;
         }
         
-        .features {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.5rem;
-            margin-top: 3rem;
-        }
-        
-        .feature {
-            text-align: center;
-            padding: 1rem;
-        }
-        
-        .feature-icon {
-            width: 48px;
-            height: 48px;
-            margin: 0 auto 1rem;
-            background: #f0f0f0;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-        }
-        
-        .feature-title {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-        
-        .feature-description {
-            font-size: 0.75rem;
-            color: #666;
-            line-height: 1.4;
-        }
-        
         @media (max-width: 768px) {
             .product-grid {
                 grid-template-columns: 1fr;
-            }
-            
-            .features {
-                grid-template-columns: 1fr;
-                gap: 1rem;
             }
             
             .logo {
@@ -167,24 +124,6 @@
                     <p class="product-description">Advanced analytics and deep insights</p>
                 </div>
             </a>
-        </div>
-        
-        <div class="features">
-            <div class="feature">
-                <div class="feature-icon">📊</div>
-                <h3 class="feature-title">Data Analysis</h3>
-                <p class="feature-description">Comprehensive race data processing</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">⚡</div>
-                <h3 class="feature-title">Fast Results</h3>
-                <p class="feature-description">Instant analysis and recommendations</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">🎯</div>
-                <h3 class="feature-title">Accurate Picks</h3>
-                <p class="feature-description">Data-driven selection strategies</p>
-            </div>
         </div>
     </div>
 </body>
