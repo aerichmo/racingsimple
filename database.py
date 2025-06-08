@@ -34,6 +34,23 @@ class Database:
         with self.get_cursor(dict_cursor=False) as cur:
             cur.execute(schema)
         logger.info("Database tables created successfully")
+        
+        # Run migrations
+        self.run_migrations()
+    
+    def run_migrations(self):
+        """Run database migrations"""
+        try:
+            with open('add_results.sql', 'r') as f:
+                migration = f.read()
+            
+            with self.get_cursor(dict_cursor=False) as cur:
+                cur.execute(migration)
+            logger.info("Applied results migration successfully")
+        except FileNotFoundError:
+            logger.info("No migrations to run")
+        except Exception as e:
+            logger.warning(f"Migration may have already been applied: {e}")
     
     def save_race(self, race_data):
         """Save race and return race_id"""
@@ -131,4 +148,88 @@ class Database:
                 cur.execute(query + " ORDER BY a.overall_score DESC", (date,))
             else:
                 cur.execute(query + " ORDER BY r.date DESC, a.overall_score DESC LIMIT 20")
+            return cur.fetchall()
+    
+    def save_race_results(self, race_id, results):
+        """Save race results for a specific race"""
+        with self.get_cursor() as cur:
+            for result in results:
+                # Try to match by program number first, then by horse name
+                if result.get('program_number'):
+                    cur.execute("""
+                        UPDATE entries 
+                        SET finish_position = %(finish_position)s,
+                            final_odds = %(final_odds)s,
+                            win_payoff = %(win_payoff)s,
+                            place_payoff = %(place_payoff)s,
+                            show_payoff = %(show_payoff)s,
+                            result_scraped_at = CURRENT_TIMESTAMP
+                        WHERE race_id = %(race_id)s 
+                        AND program_number = %(program_number)s
+                    """, {
+                        'race_id': race_id,
+                        'program_number': result.get('program_number'),
+                        'finish_position': result.get('finish_position'),
+                        'final_odds': result.get('final_odds'),
+                        'win_payoff': result.get('win_payoff'),
+                        'place_payoff': result.get('place_payoff'),
+                        'show_payoff': result.get('show_payoff')
+                    })
+                elif result.get('horse_name'):
+                    # Fallback to matching by horse name
+                    cur.execute("""
+                        UPDATE entries 
+                        SET finish_position = %(finish_position)s,
+                            final_odds = %(final_odds)s,
+                            win_payoff = %(win_payoff)s,
+                            place_payoff = %(place_payoff)s,
+                            show_payoff = %(show_payoff)s,
+                            result_scraped_at = CURRENT_TIMESTAMP
+                        WHERE race_id = %(race_id)s 
+                        AND LOWER(horse_name) = LOWER(%(horse_name)s)
+                    """, {
+                        'race_id': race_id,
+                        'horse_name': result.get('horse_name'),
+                        'finish_position': result.get('finish_position'),
+                        'final_odds': result.get('final_odds'),
+                        'win_payoff': result.get('win_payoff'),
+                        'place_payoff': result.get('place_payoff'),
+                        'show_payoff': result.get('show_payoff')
+                    })
+            
+            # Mark race as having results
+            cur.execute("""
+                UPDATE races 
+                SET results_scraped = TRUE, 
+                    results_scraped_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (race_id,))
+    
+    def get_dates_with_data(self):
+        """Get all dates that have race data"""
+        with self.get_cursor() as cur:
+            cur.execute("""
+                SELECT DISTINCT date, 
+                       COUNT(DISTINCT id) as race_count,
+                       MAX(results_scraped) as has_results
+                FROM races 
+                GROUP BY date 
+                ORDER BY date DESC
+                LIMIT 30
+            """)
+            return cur.fetchall()
+    
+    def get_race_with_results(self, race_id):
+        """Get race entries with both predictions and results"""
+        with self.get_cursor() as cur:
+            cur.execute("""
+                SELECT e.*, 
+                       a.overall_score, a.recommendation, a.confidence,
+                       e.finish_position, e.final_odds, 
+                       e.win_payoff, e.place_payoff, e.show_payoff
+                FROM entries e
+                LEFT JOIN analysis a ON a.entry_id = e.id
+                WHERE e.race_id = %s
+                ORDER BY COALESCE(e.finish_position, 999), e.post_position
+            """, (race_id,))
             return cur.fetchall()

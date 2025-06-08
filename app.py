@@ -10,6 +10,7 @@ from requests.auth import HTTPBasicAuth
 from database import Database
 from pdf_parser import EquibasePDFParser
 from analyzer import RaceAnalyzer
+from otb_scraper import OTBResultsScraper
 
 app = Flask(__name__, static_folder='static')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
@@ -30,7 +31,7 @@ def index():
 def stall10n_simple():
     """Stall10n Simple - PDF analysis page"""
     today = datetime.now().date()
-    return render_template('index.html', today=today)
+    return render_template('index_enhanced.html', today=today)
 
 @app.route('/stall10ncomplex')
 def stall10n_complex():
@@ -583,6 +584,57 @@ def get_top_plays():
         return jsonify({'success': True, 'plays': plays})
     except Exception as e:
         logger.error(f"Error fetching top plays: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/scrape-results/<date>')
+def scrape_results(date):
+    """Scrape race results from OTB for a specific date"""
+    try:
+        scraper = OTBResultsScraper()
+        results = scraper.scrape_results(date)
+        
+        if not results:
+            return jsonify({'success': False, 'error': 'No results found for this date'}), 404
+        
+        # Save results to database
+        races_updated = 0
+        for race_data in results:
+            # Find the race in our database
+            races = db.get_races_by_date(date)
+            for race in races:
+                if race['race_number'] == race_data['race_number']:
+                    db.save_race_results(race['id'], race_data['results'])
+                    races_updated += 1
+                    break
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Updated results for {races_updated} races',
+            'total_results': len(results)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error scraping results: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/dates-with-data')
+def get_dates_with_data():
+    """Get all dates that have race data"""
+    try:
+        dates = db.get_dates_with_data()
+        return jsonify({'success': True, 'dates': dates})
+    except Exception as e:
+        logger.error(f"Error fetching dates: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/race/<int:race_id>/with-results')
+def get_race_with_results(race_id):
+    """Get race entries with both predictions and results"""
+    try:
+        entries = db.get_race_with_results(race_id)
+        return jsonify({'success': True, 'entries': entries})
+    except Exception as e:
+        logger.error(f"Error fetching race with results: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/analysis')
