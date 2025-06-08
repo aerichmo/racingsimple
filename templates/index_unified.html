@@ -131,7 +131,7 @@
         const uploadDateInput = document.getElementById('uploadDate');
         if (uploadDateInput) {
             uploadDateInput.value = today;
-            console.log('Set upload date to:', today);
+            // Set upload date to today
         } else {
             console.error('Upload date input not found!');
         }
@@ -180,10 +180,7 @@
         const statusDiv = document.getElementById('status');
         const analysisDiv = document.getElementById('analysis');
         
-        // Debug logging
-        console.log('Form submitted');
-        console.log('Date input element:', dateInput);
-        console.log('Date value:', dateInput?.value);
+        // Validate form submission
         
         if (!fileInput.files || !fileInput.files[0]) {
             alert('Please select a PDF, XML, or ZIP file');
@@ -202,7 +199,7 @@
             return;
         }
         
-        console.log('Proceeding with date:', selectedDate);
+        // Proceed with form submission
         
         const formData = new FormData();
         formData.append('pdf', fileInput.files[0]);
@@ -316,7 +313,7 @@
                         }
                     } catch (error) {
                         // Results fetch failed, but that's okay
-                        console.log('Could not fetch results:', error);
+                        // Results fetch failed, but that's okay
                     }
                 }
             } else {
