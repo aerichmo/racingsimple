@@ -609,6 +609,63 @@ def analysis_page():
     return render_template('analysis.html')
 
 
+@app.route('/api/debug-fmt-entries')
+def debug_fmt_entries():
+    """Debug endpoint to test Fair Meadows entries"""
+    try:
+        base_url = os.environ.get('RACING_API_BASE_URL', 'https://api.theracingapi.com/v1')
+        username = os.environ.get('RACING_API_USERNAME')
+        password = os.environ.get('RACING_API_PASSWORD')
+        
+        if not username or not password:
+            return jsonify({'success': False, 'error': 'API credentials not configured'})
+        
+        # Remove /v1 if present
+        if base_url.endswith('/v1'):
+            base_url = base_url[:-3]
+            
+        # Use the exact meet_id from the debug output
+        meet_id = "FMT_1749268800000"
+        entries_url = f"{base_url}/v1/north-america/meets/{meet_id}/entries"
+        
+        auth = HTTPBasicAuth(username, password)
+        
+        try:
+            response = requests.get(entries_url, auth=auth, timeout=10)
+            
+            debug_info = {
+                'url': entries_url,
+                'status_code': response.status_code,
+                'headers': dict(response.headers)
+            }
+            
+            if response.status_code == 200:
+                data = response.json()
+                debug_info['response'] = {
+                    'type': str(type(data)),
+                    'keys': list(data.keys()) if isinstance(data, dict) else 'Not a dict',
+                    'data': data
+                }
+            else:
+                debug_info['error'] = {
+                    'status_code': response.status_code,
+                    'text': response.text[:500]
+                }
+                
+        except requests.exceptions.RequestException as e:
+            debug_info = {'request_error': str(e)}
+            
+        return jsonify({
+            'success': True,
+            'debug': debug_info
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
 @app.route('/api/debug-racing-api')
 def debug_racing_api():
     """Debug endpoint to test TheRacingAPI connection"""
