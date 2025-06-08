@@ -1,11 +1,9 @@
-from flask import Flask, render_template, jsonify, request, redirect, url_for
-from datetime import datetime, timedelta
+from flask import Flask, render_template, jsonify, request, redirect
+from datetime import datetime
 import os
 import logging
 from werkzeug.utils import secure_filename
 import tempfile
-import requests
-from requests.auth import HTTPBasicAuth
 import zipfile
 
 app = Flask(__name__, static_folder='static')
@@ -16,465 +14,28 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from database import Database
-try:
-    from pdf_parser_advanced import EquibasePDFParser
-    logger.info("Using advanced PDF parser")
-except ImportError:
-    from pdf_parser import EquibasePDFParser
-    logger.warning("Advanced parser not available, using basic parser")
+from xml_parser import EquibasePDFParser
 from analyzer import RaceAnalyzer
-from otb_scraper import OTBResultsScraper
 
-# Initialize database
+# Initialize database with XML schema
 db_url = os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimple')
 logger.info(f"Database URL configured: {'Yes' if 'DATABASE_URL' in os.environ else 'No (using default)'}")
 db = Database(db_url)
 
 @app.route('/')
 def index():
-    """Landing page with choice between Simple and Complex"""
-    return render_template('landing.html')
+    """Landing page"""
+    return redirect('/stall10nsimple')
 
 @app.route('/stall10nsimple')
 def stall10n_simple():
-    """Stall10n Simple - PDF analysis page"""
+    """Stall10n Simple - XML analysis page"""
     today = datetime.now().date()
     return render_template('index_unified.html', today=today)
 
-@app.route('/stall10ncomplex')
-def stall10n_complex():
-    """Stall10n Complex - Fair Meadows Tulsa recommendations page"""
-    HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>STALL10N Complex - Fair Meadows Tulsa</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: #f5f5f5;
-            color: #333;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 2rem;
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #4CAF50;
-            margin-bottom: 0.5rem;
-        }
-        .subtitle {
-            color: #666;
-        }
-        .loading {
-            text-align: center;
-            padding: 3rem;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .error {
-            background: #ffebee;
-            color: #c62828;
-            padding: 1rem;
-            border-radius: 4px;
-            margin-bottom: 1rem;
-        }
-        .no-races {
-            text-align: center;
-            padding: 3rem;
-            background: white;
-            border-radius: 8px;
-            color: #666;
-        }
-        .race-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .race-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid #f0f0f0;
-        }
-        .race-info {
-            color: #666;
-            font-size: 0.9rem;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th {
-            background: #f0f0f0;
-            padding: 0.75rem;
-            text-align: left;
-            font-weight: 600;
-        }
-        td {
-            padding: 0.75rem;
-            border-bottom: 1px solid #eee;
-        }
-        tr:hover {
-            background: #f9f9f9;
-        }
-        .horse-name {
-            font-weight: bold;
-        }
-        .score {
-            font-weight: bold;
-            font-size: 1.1rem;
-        }
-        .badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: bold;
-            display: inline-block;
-        }
-        .strong-play {
-            background: #4CAF50;
-            color: white;
-        }
-        .play {
-            background: #2196F3;
-            color: white;
-        }
-        .consider {
-            background: #FF9800;
-            color: white;
-        }
-        .pass {
-            background: #9E9E9E;
-            color: white;
-        }
-        .refresh-btn {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 0.5rem 1.5rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-        .refresh-btn:hover {
-            background: #45a049;
-        }
-        .top-plays {
-            background: #e8f5e9;
-            padding: 1rem;
-            border-radius: 4px;
-            margin-bottom: 2rem;
-        }
-        .top-plays h3 {
-            margin-top: 0;
-            color: #2e7d32;
-        }
-        .best-bets {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        .best-bet {
-            background: white;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            border: 2px solid #4CAF50;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>STALL10N Complex</h1>
-            <p class="subtitle">Fair Meadows Tulsa - June 7, 2025</p>
-            <button class="refresh-btn" onclick="loadRaces()">Refresh Data</button>
-        </div>
-        
-        <div id="content">
-            <div class="loading">Loading Fair Meadows races for June 7, 2025...</div>
-        </div>
-    </div>
-    
-    <script>
-    async function loadRaces() {
-        const contentDiv = document.getElementById('content');
-        contentDiv.innerHTML = '<div class="loading">Loading Fair Meadows races for June 7, 2025...</div>';
-        
-        try {
-            const response = await fetch('/api/fair-meadows-races');
-            const data = await response.json();
-            
-            if (!data.success) {
-                let errorMsg = `<div class="error">
-                    <strong>Error:</strong> ${data.error}<br>`;
-                if (data.details) {
-                    errorMsg += `<strong>Details:</strong> ${data.details}<br>`;
-                }
-                if (data.credentials_configured === false) {
-                    errorMsg += `<br><strong>Note:</strong> API credentials are not configured. Please ensure RACING_API_USERNAME and RACING_API_PASSWORD environment variables are set on Render.`;
-                }
-                errorMsg += `</div>`;
-                contentDiv.innerHTML = errorMsg;
-                return;
-            }
-            
-            if (!data.races || data.races.length === 0) {
-                contentDiv.innerHTML = '<div class="no-races">No Fair Meadows races scheduled for June 7, 2025.</div>';
-                return;
-            }
-            
-            // Find top plays across all races
-            const topPlays = [];
-            data.races.forEach(race => {
-                race.entries.forEach(entry => {
-                    if (entry.score >= 70) {
-                        topPlays.push({
-                            race_number: race.race_number,
-                            ...entry
-                        });
-                    }
-                });
-            });
-            
-            let html = '';
-            
-            // Show top plays if any
-            if (topPlays.length > 0) {
-                const sortedPlays = topPlays.sort((a, b) => b.score - a.score).slice(0, 5);
-                html += `
-                    <div class="top-plays">
-                        <h3>🎯 June 7, 2025 Best Bets at Fair Meadows</h3>
-                        <div class="best-bets">
-                            ${sortedPlays.map(play => 
-                                `<div class="best-bet">R${play.race_number} - #${play.post_position} ${play.horse_name} (${play.score})</div>`
-                            ).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Display each race
-            data.races.forEach(race => {
-                html += `
-                    <div class="race-card">
-                        <div class="race-header">
-                            <div>
-                                <h2>Race ${race.race_number}</h2>
-                                <div class="race-info">
-                                    ${race.race_time || 'Time TBA'} | 
-                                    ${race.distance || 'Distance TBA'} | 
-                                    ${race.race_type || 'Type TBA'} | 
-                                    Purse: $${race.purse || 'TBA'}
-                                </div>
-                            </div>
-                            <div class="race-info">${data.track}</div>
-                        </div>
-                        
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>PP</th>
-                                    <th>Horse</th>
-                                    <th>Jockey / Trainer</th>
-                                    <th>ML Odds</th>
-                                    <th>Score</th>
-                                    <th>Recommendation</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${race.entries.map(entry => `
-                                    <tr>
-                                        <td>${entry.post_position}</td>
-                                        <td class="horse-name">${entry.horse_name}</td>
-                                        <td>
-                                            <div>${entry.jockey || ''}</div>
-                                            <div style="font-size: 0.85rem; color: #666;">${entry.trainer || ''}</div>
-                                        </td>
-                                        <td>${entry.morning_line_odds || '-'}</td>
-                                        <td class="score">${entry.score}</td>
-                                        <td>
-                                            <span class="badge ${entry.recommendation.toLowerCase().replace(' ', '-')}">${entry.recommendation}</span>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            });
-            
-            contentDiv.innerHTML = html;
-            
-        } catch (error) {
-            contentDiv.innerHTML = `<div class="error">Error loading races: ${error.message}</div>`;
-        }
-    }
-    
-    // Load races on page load
-    loadRaces();
-    
-    // Auto-refresh every 5 minutes
-    setInterval(loadRaces, 5 * 60 * 1000);
-    </script>
-</body>
-</html>
-"""
-    return HTML_TEMPLATE
-
-@app.route('/upload')
-def upload_page():
-    """PDF upload page"""
-    return render_template('upload.html')
-
-@app.route('/api/upload', methods=['POST'])
-def upload_pdf():
-    """Handle PDF/XML upload and processing"""
-    try:
-        if 'pdf' not in request.files:
-            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
-        
-        file = request.files['pdf']
-        if file.filename == '':
-            return jsonify({'success': False, 'error': 'No file selected'}), 400
-        
-        filename_lower = file.filename.lower()
-        if not (filename_lower.endswith('.pdf') or filename_lower.endswith('.xml') or filename_lower.endswith('.zip')):
-            return jsonify({'success': False, 'error': 'File must be a PDF, XML, or ZIP file'}), 400
-        
-        # Save file temporarily
-        suffix = '.zip' if filename_lower.endswith('.zip') else ('.xml' if filename_lower.endswith('.xml') else '.pdf')
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
-            file.save(tmp_file.name)
-            tmp_path = tmp_file.name
-        
-        # Handle ZIP files
-        if filename_lower.endswith('.zip'):
-            # Extract XML from ZIP
-            xml_path = None
-            try:
-                with zipfile.ZipFile(tmp_path, 'r') as zip_file:
-                    # Find XML file in ZIP
-                    xml_files = [f for f in zip_file.namelist() if f.lower().endswith('.xml')]
-                    if not xml_files:
-                        return jsonify({'success': False, 'error': 'No XML file found in ZIP'}), 400
-                    
-                    # Extract the first XML file
-                    xml_filename = xml_files[0]
-                    with tempfile.NamedTemporaryFile(suffix='.xml', delete=False) as xml_tmp:
-                        xml_tmp.write(zip_file.read(xml_filename))
-                        xml_path = xml_tmp.name
-                
-                # Clean up ZIP file
-                os.unlink(tmp_path)
-                tmp_path = xml_path
-            except Exception as e:
-                logger.error(f"Error extracting XML from ZIP: {e}")
-                if xml_path and os.path.exists(xml_path):
-                    os.unlink(xml_path)
-                return jsonify({'success': False, 'error': f'Error extracting XML from ZIP: {str(e)}'}), 400
-        
-        # Parse the file
-        parser = EquibasePDFParser()
-        races = parser.parse_pdf_file(tmp_path)
-        
-        # Clean up temp file
-        try:
-            os.unlink(tmp_path)
-        except:
-            pass
-        
-        if not races:
-            return jsonify({'success': False, 'error': 'No races found in PDF'}), 400
-        
-        # Save to database and analyze
-        analyzer = RaceAnalyzer()
-        total_entries = 0
-        top_plays = []
-        
-        for race in races:
-            # Save race
-            race_data = {
-                'date': race['race_date'],
-                'race_number': race['race_number'],
-                'track_name': race['track'],
-                'distance': race.get('distance'),
-                'race_type': race.get('race_type'),
-                'purse': race.get('purse'),
-                'post_time': race.get('post_time'),
-                'surface': race.get('surface', 'Dirt'),
-                'pdf_filename': secure_filename(file.filename)
-            }
-            race_id = db.save_race(race_data)
-            
-            # Save and analyze entries
-            for entry in race['entries']:
-                entry_data = {
-                    'race_id': race_id,
-                    'program_number': entry['program_number'],
-                    'post_position': entry.get('post_position', entry['program_number']),
-                    'horse_name': entry['horse_name'],
-                    'jockey': entry.get('jockey'),
-                    'trainer': entry.get('trainer'),
-                    'win_pct': entry.get('win_pct'),
-                    'class_rating': entry.get('class_rating'),
-                    'last_speed': entry.get('last_speed'),
-                    'avg_speed': entry.get('avg_speed'),
-                    'best_speed': entry.get('best_speed'),
-                    'jockey_win_pct': entry.get('jockey_win_pct'),
-                    'trainer_win_pct': entry.get('trainer_win_pct'),
-                    'jt_combo_pct': entry.get('jt_combo_pct')
-                }
-                entry_id = db.save_entry(entry_data)
-                
-                # Analyze
-                analysis = analyzer.analyze_entry(entry_data)
-                analysis['entry_id'] = entry_id
-                db.save_analysis(analysis)
-                
-                # Track top plays
-                if analysis['overall_score'] >= 70:
-                    play = {
-                        'race_number': race['race_number'],
-                        'horse_name': entry['horse_name'],
-                        'score': analysis['overall_score'],
-                        'recommendation': analysis['recommendation']
-                    }
-                    top_plays.append(play)
-                
-                total_entries += 1
-        
-        return jsonify({
-            'success': True,
-            'message': f'Processed {len(races)} races with {total_entries} entries',
-            'races_count': len(races),
-            'entries_count': total_entries,
-            'top_plays': sorted(top_plays, key=lambda x: x['score'], reverse=True)[:5]
-        })
-        
-    except Exception as e:
-        logger.error(f"Upload error: {e}", exc_info=True)
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 @app.route('/api/upload-and-analyze', methods=['POST'])
 def upload_and_analyze():
-    """Handle PDF/XML upload, processing, and return full analysis data"""
+    """Handle XML/ZIP upload, processing, and return full analysis data"""
     try:
         if 'pdf' not in request.files:
             return jsonify({'success': False, 'error': 'No file uploaded'}), 400
@@ -484,11 +45,11 @@ def upload_and_analyze():
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
         filename_lower = file.filename.lower()
-        if not (filename_lower.endswith('.pdf') or filename_lower.endswith('.xml') or filename_lower.endswith('.zip')):
-            return jsonify({'success': False, 'error': 'File must be a PDF, XML, or ZIP file'}), 400
+        if not (filename_lower.endswith('.xml') or filename_lower.endswith('.zip')):
+            return jsonify({'success': False, 'error': 'File must be an XML or ZIP file'}), 400
         
         # Save file temporarily
-        suffix = '.zip' if filename_lower.endswith('.zip') else ('.xml' if filename_lower.endswith('.xml') else '.pdf')
+        suffix = '.zip' if filename_lower.endswith('.zip') else '.xml'
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
             file.save(tmp_file.name)
             tmp_path = tmp_file.name
@@ -519,7 +80,7 @@ def upload_and_analyze():
                     os.unlink(xml_path)
                 return jsonify({'success': False, 'error': f'Error extracting XML from ZIP: {str(e)}'}), 400
         
-        # Parse the file
+        # Parse the XML file
         parser = EquibasePDFParser()
         races = parser.parse_pdf_file(tmp_path)
         
@@ -530,31 +91,14 @@ def upload_and_analyze():
             pass
         
         if not races:
-            return jsonify({'success': False, 'error': 'No races found in PDF'}), 400
+            return jsonify({'success': False, 'error': 'No races found in XML'}), 400
             
-        logger.info(f"Parsed {len(races)} races from PDF")
+        logger.info(f"Parsed {len(races)} races from XML")
         
-        # Validate races have required fields
-        valid_races = []
-        for race in races:
-            if not race.get('race_number'):
-                logger.warning(f"Skipping race without race_number: {race}")
-                continue
-            if not race.get('entries') or len(race.get('entries', [])) == 0:
-                logger.warning(f"Skipping race {race.get('race_number')} with no entries")
-                continue
-            valid_races.append(race)
-            
-        if not valid_races:
-            return jsonify({'success': False, 'error': 'No valid races found in PDF (races must have entries)'}), 400
-            
-        races = valid_races
-        logger.info(f"Found {len(races)} valid races with entries")
-        
-        # Get the date from form data (if provided) or use the PDF date
+        # Get the date from form data (if provided) or use the XML date
         form_date = request.form.get('date')
         if form_date:
-            # Override PDF date with user-selected date
+            # Override XML date with user-selected date
             for race in races:
                 race['race_date'] = form_date
         
@@ -564,16 +108,33 @@ def upload_and_analyze():
         analysis_results = []
         
         for race in races:
-            # Save race
+            # Prepare race data with all fields
             race_data = {
                 'date': race['race_date'],
                 'race_number': race['race_number'],
                 'track_name': race['track'],
+                'track_code': race.get('track_code', race['track']),
+                'country': race.get('country', 'USA'),
                 'distance': race.get('distance'),
+                'dist_unit': race.get('dist_unit', 'F'),
+                'dist_disp': race.get('dist_disp'),
+                'surface': race.get('surface', 'D'),
+                'course_id': race.get('course_id', 'D'),
                 'race_type': race.get('race_type'),
+                'stk_clm_md': race.get('stk_clm_md'),
+                'stkorclm': race.get('stkorclm'),
                 'purse': race.get('purse'),
+                'claimamt': race.get('claimamt'),
                 'post_time': race.get('post_time'),
-                'surface': race.get('surface', 'Dirt'),
+                'age_restr': race.get('age_restr'),
+                'sex_restriction': race.get('sex_restriction'),
+                'race_conditions': race.get('race_conditions'),
+                'betting_options': race.get('betting_options'),
+                'track_record': race.get('track_record'),
+                'partim': race.get('partim'),
+                'raceord': race.get('raceord'),
+                'breed_type': race.get('breed_type', 'TB'),
+                'todays_cls': race.get('todays_cls'),
                 'pdf_filename': secure_filename(file.filename)
             }
             race_id = db.save_race(race_data)
@@ -584,7 +145,7 @@ def upload_and_analyze():
                 'race_number': race['race_number'],
                 'track_name': race['track'],
                 'date': race['race_date'],
-                'distance': race.get('distance'),
+                'distance': race.get('dist_disp') or race.get('distance'),
                 'race_type': race.get('race_type'),
                 'purse': race.get('purse'),
                 'post_time': race.get('post_time'),
@@ -593,7 +154,125 @@ def upload_and_analyze():
             
             # Save and analyze entries
             for entry in race['entries']:
+                # Prepare entry data with all fields
                 entry_data = {
+                    'race_id': race_id,
+                    'program_number': entry['program_number'],
+                    'post_position': entry.get('post_position', entry['program_number']),
+                    'horse_name': entry['horse_name'],
+                    'owner_name': entry.get('owner_name'),
+                    'sex': entry.get('sex'),
+                    'age': entry.get('age'),
+                    'foal_date': entry.get('foal_date'),
+                    'color': entry.get('color'),
+                    'breed_type': entry.get('breed_type', 'TB'),
+                    'breeder': entry.get('breeder'),
+                    'where_bred': entry.get('where_bred'),
+                    'weight': entry.get('weight'),
+                    'weight_shift': entry.get('weight_shift', 0),
+                    'medication': entry.get('medication'),
+                    'equipment': entry.get('equipment'),
+                    'morning_line_odds': entry.get('morning_line_odds'),
+                    'claiming_price': entry.get('claiming_price'),
+                    'power_rating': entry.get('power_rating'),
+                    'power_symb': entry.get('power_symb'),
+                    'avg_speed': entry.get('avg_speed'),
+                    'avg_class': entry.get('avg_class'),
+                    'todays_cls': entry.get('todays_cls'),
+                    'last_speed': entry.get('last_speed'),
+                    'best_speed': entry.get('best_speed'),
+                    'class_rating': entry.get('class_rating'),
+                    'pstyerl': entry.get('pstyerl'),
+                    'pstymid': entry.get('pstymid'),
+                    'pstyfin': entry.get('pstyfin'),
+                    'pstynum': entry.get('pstynum'),
+                    'pstyoff': entry.get('pstyoff'),
+                    'psprstyerl': entry.get('psprstyerl'),
+                    'psprstymid': entry.get('psprstymid'),
+                    'psprstyfin': entry.get('psprstyfin'),
+                    'psprstynum': entry.get('psprstynum'),
+                    'psprstyoff': entry.get('psprstyoff'),
+                    'prtestyerl': entry.get('prtestyerl'),
+                    'prtestymid': entry.get('prtestymid'),
+                    'prtestyfin': entry.get('prtestyfin'),
+                    'prtestynum': entry.get('prtestynum'),
+                    'prtestyoff': entry.get('prtestyoff'),
+                    'pallstyerl': entry.get('pallstyerl'),
+                    'pallstymid': entry.get('pallstymid'),
+                    'pallstyfin': entry.get('pallstyfin'),
+                    'pallstynum': entry.get('pallstynum'),
+                    'pallstyoff': entry.get('pallstyoff'),
+                    'pfigerl': entry.get('pfigerl'),
+                    'pfigmid': entry.get('pfigmid'),
+                    'pfigfin': entry.get('pfigfin'),
+                    'pfignum': entry.get('pfignum'),
+                    'pfigoff': entry.get('pfigoff'),
+                    'psprfigerl': entry.get('psprfigerl'),
+                    'psprfigmid': entry.get('psprfigmid'),
+                    'psprfigfin': entry.get('psprfigfin'),
+                    'psprfignum': entry.get('psprfignum'),
+                    'psprfigoff': entry.get('psprfigoff'),
+                    'prtefigerl': entry.get('prtefigerl'),
+                    'prtefigmid': entry.get('prtefigmid'),
+                    'prtefigfin': entry.get('prtefigfin'),
+                    'prtefignum': entry.get('prtefignum'),
+                    'prtefigoff': entry.get('prtefigoff'),
+                    'pallfigerl': entry.get('pallfigerl'),
+                    'pallfigmid': entry.get('pallfigmid'),
+                    'pallfigfin': entry.get('pallfigfin'),
+                    'pallfignum': entry.get('pallfignum'),
+                    'pallfigoff': entry.get('pallfigoff'),
+                    'tmmark': entry.get('tmmark'),
+                    'av_pur_val': entry.get('av_pur_val'),
+                    'ae_flag': entry.get('ae_flag'),
+                    'horse_comment': entry.get('horse_comment'),
+                    'lst_salena': entry.get('lst_salena'),
+                    'lst_salepr': entry.get('lst_salepr'),
+                    'lst_saleda': entry.get('lst_saleda'),
+                    'apprweight': entry.get('apprweight'),
+                    'axciskey': entry.get('axciskey'),
+                    'avg_spd_sd': entry.get('avg_spd_sd'),
+                    'ave_cl_sd': entry.get('ave_cl_sd'),
+                    'hi_spd_sd': entry.get('hi_spd_sd'),
+                    'jockey': entry.get('jockey'),
+                    'trainer': entry.get('trainer'),
+                    'win_pct': entry.get('win_pct'),
+                    'jockey_win_pct': entry.get('jockey_win_pct'),
+                    'trainer_win_pct': entry.get('trainer_win_pct'),
+                    'jt_combo_pct': entry.get('jt_combo_pct')
+                }
+                entry_id = db.save_entry(entry_data)
+                
+                # Save horse statistics
+                if 'horse_stats' in entry:
+                    db.save_horse_stats(entry_id, entry['horse_stats'])
+                
+                # Save jockey information and statistics
+                if 'jockey_data' in entry:
+                    db.save_jockey_info_and_stats(entry_id, entry['jockey_data'])
+                
+                # Save trainer information and statistics
+                if 'trainer_data' in entry:
+                    db.save_trainer_info_and_stats(entry_id, entry['trainer_data'])
+                
+                # Save sire information and statistics
+                if 'sire_data' in entry:
+                    db.save_sire_info_and_stats(entry_id, entry['sire_data'])
+                
+                # Save dam information and statistics
+                if 'dam_data' in entry:
+                    db.save_dam_info_and_stats(entry_id, entry['dam_data'])
+                
+                # Save workouts
+                if 'workouts' in entry:
+                    db.save_workouts(entry_id, entry['workouts'])
+                
+                # Save past performance data
+                if 'pp_data' in entry:
+                    db.save_pp_data(entry_id, entry['pp_data'])
+                
+                # Analyze (simplified for compatibility)
+                analysis_entry_data = {
                     'race_id': race_id,
                     'program_number': entry['program_number'],
                     'post_position': entry.get('post_position', entry['program_number']),
@@ -609,23 +288,26 @@ def upload_and_analyze():
                     'trainer_win_pct': entry.get('trainer_win_pct'),
                     'jt_combo_pct': entry.get('jt_combo_pct')
                 }
-                entry_id = db.save_entry(entry_data)
                 
-                # Analyze
-                analysis = analyzer.analyze_entry(entry_data)
+                analysis = analyzer.analyze_entry(analysis_entry_data)
                 analysis['entry_id'] = entry_id
                 db.save_analysis(analysis)
                 
                 # Add to race entries with analysis
                 entry_with_analysis = {
-                    **entry_data,
+                    **analysis_entry_data,
                     'overall_score': analysis['overall_score'],
                     'speed_score': analysis['speed_score'],
                     'class_score': analysis['class_score'],
                     'jockey_score': analysis['jockey_score'],
                     'trainer_score': analysis['trainer_score'],
                     'recommendation': analysis['recommendation'],
-                    'confidence': analysis['confidence']
+                    'confidence': analysis['confidence'],
+                    'power_rating': entry.get('power_rating'),
+                    'morning_line_odds': entry.get('morning_line_odds'),
+                    'weight': entry.get('weight'),
+                    'medication': entry.get('medication'),
+                    'equipment': entry.get('equipment')
                 }
                 race_analysis['entries'].append(entry_with_analysis)
                 
@@ -644,8 +326,17 @@ def upload_and_analyze():
         
     except Exception as e:
         logger.error(f"Upload and analyze error: {e}", exc_info=True)
-        # Make sure we always return JSON
         return jsonify({'success': False, 'error': f'Server error: {str(e)}'}), 500
+
+@app.route('/api/dates-with-data')
+def get_dates_with_data():
+    """Get all dates that have race data"""
+    try:
+        dates = db.get_dates_with_data()
+        return jsonify({'success': True, 'dates': dates})
+    except Exception as e:
+        logger.error(f"Error fetching dates: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/races/<date>')
 def get_races(date):
@@ -667,273 +358,27 @@ def get_race_entries(race_id):
         logger.error(f"Error fetching entries: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/top-plays')
-def get_top_plays():
-    """Get top recommended plays"""
+@app.route('/api/clear-all-data', methods=['DELETE'])
+def clear_all_data():
+    """Clear all data from the database"""
     try:
-        date = request.args.get('date')
-        plays = db.get_top_plays(date)
-        return jsonify({'success': True, 'plays': plays})
-    except Exception as e:
-        logger.error(f"Error fetching top plays: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/scrape-results/<date>')
-def scrape_results(date):
-    """Scrape race results from OTB for a specific date"""
-    try:
-        scraper = OTBResultsScraper()
-        results = scraper.scrape_results(date)
-        
-        if not results:
-            return jsonify({'success': False, 'error': 'No results found for this date'}), 404
-        
-        # Save results to database
-        races_updated = 0
-        for race_data in results:
-            # Find the race in our database
-            races = db.get_races_by_date(date)
-            for race in races:
-                if race['race_number'] == race_data['race_number']:
-                    db.save_race_results(race['id'], race_data['results'])
-                    races_updated += 1
-                    break
-        
-        return jsonify({
-            'success': True, 
-            'message': f'Updated results for {races_updated} races',
-            'total_results': len(results)
-        })
-        
-    except Exception as e:
-        logger.error(f"Error scraping results: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/dates-with-data')
-def get_dates_with_data():
-    """Get all dates that have race data"""
-    try:
-        dates = db.get_dates_with_data()
-        return jsonify({'success': True, 'dates': dates})
-    except Exception as e:
-        logger.error(f"Error fetching dates: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/race/<int:race_id>/with-results')
-def get_race_with_results(race_id):
-    """Get race entries with both predictions and results"""
-    try:
-        entries = db.get_race_with_results(race_id)
-        return jsonify({'success': True, 'entries': entries})
-    except Exception as e:
-        logger.error(f"Error fetching race with results: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/analysis')
-def analysis_page():
-    """Analysis and recommendations page"""
-    return render_template('analysis.html')
-
-@app.route('/pdf-diagnostic')
-def pdf_diagnostic_page():
-    """PDF parser diagnostic page"""
-    return render_template('pdf_diagnostic.html')
-
-@app.route('/api/parse-diagnostic', methods=['POST'])
-def parse_diagnostic():
-    """Diagnostic endpoint for PDF/XML parsing with detailed feedback"""
-    try:
-        if 'pdf' not in request.files:
-            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
-        
-        file = request.files['pdf']
-        if file.filename == '':
-            return jsonify({'success': False, 'error': 'No file selected'}), 400
-        
-        # Save file temporarily
-        filename_lower = file.filename.lower()
-        suffix = '.zip' if filename_lower.endswith('.zip') else ('.xml' if filename_lower.endswith('.xml') else '.pdf')
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
-            file.save(tmp_file.name)
-            tmp_path = tmp_file.name
-        
-        # Handle ZIP files
-        if filename_lower.endswith('.zip'):
-            # Extract XML from ZIP
-            xml_path = None
-            try:
-                with zipfile.ZipFile(tmp_path, 'r') as zip_file:
-                    # Find XML file in ZIP
-                    xml_files = [f for f in zip_file.namelist() if f.lower().endswith('.xml')]
-                    if not xml_files:
-                        return jsonify({'success': False, 'error': 'No XML file found in ZIP'}), 400
-                    
-                    # Extract the first XML file
-                    xml_filename = xml_files[0]
-                    with tempfile.NamedTemporaryFile(suffix='.xml', delete=False) as xml_tmp:
-                        xml_tmp.write(zip_file.read(xml_filename))
-                        xml_path = xml_tmp.name
-                
-                # Clean up ZIP file
-                os.unlink(tmp_path)
-                tmp_path = xml_path
-            except Exception as e:
-                logger.error(f"Error extracting XML from ZIP: {e}")
-                if xml_path and os.path.exists(xml_path):
-                    os.unlink(xml_path)
-                return jsonify({'success': False, 'error': f'Error extracting XML from ZIP: {str(e)}'}), 400
-        
-        diagnostic_info = {
-            'filename': file.filename,
-            'parser_type': 'unknown',
-            'extraction_methods': [],
-            'races_found': 0,
-            'total_entries': 0,
-            'confidence_scores': [],
-            'warnings': [],
-            'sample_data': None
-        }
-        
-        try:
-            # Check which parser is being used
-            if 'pdf_parser_advanced' in str(EquibasePDFParser.__module__):
-                diagnostic_info['parser_type'] = 'advanced'
-                
-                # Get detailed parsing info if using advanced parser
-                parser = EquibasePDFParser()
-                if hasattr(parser, 'parser'):
-                    advanced_parser = parser.parser
-                    
-                    # Try each extraction method
-                    try:
-                        text = advanced_parser._extract_text_pypdf2(tmp_path)
-                        if text:
-                            diagnostic_info['extraction_methods'].append({
-                                'method': 'PyPDF2',
-                                'success': True,
-                                'text_length': len(text),
-                                'sample': text[:200]
-                            })
-                    except Exception as e:
-                        diagnostic_info['extraction_methods'].append({
-                            'method': 'PyPDF2',
-                            'success': False,
-                            'error': str(e)
-                        })
-                    
-                    try:
-                        text, tables = advanced_parser._extract_text_pdfplumber(tmp_path)
-                        if text or tables:
-                            diagnostic_info['extraction_methods'].append({
-                                'method': 'pdfplumber',
-                                'success': True,
-                                'text_length': len(text) if text else 0,
-                                'tables_found': len(tables) if tables else 0,
-                                'sample': text[:200] if text else None
-                            })
-                    except Exception as e:
-                        diagnostic_info['extraction_methods'].append({
-                            'method': 'pdfplumber',
-                            'success': False,
-                            'error': str(e)
-                        })
-            else:
-                diagnostic_info['parser_type'] = 'basic'
-            
-            # Parse the PDF
-            parser = EquibasePDFParser()
-            races = parser.parse_pdf_file(tmp_path)
-            
-            diagnostic_info['races_found'] = len(races)
-            
-            # Analyze results
-            for race in races:
-                entries = race.get('entries', [])
-                diagnostic_info['total_entries'] += len(entries)
-                
-                # Get confidence if available
-                if hasattr(race, 'confidence'):
-                    diagnostic_info['confidence_scores'].append({
-                        'race': race['race_number'],
-                        'confidence': race.confidence
-                    })
-                
-                # Check for missing data
-                if not race.get('distance'):
-                    diagnostic_info['warnings'].append(f"Race {race['race_number']}: Missing distance")
-                if not race.get('race_type'):
-                    diagnostic_info['warnings'].append(f"Race {race['race_number']}: Missing race type")
-                
-                for entry in entries[:2]:  # Check first 2 entries
-                    if not entry.get('jockey'):
-                        diagnostic_info['warnings'].append(
-                            f"Race {race['race_number']}, Entry {entry.get('program_number')}: Missing jockey"
-                        )
-                    if not entry.get('trainer'):
-                        diagnostic_info['warnings'].append(
-                            f"Race {race['race_number']}, Entry {entry.get('program_number')}: Missing trainer"
-                        )
-            
-            # Include sample of parsed data
-            if races:
-                sample_race = races[0]
-                diagnostic_info['sample_data'] = {
-                    'race': {
-                        'race_number': sample_race.get('race_number'),
-                        'distance': sample_race.get('distance'),
-                        'race_type': sample_race.get('race_type'),
-                        'entries_count': len(sample_race.get('entries', []))
-                    },
-                    'sample_entry': sample_race.get('entries', [{}])[0] if sample_race.get('entries') else None
-                }
-            
-            return jsonify({
-                'success': True,
-                'diagnostic': diagnostic_info,
-                'races': races
-            })
-            
-        finally:
-            # Clean up temp file
-            try:
-                os.unlink(tmp_path)
-            except:
-                pass
-        
-    except Exception as e:
-        logger.error(f"Parse diagnostic error: {e}", exc_info=True)
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/clear-date/<date>', methods=['DELETE'])
-def clear_date_data(date):
-    """Clear all race data for a specific date"""
-    try:
-        deleted_count = db.delete_races_by_date(date)
+        db.clear_all_data()
         return jsonify({
             'success': True,
-            'message': f'Cleared {deleted_count} races for {date}'
+            'message': 'All data cleared from database'
         })
     except Exception as e:
-        logger.error(f"Error clearing date data: {e}")
+        logger.error(f"Error clearing data: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/test')
-def test_endpoint():
-    """Test endpoint to verify server is responding with JSON"""
-    return jsonify({
-        'success': True,
-        'message': 'Server is working',
-        'timestamp': datetime.now().isoformat()
-    })
 
 @app.route('/api/health')
 def health_check():
-    """Health check endpoint that also tests database connection"""
+    """Health check endpoint"""
     health_status = {
         'server': 'ok',
         'timestamp': datetime.now().isoformat(),
         'database': 'unknown',
-        'pdf_parser': 'unknown'
+        'xml_parser': 'ok'
     }
     
     # Test database connection
@@ -944,201 +389,12 @@ def health_check():
     except Exception as e:
         health_status['database'] = f'error: {str(e)}'
     
-    # Check PDF parser
-    try:
-        from pdf_parser_advanced import AdvancedPDFParser, HAS_PDFPLUMBER, HAS_PYMUPDF
-        health_status['pdf_parser'] = {
-            'pypdf2': 'ok',
-            'pdfplumber': 'ok' if HAS_PDFPLUMBER else 'not installed',
-            'pymupdf': 'ok' if HAS_PYMUPDF else 'not installed'
-        }
-    except ImportError:
-        health_status['pdf_parser'] = 'using basic parser'
-    
     return jsonify(health_status)
-
-@app.route('/api/fair-meadows-races')
-def get_fair_meadows_races():
-    """Get June 7, 2025 races from Fair Meadows Tulsa via TheRacingAPI"""
-    try:
-        # Get API credentials from environment
-        base_url = os.environ.get('RACING_API_BASE_URL', 'https://api.theracingapi.com/v1')
-        username = os.environ.get('RACING_API_USERNAME')
-        password = os.environ.get('RACING_API_PASSWORD')
-        
-        if not username or not password:
-            return jsonify({'success': False, 'error': 'API credentials not configured'}), 500
-        
-        # Only get races for June 7, 2025
-        start_date = '2025-06-07'
-        end_date = '2025-06-07'
-        target_date = '2025-06-07'
-        
-        
-        # Get meets for date range
-        # Fix: Remove /v1 from base_url if it's included, as we'll add it in the path
-        if base_url.endswith('/v1'):
-            base_url = base_url[:-3]
-        meets_url = f"{base_url}/v1/north-america/meets"
-        params = {
-            'start_date': start_date,
-            'end_date': end_date
-        }
-        
-        
-        auth = HTTPBasicAuth(username, password)
-        meets_response = requests.get(meets_url, params=params, auth=auth)
-        meets_response.raise_for_status()
-        meets_data = meets_response.json()
-        
-        
-        # The API response has meets in a 'meets' array
-        if isinstance(meets_data, dict) and 'meets' in meets_data:
-            meets_list = meets_data['meets']
-        elif isinstance(meets_data, list):
-            meets_list = meets_data
-        else:
-            meets_list = []
-        
-        # Find Fair Meadows meet
-        fair_meadows_meet = None
-        
-        
-        for meet in meets_list:
-            # Based on actual API response: track_id, track_name, meet_id, date, country
-            track_id = meet.get('track_id', '')
-            
-            
-            # Check for FMT (Fair Meadows Tulsa) on June 7, 2025
-            if track_id == 'FMT' and meet.get('date') == '2025-06-07':
-                fair_meadows_meet = meet
-                break
-        
-        if not fair_meadows_meet:
-            return jsonify({
-                'success': True,
-                'message': 'No Fair Meadows races found for June 7, 2025',
-                'races': []
-            })
-        
-        # Get entries for Fair Meadows meet
-        meet_id = fair_meadows_meet['meet_id']
-        entries_url = f"{base_url}/v1/north-america/meets/{meet_id}/entries"
-        
-        entries_response = requests.get(entries_url, auth=auth)
-        entries_response.raise_for_status()
-        entries_data = entries_response.json()
-        
-        
-        # Process races and entries
-        races_with_analysis = []
-        for race in entries_data.get('races', []):
-            # Extract race info from actual API structure
-            race_key = race.get('race_key', {})
-            race_info = {
-                'race_number': race_key.get('race_number'),
-                'race_time': race.get('post_time'),
-                'distance': race.get('distance_description'),
-                'race_type': race.get('race_type_description'),
-                'purse': race.get('purse'),
-                'entries': []
-            }
-            
-            # Analyze each entry - the API calls them 'runners'
-            for entry in race.get('runners', []):
-                # Skip scratched horses
-                if entry.get('scratch_indicator') == 'Y':
-                    continue
-                    
-                # Simple scoring based on available data
-                score = 50  # Base score
-                
-                # Parse morning line odds (format: "5-2" becomes 2.5)
-                ml_odds_str = entry.get('morning_line_odds', '10-1')
-                try:
-                    if '-' in ml_odds_str:
-                        num, den = ml_odds_str.split('-')
-                        ml_odds = float(num) / float(den)
-                    else:
-                        ml_odds = 10.0
-                except:
-                    ml_odds = 10.0
-                
-                # Adjust score based on morning line odds
-                if ml_odds < 2:
-                    score += 25
-                elif ml_odds < 3:
-                    score += 20
-                elif ml_odds < 5:
-                    score += 15
-                elif ml_odds < 10:
-                    score += 10
-                
-                # Adjust based on live odds if available
-                live_odds_str = entry.get('live_odds', '')
-                if live_odds_str and '-' in live_odds_str:
-                    try:
-                        num, den = live_odds_str.split('-')
-                        live_odds = float(num) / float(den)
-                        if live_odds < ml_odds:
-                            score += 10  # Money coming in on this horse
-                    except:
-                        pass
-                
-                # Get jockey and trainer info
-                jockey_info = entry.get('jockey', {})
-                trainer_info = entry.get('trainer', {})
-                
-                # Determine recommendation
-                if score >= 80:
-                    recommendation = 'STRONG PLAY'
-                elif score >= 70:
-                    recommendation = 'PLAY'
-                elif score >= 60:
-                    recommendation = 'CONSIDER'
-                else:
-                    recommendation = 'PASS'
-                
-                entry_info = {
-                    'post_position': entry.get('post_pos'),
-                    'horse_name': entry.get('horse_name'),
-                    'jockey': jockey_info.get('alias') or jockey_info.get('last_name') or '',
-                    'trainer': trainer_info.get('alias') or trainer_info.get('last_name') or '',
-                    'morning_line_odds': ml_odds_str,
-                    'score': score,
-                    'recommendation': recommendation
-                }
-                race_info['entries'].append(entry_info)
-            
-            # Sort entries by score
-            race_info['entries'].sort(key=lambda x: x['score'], reverse=True)
-            races_with_analysis.append(race_info)
-        
-        return jsonify({
-            'success': True,
-            'track': fair_meadows_meet.get('track_name', 'Fair Meadows Tulsa'),
-            'date': fair_meadows_meet.get('date'),
-            'races': races_with_analysis
-        })
-        
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Racing API error: {e}")
-        logger.error(f"API URL attempted: {meets_url if 'meets_url' in locals() else 'Not set'}")
-        logger.error(f"API credentials present: username={bool(username)}, password={bool(password)}")
-        return jsonify({
-            'success': False, 
-            'error': 'Failed to fetch racing data',
-            'details': str(e),
-            'credentials_configured': bool(username and password)
-        }), 500
-    except Exception as e:
-        logger.error(f"Fair Meadows races error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 # Initialize database tables on startup
 try:
     db.create_tables()
-    logger.info("Database tables created/verified successfully")
+    logger.info("XML database tables created/verified successfully")
 except Exception as e:
     logger.error(f"Database initialization error: {e}", exc_info=True)
     logger.error("Application will continue but database operations may fail")

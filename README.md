@@ -1,75 +1,76 @@
-# Racing Simple - Python Version
+# STALL10N - Horse Racing XML Analysis
 
-Automated horse racing data scraper for Equibase entries with odds tracking.
+STALL10N Simple is a horse racing analysis application that processes TrackMaster Plus XML data files to provide racing recommendations.
 
 ## Features
 
-- Scrapes race data from Equibase daily at 8am (Wed-Sat only)
-- Captures Morning Line (M/L) odds at 8am on race day
-- Captures Live odds 5 minutes before post time
-- Stores all data in PostgreSQL database with historical tracking
-- Stops automatically after July 20, 2025
-- Comprehensive SQL queries for data analysis
+- **XML Data Processing**: Parses TrackMaster Plus XML files containing comprehensive race and horse data
+- **ZIP File Support**: Accepts .zip files containing XML data
+- **Comprehensive Analysis**: Analyzes horses based on speed, class, jockey, and trainer performance
+- **Database Storage**: Stores all XML data fields including:
+  - Race information (track, distance, conditions, purse)
+  - Horse details (breeding, physical attributes, ownership)
+  - Performance metrics (speed figures, power ratings, class ratings)
+  - Statistics (horse, jockey, trainer, sire, dam)
+  - Workout history
+  - Past performance data
+- **Web Interface**: Clean, unified interface for uploading files and viewing analysis
 
-## Setup
+## Technology Stack
 
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+- **Backend**: Python Flask
+- **Database**: PostgreSQL
+- **Parser**: XML (ElementTree)
+- **Analysis**: Custom scoring algorithm
+- **Deployment**: Render.com
 
-2. Create PostgreSQL database and run schema:
-   ```bash
-   python database.py  # Creates tables
-   ```
+## File Structure
 
-3. Set environment variable:
-   ```bash
-   export DATABASE_URL=postgresql://user:password@localhost:5432/racingsimple
-   ```
-
-4. Test scraper:
-   ```bash
-   python scraper.py
-   ```
-
-## Deployment on Render
-
-1. Push code to GitHub
-2. Create new project on Render
-3. Select "Blueprint" and connect your repo
-4. Render will automatically:
-   - Create a PostgreSQL database
-   - Set up a cron job to run at 8am daily
-   - Configure all environment variables
-
-## Important Notes
-
-**The scraper CSS selectors need to be updated!** 
-- Visit https://www.equibase.com/static/entry/FMT060725USA-EQB.html
-- Inspect the HTML structure
-- Update selectors in `scraper.py` `parse_race_data()` method
-
-## Analysis Queries
-
-See `analysis_queries.sql` for pre-built queries including:
-- Daily race summaries
-- Jockey/trainer statistics
-- Track analysis
-- Horse history tracking
-
-## Manual Usage
-
-```python
-from scraper import EquibaseScraper
-from database import Database
-
-# Run scraper
-scraper = EquibaseScraper(os.environ['DATABASE_URL'])
-scraper.run_daily_sync()
-
-# Query data
-db = Database()
-races = db.get_races_by_date('2025-06-07')
-jockey_stats = db.get_jockey_statistics()
 ```
+STALL10N/
+├── app.py              # Main Flask application
+├── xml_parser.py       # XML parser for TrackMaster Plus format
+├── database.py         # Database operations
+├── analyzer.py         # Race analysis logic
+├── schema.sql          # Complete database schema
+├── requirements.txt    # Python dependencies
+├── render.yaml         # Render deployment config
+├── templates/          # HTML templates
+└── static/            # Static assets
+```
+
+## Database Schema
+
+The application uses a comprehensive schema that stores:
+- Races with all track and condition details
+- Entries with 100+ fields per horse
+- Horse, jockey, and trainer statistics
+- Sire and dam breeding statistics
+- Workout history
+- Complete past performance data
+
+## Usage
+
+1. Navigate to `/stall10nsimple`
+2. Select a date for the races
+3. Upload an XML or ZIP file containing TrackMaster Plus data
+4. View analysis results with recommendations
+
+## Local Development
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up PostgreSQL database
+createdb racingsimple
+
+# Run the application
+python app.py
+```
+
+## Environment Variables
+
+- `DATABASE_URL`: PostgreSQL connection string
+- `SECRET_KEY`: Flask secret key
+- `PORT`: Server port (default: 5000)
