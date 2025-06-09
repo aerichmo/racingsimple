@@ -36,16 +36,31 @@ else:
 # Initialize database
 db_url = os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimple')
 logger.info(f"Database URL configured: {'Yes' if 'DATABASE_URL' in os.environ else 'No (using default)'}")
-db = Database(db_url)
+
+# Check if database schema is applied
+try:
+    db = Database(db_url)
+    # Test database connection and schema
+    with db.get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM sessions LIMIT 1")
+    logger.info("Database schema verified")
+except Exception as e:
+    logger.error(f"Database not properly initialized: {e}")
+    logger.error("Please run: python apply_schema.py")
+    db = None
 
 @app.route('/')
 def index():
     """Main page - Race Data Logger"""
-    return render_template('index_simple.html')
+    return render_template('index.html')
 
 @app.route('/api/analyze-screenshots', methods=['POST'])
 def analyze_screenshots():
     """Handle screenshot uploads and save race data"""
+    if db is None:
+        return jsonify({'success': False, 'error': 'Database not initialized. Please contact administrator.'}), 503
+    
     try:
         # Check for uploaded files
         if 'screenshots' not in request.files:
