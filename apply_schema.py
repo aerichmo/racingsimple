@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""Apply the betting schema to the database"""
+"""Apply the simplified schema to the database"""
 import os
 import psycopg2
 import logging
-from database import Database
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def apply_schema():
-    """Apply the betting schema to the database"""
+    """Apply the simple schema to the database"""
     # Get database URL
     db_url = os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimple')
     
@@ -21,10 +20,10 @@ def apply_schema():
         cur = conn.cursor()
         
         # Read schema file
-        with open('betting_schema.sql', 'r') as f:
+        with open('simple_schema.sql', 'r') as f:
             schema_sql = f.read()
         
-        logger.info("Applying betting schema...")
+        logger.info("Applying simple schema...")
         
         # Execute schema
         cur.execute(schema_sql)
@@ -35,7 +34,7 @@ def apply_schema():
             SELECT table_name 
             FROM information_schema.tables 
             WHERE table_schema = 'public' 
-            AND table_name IN ('analysis_sessions', 'races', 'race_entries', 'betting_recommendations')
+            AND table_name IN ('sessions', 'races', 'race_entries')
             ORDER BY table_name
         """)
         
@@ -45,7 +44,7 @@ def apply_schema():
         cur.close()
         conn.close()
         
-        logger.info("Betting schema applied successfully!")
+        logger.info("Simple schema applied successfully!")
         
     except Exception as e:
         logger.error(f"Error applying schema: {e}")

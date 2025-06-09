@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STALL10N - Smart Betting Analysis</title>
+    <title>STALL10N - Race Data Logger</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -13,18 +13,16 @@
             background: #f5f5f5; 
         }
         
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
         
         .header { 
             text-align: center; 
             margin-bottom: 2rem; 
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            background: #2a5298;
             color: white;
             padding: 2rem;
             border-radius: 10px;
         }
-        .header h1 { margin-bottom: 0.5rem; font-size: 2.5rem; }
-        .header p { opacity: 0.9; }
         
         .upload-section {
             background: white;
@@ -32,25 +30,6 @@
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 2rem;
-        }
-        
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: #555;
-        }
-        
-        .form-group input[type="number"] {
-            width: 200px;
-            padding: 0.75rem;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            font-size: 1rem;
         }
         
         .file-upload-area {
@@ -126,21 +105,6 @@
             padding: 2rem;
         }
         
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #2a5298;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
         .results-section {
             display: none;
             background: white;
@@ -149,47 +113,11 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         
-        .summary-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
+        .race-data {
+            margin-top: 1rem;
         }
         
-        .summary-card {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-radius: 8px;
-            text-align: center;
-            border: 2px solid #e9ecef;
-        }
-        
-        .summary-card h3 {
-            color: #666;
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-        }
-        
-        .summary-card .value {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #2a5298;
-        }
-        
-        .summary-card.positive .value {
-            color: #28a745;
-        }
-        
-        .summary-card.negative .value {
-            color: #dc3545;
-        }
-        
-        .recommendations {
-            margin-top: 2rem;
-        }
-        
-        .race-recommendations {
+        .race-group {
             margin-bottom: 2rem;
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -199,50 +127,21 @@
         .race-header {
             background: #f8f9fa;
             padding: 1rem;
+            font-weight: bold;
             border-bottom: 1px solid #ddd;
-            font-weight: bold;
         }
         
-        .bet-card {
-            padding: 1rem;
+        .entry-row {
+            padding: 0.75rem 1rem;
             border-bottom: 1px solid #eee;
-            display: flex;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 1rem;
             align-items: center;
-            justify-content: space-between;
         }
         
-        .bet-card:last-child {
+        .entry-row:last-child {
             border-bottom: none;
-        }
-        
-        .bet-info {
-            flex: 1;
-        }
-        
-        .bet-info .horse-name {
-            font-weight: bold;
-            font-size: 1.1rem;
-            margin-bottom: 0.25rem;
-        }
-        
-        .bet-info .details {
-            color: #666;
-            font-size: 0.9rem;
-        }
-        
-        .bet-stake {
-            text-align: right;
-        }
-        
-        .bet-stake .amount {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #2a5298;
-        }
-        
-        .bet-stake .odds {
-            color: #666;
-            font-size: 0.9rem;
         }
         
         .error-message {
@@ -268,71 +167,36 @@
     <div class="container">
         <div class="header">
             <h1>STALL10N</h1>
-            <p>Smart Betting Analysis - Upload Screenshots for AI-Powered Recommendations</p>
+            <p>Race Data Logger - Upload Screenshots to Log Race Information</p>
         </div>
         
         <div class="upload-section">
             <h2>Upload Race Screenshots</h2>
-            <p style="color: #666; margin-bottom: 1.5rem;">Upload up to 5 screenshots showing Win Probability and M/L odds</p>
+            <p style="color: #666; margin-bottom: 1.5rem;">Upload up to 5 screenshots to log race data</p>
             
-            <form id="analysisForm">
-                <div class="form-group">
-                    <label for="bankroll">Bankroll Amount ($)</label>
-                    <input type="number" id="bankroll" name="bankroll" value="1000" min="100" step="100" required>
+            <form id="uploadForm">
+                <div class="file-upload-area" id="dropZone">
+                    <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">📸 Drop screenshots here or click to browse</p>
+                    <p style="color: #666;">Maximum 5 files</p>
+                    <input type="file" id="fileInput" name="screenshots" multiple accept="image/png,image/jpeg,image/jpg" style="display: none;">
                 </div>
+                <div class="file-list" id="fileList"></div>
                 
-                <div class="form-group">
-                    <label>Screenshots (PNG/JPEG)</label>
-                    <div class="file-upload-area" id="dropZone">
-                        <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">📸 Drop screenshots here or click to browse</p>
-                        <p style="color: #666;">Maximum 5 files, up to 10MB each</p>
-                        <input type="file" id="fileInput" name="screenshots" multiple accept="image/png,image/jpeg,image/jpg" style="display: none;">
-                    </div>
-                    <div class="file-list" id="fileList"></div>
-                </div>
-                
-                <button type="submit" class="btn btn-primary" id="analyzeBtn">Analyze Screenshots</button>
+                <button type="submit" class="btn btn-primary" id="uploadBtn">Upload Screenshots</button>
             </form>
             
             <div class="error-message" id="errorMessage"></div>
             <div class="success-message" id="successMessage"></div>
             
             <div class="loading" id="loadingSection">
-                <div class="spinner"></div>
-                <p>Analyzing screenshots and calculating optimal bets...</p>
+                <p>Processing screenshots...</p>
             </div>
         </div>
         
         <div class="results-section" id="resultsSection">
-            <h2>Betting Analysis Results</h2>
-            
-            <div class="summary-cards" id="summaryCards">
-                <div class="summary-card">
-                    <h3>Total Races</h3>
-                    <div class="value" id="totalRaces">0</div>
-                </div>
-                <div class="summary-card">
-                    <h3>Recommended Bets</h3>
-                    <div class="value" id="totalBets">0</div>
-                </div>
-                <div class="summary-card">
-                    <h3>Total Stake</h3>
-                    <div class="value" id="totalStake">$0</div>
-                </div>
-                <div class="summary-card positive">
-                    <h3>Expected ROI</h3>
-                    <div class="value" id="expectedROI">0%</div>
-                </div>
-                <div class="summary-card">
-                    <h3>Risk Score</h3>
-                    <div class="value" id="riskScore">0</div>
-                </div>
-            </div>
-            
-            <div class="recommendations" id="recommendations">
-                <h3>Recommended Bets</h3>
-                <div id="betsList"></div>
-            </div>
+            <h2>Logged Race Data</h2>
+            <p id="summaryText"></p>
+            <div class="race-data" id="raceData"></div>
         </div>
     </div>
     
@@ -340,8 +204,8 @@
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const fileList = document.getElementById('fileList');
-        const analysisForm = document.getElementById('analysisForm');
-        const analyzeBtn = document.getElementById('analyzeBtn');
+        const uploadForm = document.getElementById('uploadForm');
+        const uploadBtn = document.getElementById('uploadBtn');
         const loadingSection = document.getElementById('loadingSection');
         const resultsSection = document.getElementById('resultsSection');
         const errorMessage = document.getElementById('errorMessage');
@@ -373,11 +237,7 @@
         
         function handleFiles(files) {
             const validFiles = Array.from(files).filter(file => {
-                const isValid = file.type.startsWith('image/') && file.size <= 10 * 1024 * 1024;
-                if (!isValid && file.size > 10 * 1024 * 1024) {
-                    showError(`File ${file.name} is too large (max 10MB)`);
-                }
-                return isValid;
+                return file.type.startsWith('image/');
             });
             
             if (selectedFiles.length + validFiles.length > 5) {
@@ -395,7 +255,7 @@
                 const item = document.createElement('div');
                 item.className = 'file-item';
                 item.innerHTML = `
-                    <span>${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)</span>
+                    <span>${file.name}</span>
                     <button type="button" onclick="removeFile(${index})">Remove</button>
                 `;
                 fileList.appendChild(item);
@@ -424,7 +284,7 @@
         }
         
         // Form submission
-        analysisForm.addEventListener('submit', async (e) => {
+        uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
             if (selectedFiles.length === 0) {
@@ -433,13 +293,11 @@
             }
             
             const formData = new FormData();
-            formData.append('bankroll', document.getElementById('bankroll').value);
-            
             selectedFiles.forEach(file => {
                 formData.append('screenshots', file);
             });
             
-            analyzeBtn.disabled = true;
+            uploadBtn.disabled = true;
             loadingSection.style.display = 'block';
             resultsSection.style.display = 'none';
             
@@ -452,76 +310,56 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    displayResults(data.analysis);
-                    showSuccess('Analysis completed successfully!');
+                    displayResults(data);
+                    showSuccess('Screenshots processed successfully!');
                 } else {
-                    showError(data.error || 'Analysis failed');
+                    showError(data.error || 'Processing failed');
                 }
             } catch (error) {
                 showError('Network error: ' + error.message);
             } finally {
-                analyzeBtn.disabled = false;
+                uploadBtn.disabled = false;
                 loadingSection.style.display = 'none';
             }
         });
         
-        function displayResults(analysis) {
-            // Update summary cards
-            document.getElementById('totalRaces').textContent = analysis.races.length;
-            document.getElementById('totalBets').textContent = analysis.summary.total_bets;
-            document.getElementById('totalStake').textContent = `$${analysis.summary.total_stake.toFixed(2)}`;
-            document.getElementById('expectedROI').textContent = `${analysis.summary.expected_roi.toFixed(1)}%`;
-            document.getElementById('riskScore').textContent = analysis.summary.risk_score.toFixed(0);
+        function displayResults(data) {
+            // Update summary
+            document.getElementById('summaryText').textContent = 
+                `Logged ${data.total_races} races with ${data.total_entries} total entries`;
             
-            // Update ROI color
-            const roiCard = document.getElementById('expectedROI').parentElement;
-            if (analysis.summary.expected_roi > 0) {
-                roiCard.classList.add('positive');
-                roiCard.classList.remove('negative');
-            } else {
-                roiCard.classList.add('negative');
-                roiCard.classList.remove('positive');
-            }
+            // Display race data
+            const raceDataDiv = document.getElementById('raceData');
+            raceDataDiv.innerHTML = '';
             
-            // Display recommendations
-            const betsList = document.getElementById('betsList');
-            betsList.innerHTML = '';
-            
-            analysis.races.forEach(race => {
-                if (race.recommended_bets.length > 0) {
-                    const raceDiv = document.createElement('div');
-                    raceDiv.className = 'race-recommendations';
-                    
-                    const header = document.createElement('div');
-                    header.className = 'race-header';
-                    header.textContent = `Race ${race.race_number} - ${race.post_time || 'Time N/A'}`;
-                    raceDiv.appendChild(header);
-                    
-                    race.recommended_bets.forEach(bet => {
-                        const betCard = document.createElement('div');
-                        betCard.className = 'bet-card';
-                        betCard.innerHTML = `
-                            <div class="bet-info">
-                                <div class="horse-name">#${bet.program_number} - ${bet.horse_name}</div>
-                                <div class="details">
-                                    Win Prob: ${(bet.win_probability * 100).toFixed(1)}% | 
-                                    Edge: ${(bet.edge * 100).toFixed(1)}% |
-                                    Value: ${bet.value_rating.toFixed(1)}
-                                </div>
-                            </div>
-                            <div class="bet-stake">
-                                <div class="amount">$${bet.stake.toFixed(2)}</div>
-                                <div class="odds">@ ${bet.ml_odds}</div>
-                            </div>
-                        `;
-                        raceDiv.appendChild(betCard);
-                    });
-                    
-                    betsList.appendChild(raceDiv);
-                }
+            data.races.forEach(race => {
+                const raceGroup = document.createElement('div');
+                raceGroup.className = 'race-group';
+                
+                const header = document.createElement('div');
+                header.className = 'race-header';
+                header.textContent = `Race ${race.race_number || 'Unknown'}`;
+                raceGroup.appendChild(header);
+                
+                race.entries.forEach(entry => {
+                    const entryRow = document.createElement('div');
+                    entryRow.className = 'entry-row';
+                    entryRow.innerHTML = `
+                        <div>${entry.horse_name}</div>
+                        <div>${entry.win_probability}%</div>
+                        <div>${entry.ml_odds}</div>
+                    `;
+                    raceGroup.appendChild(entryRow);
+                });
+                
+                raceDataDiv.appendChild(raceGroup);
             });
             
             resultsSection.style.display = 'block';
+            
+            // Clear selected files
+            selectedFiles = [];
+            updateFileList();
         }
     </script>
 </body>
