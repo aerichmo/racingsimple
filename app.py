@@ -14,12 +14,25 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from database import Database
-try:
-    from screenshot_parser import ScreenshotParser
-except ImportError:
-    # Use simple parser if OCR dependencies not available
-    from screenshot_parser_simple import ScreenshotParser
 from betting_analyzer import BettingAnalyzer
+
+# Try to use OCR parser, but test if it actually works
+USE_OCR = False
+try:
+    import pytesseract
+    import cv2
+    from screenshot_parser import ScreenshotParser as OCRScreenshotParser
+    # Test if tesseract is actually installed
+    pytesseract.get_tesseract_version()
+    USE_OCR = True
+    logger.info("Using OCR-based screenshot parser")
+except Exception as e:
+    logger.info(f"OCR not available ({e}), using simple parser")
+
+if not USE_OCR:
+    from screenshot_parser_simple import ScreenshotParser
+else:
+    ScreenshotParser = OCRScreenshotParser
 
 # Initialize database
 db_url = os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimple')
