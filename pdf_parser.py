@@ -33,6 +33,13 @@ class RacingPDFParser:
                 logger.error("Could not extract text from PDF")
                 return races
             
+            # Check if this is a Fair Meadows PDF
+            if 'FAIR MEADOWS' in text.upper():
+                logger.info("Detected Fair Meadows PDF format")
+                races = self._parse_fair_meadows_format(text)
+                if races:
+                    return races
+            
             # Try to parse as structured racing data
             races = self._parse_racing_text(text)
             
@@ -206,6 +213,83 @@ class RacingPDFParser:
                 break  # Use first pattern that matches
         
         return race if race['entries'] else None
+    
+    def _parse_fair_meadows_format(self, text: str) -> List[Dict]:
+        """Parse Fair Meadows specific PDF format"""
+        races = []
+        
+        # Get date
+        date_match = re.search(r'([A-Z]+\s+\d+,\s+\d{4})', text)
+        race_date = None
+        if date_match:
+            try:
+                from datetime import datetime
+                # Convert "JUNE 11, 2025" to "2025-06-11"
+                date_obj = datetime.strptime(date_match.group(1), "%B %d, %Y")
+                race_date = date_obj.strftime("%Y-%m-%d")
+            except:
+                race_date = date_match.group(1)
+        
+        # Split by race times
+        sections = re.split(r'(\d+:\d+[AP])', text)
+        
+        race_num = 0
+        for i in range(1, len(sections), 2):
+            if i+1 >= len(sections):
+                break
+                
+            race_num += 1
+            race_text = sections[i] + sections[i+1]
+            
+            race = {
+                'race_number': race_num,
+                'track': 'Fair Meadows',
+                'race_date': race_date,
+                'entries': []
+            }
+            
+            # Extract race details
+            dist_match = re.search(r'•\s*(\d+(?:\s*½)?)\s*(Furlongs?|Miles?)', race_text)
+            if dist_match:
+                race['distance'] = dist_match.group(1).replace(' ', '')
+                race['dist_unit'] = 'F' if 'Furlong' in dist_match.group(2) else 'M'
+            
+            surf_match = re.search(r'-\s*(Dirt|Turf)', race_text)
+            if surf_match:
+                race['surface'] = surf_match.group(1)[0].upper()
+            
+            purse_match = re.search(r'PURSE\s*\$([0-9,]+)', race_text)
+            if purse_match:
+                race['purse'] = purse_match.group(1).replace(',', '')
+            
+            # Parse entries
+            pp_matches = list(re.finditer(r'PP-(\d+)', race_text))
+            
+            for j, pp_match in enumerate(pp_matches):
+                pp_num = pp_match.group(1)
+                
+                # Get text between this PP and the next (or end)
+                start = pp_match.start()
+                end = pp_matches[j+1].start() if j+1 < len(pp_matches) else len(race_text)
+                entry_text = race_text[start:end]
+                
+                entry = {
+                    'program_number': pp_num,
+                    'horse_name': f'Horse {pp_num}'  # Default name
+                }
+                
+                # Try to extract horse name from sire/dam info
+                # Format: "Sire:\nDam:\nHorseName (Sire Name)"
+                sire_match = re.search(r'Sire:.*?Dam:.*?\n([A-Z][A-Za-z\s\']+?)\s*\([^)]+\)', entry_text, re.DOTALL)
+                if sire_match:
+                    entry['horse_name'] = sire_match.group(1).strip()
+                
+                race['entries'].append(entry)
+            
+            if race['entries']:
+                races.append(race)
+        
+        return races
     
     def _parse_basic_text(self, text: str) -> List[Dict]:
         """Fallback parser for basic text extraction"""
