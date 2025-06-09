@@ -14,7 +14,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from database import Database
-from screenshot_parser import ScreenshotParser
+try:
+    from screenshot_parser import ScreenshotParser
+except ImportError:
+    # Use simple parser if OCR dependencies not available
+    from screenshot_parser_simple import ScreenshotParser
 from betting_analyzer import BettingAnalyzer
 
 # Initialize database

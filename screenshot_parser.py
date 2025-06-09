@@ -30,11 +30,24 @@ class ScreenshotParser:
             # Load and preprocess image
             image = self._preprocess_image(image_path)
             
-            # Extract text using OCR
-            text = pytesseract.image_to_string(image)
+            # Extract text using OCR with custom config for better table recognition
+            custom_config = r'--oem 3 --psm 6'
+            text = pytesseract.image_to_string(image, config=custom_config)
+            
+            # Log the extracted text for debugging
+            logger.debug(f"OCR extracted text from {image_path}:\n{text[:500]}...")
             
             # Parse the extracted text
-            return self._parse_race_data(text, image_path)
+            race_data = self._parse_race_data(text, image_path)
+            
+            # If no entries found, try alternative OCR settings
+            if not race_data.get('entries'):
+                logger.info("No entries found with default OCR, trying alternative settings")
+                # Try with different page segmentation mode
+                text = pytesseract.image_to_string(image, config='--psm 4')
+                race_data = self._parse_race_data(text, image_path)
+            
+            return race_data
             
         except Exception as e:
             logger.error(f"Error parsing screenshot {image_path}: {e}")
@@ -63,10 +76,13 @@ class ScreenshotParser:
             'entries': []
         }
         
-        # Extract race number
-        race_match = self.patterns['race_header'].search(text)
-        if race_match:
-            race_data['race_number'] = int(race_match.group(1))
+        # Try to find race number from the large number at top left (e.g., "7", "8", "4")
+        lines = text.split('\n')
+        for i, line in enumerate(lines[:10]):  # Check first 10 lines
+            # Look for standalone single/double digit number
+            if re.match(r'^\s*(\d{1,2})\s*$', line.strip()):
+                race_data['race_number'] = int(line.strip())
+                break
         
         # Extract post time
         time_match = self.patterns['post_time'].search(text)
@@ -78,7 +94,7 @@ class ScreenshotParser:
         if purse_match:
             race_data['purse'] = purse_match.group(1).replace(',', '')
         
-        # Extract distance
+        # Extract distance (e.g., "6 Furlongs", "1 Mile")
         dist_match = self.patterns['distance'].search(text)
         if dist_match:
             race_data['distance'] = dist_match.group(1).replace(' 1/2', '.5')
@@ -92,6 +108,10 @@ class ScreenshotParser:
         # Parse entries from table
         race_data['entries'] = self._parse_entries_from_table(text)
         
+        # Log debug info
+        logger.info(f"Parsed race {race_data.get('race_number', 'Unknown')} from {image_path}")
+        logger.debug(f"Found {len(race_data['entries'])} entries")
+        
         return race_data
     
     def _parse_entries_from_table(self, text: str) -> List[Dict]:
@@ -103,24 +123,29 @@ class ScreenshotParser:
         
         # Look for table data
         in_table = False
-        for line in lines:
-            # Check if we're in the horse entries table
-            if 'Program Number' in line and 'Win Probability' in line:
+        for i, line in enumerate(lines):
+            # Check if we're in the horse entries table - look for header
+            if ('Program' in line or 'Horse' in line) and ('Win Probability' in line or 'Odds' in line or 'M/L' in line):
                 in_table = True
+                logger.debug(f"Found table header at line {i}: {line}")
                 continue
             
             if not in_table:
                 continue
             
             # Stop at end of table
-            if 'VIEW MATCHED HORSES' in line or not line.strip():
-                in_table = False
+            if 'VIEW MATCHED HORSES' in line or 'PRINT ANGLES' in line:
+                break
+            
+            # Skip empty lines but stay in table
+            if not line.strip():
                 continue
             
             # Parse entry line
             entry = self._parse_entry_line(line)
             if entry:
                 entries.append(entry)
+                logger.debug(f"Parsed entry: {entry}")
         
         return entries
     
@@ -128,36 +153,68 @@ class ScreenshotParser:
         """Parse a single entry line from the table"""
         # Clean the line
         line = line.strip()
-        if not line or len(line) < 10:
+        if not line or len(line) < 5:
             return None
         
-        # Try different patterns to extract data
-        # Pattern 1: "1  Horse Name  24.1%  -  3/1  0"
-        pattern1 = re.match(r'^(\d+)\s+([A-Za-z][A-Za-z\s\']+?)\s+([\d.]+%)\s*-?\s*([\d/]+)\s*(\d+)?$', line)
-        if pattern1:
-            return {
-                'program_number': int(pattern1.group(1)),
-                'horse_name': pattern1.group(2).strip(),
-                'win_probability': float(pattern1.group(3).replace('%', '')),
-                'ml_odds': pattern1.group(4),
-                'angles_matched': int(pattern1.group(5)) if pattern1.group(5) else 0
-            }
+        # Skip lines that don't start with a number (program number)
+        if not re.match(r'^\d', line):
+            return None
         
-        # Pattern 2: Split by multiple spaces
-        parts = re.split(r'\s{2,}', line)
-        if len(parts) >= 4:
-            try:
-                return {
-                    'program_number': int(parts[0]),
-                    'horse_name': parts[1],
-                    'win_probability': float(parts[2].replace('%', '')) if '%' in parts[2] else 0,
-                    'ml_odds': parts[3] if '/' in parts[3] else parts[4] if len(parts) > 4 and '/' in parts[4] else 'N/A',
-                    'angles_matched': 0
-                }
-            except (ValueError, IndexError):
-                pass
+        # Try to extract the key components
+        # Looking for: program_number, horse_name, win_probability%, odds (M/L)
         
-        return None
+        # First, try to find the win probability percentage
+        prob_match = re.search(r'(\d+\.?\d*)%', line)
+        if not prob_match:
+            return None
+        
+        win_prob = float(prob_match.group(1))
+        
+        # Find M/L odds (format: 3/1, 20/1, etc.)
+        odds_match = re.search(r'(\d+/\d+)', line)
+        ml_odds = odds_match.group(1) if odds_match else 'N/A'
+        
+        # Extract program number (first number in line)
+        prog_match = re.match(r'^(\d+)', line)
+        if not prog_match:
+            return None
+        
+        program_number = int(prog_match.group(1))
+        
+        # Extract horse name - between program number and win probability
+        # Find positions
+        prog_end = prog_match.end()
+        prob_start = line.find(prob_match.group(0))  # Find the actual position of the probability match
+        
+        # Extract text between program number and probability
+        horse_name_area = line[prog_end:prob_start].strip()
+        
+        # Clean up horse name - remove extra spaces, dashes, etc.
+        horse_name = re.sub(r'\s+', ' ', horse_name_area)
+        horse_name = horse_name.replace(' - ', ' ').strip()
+        
+        # Remove any trailing numbers or special characters
+        horse_name = re.sub(r'\s+\d+\s*$', '', horse_name)
+        horse_name = re.sub(r'\s*-\s*$', '', horse_name)
+        
+        if not horse_name or len(horse_name) < 2:
+            return None
+        
+        # Extract angles matched if present (usually last number in line)
+        angles = 0
+        angles_match = re.search(r'(\d+)\s*$', line[prob_match.end():])
+        if angles_match and odds_match:
+            # Make sure this number comes after the odds
+            if line.rfind(angles_match.group(1)) > line.rfind(odds_match.group(1)):
+                angles = int(angles_match.group(1))
+        
+        return {
+            'program_number': program_number,
+            'horse_name': horse_name,
+            'win_probability': win_prob,
+            'ml_odds': ml_odds,
+            'angles_matched': angles
+        }
     
     def parse_multiple_screenshots(self, image_paths: List[str]) -> List[Dict]:
         """Parse multiple screenshots and return all race data"""
