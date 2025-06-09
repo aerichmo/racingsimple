@@ -179,7 +179,10 @@ class RacingPDFParser:
             # Distance
             dist_match = self.patterns['distance'].search(line)
             if dist_match and 'distance' not in race:
-                race['distance'] = dist_match.group(1)
+                distance_str = dist_match.group(1)
+                # Convert fractions to decimal
+                distance_str = distance_str.replace('½', '.5').replace('¼', '.25').replace('¾', '.75')
+                race['distance'] = distance_str
                 race['dist_unit'] = dist_match.group(2)[0].upper()
             
             # Purse
@@ -251,7 +254,10 @@ class RacingPDFParser:
             # Extract race details
             dist_match = re.search(r'•\s*(\d+(?:\s*½)?)\s*(Furlongs?|Miles?)', race_text)
             if dist_match:
-                race['distance'] = dist_match.group(1).replace(' ', '')
+                distance_str = dist_match.group(1).replace(' ', '')
+                # Convert fractional distances to decimal
+                distance_str = distance_str.replace('½', '.5').replace('¼', '.25').replace('¾', '.75')
+                race['distance'] = distance_str
                 race['dist_unit'] = 'F' if 'Furlong' in dist_match.group(2) else 'M'
             
             surf_match = re.search(r'-\s*(Dirt|Turf)', race_text)
