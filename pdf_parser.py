@@ -122,12 +122,27 @@ class RacingPDFParser:
         """Parse structured racing data from text"""
         races = []
         
+        # Try to find a track name in the header
+        default_track = 'Unknown Track'
+        header_lines = text.split('\n')[:10]
+        for line in header_lines:
+            # Look for common track patterns
+            if any(word in line.upper() for word in ['PARK', 'DOWNS', 'TRACK', 'RACEWAY', 'MEADOWS']):
+                # This line might contain the track name
+                clean_line = line.strip()
+                if len(clean_line) > 3 and len(clean_line) < 50:
+                    default_track = clean_line
+                    break
+        
         # Split text into potential race sections
         race_sections = re.split(r'RACE\s+\d+', text, flags=re.IGNORECASE)
         
         for i, section in enumerate(race_sections[1:], 1):  # Skip first empty section
             race = self._parse_race_section(section, i)
             if race and race.get('entries'):
+                # Use default track if none found
+                if race['track'] == 'Unknown Track':
+                    race['track'] = default_track
                 races.append(race)
         
         return races
@@ -136,6 +151,8 @@ class RacingPDFParser:
         """Parse a single race section"""
         race = {
             'race_number': race_num,
+            'track': 'Unknown Track',  # Default value
+            'race_date': None,
             'entries': []
         }
         
@@ -144,8 +161,13 @@ class RacingPDFParser:
         for line in lines[:20]:  # Check first 20 lines for race info
             # Track
             track_match = self.patterns['track'].search(line)
-            if track_match and 'track' not in race:
+            if track_match and race['track'] == 'Unknown Track':
                 race['track'] = track_match.group(1).strip()
+            
+            # Date
+            date_match = self.patterns['date'].search(line)
+            if date_match and not race['race_date']:
+                race['race_date'] = date_match.group(0)
             
             # Distance
             dist_match = self.patterns['distance'].search(line)
@@ -159,16 +181,29 @@ class RacingPDFParser:
                 race['purse'] = purse_match.group(1).replace(',', '')
         
         # Extract horse entries
-        # Look for patterns like: "1  Horse Name  5-2"
-        entry_pattern = re.compile(r'^\s*(\d+)\s+([A-Za-z][A-Za-z\s\'-]{2,30})\s+(\d+-\d+|\d+(?:\.\d+)?)', re.MULTILINE)
+        # Try multiple patterns for different PDF formats
+        patterns = [
+            # Pattern 1: "1  Horse Name  5-2"
+            re.compile(r'^\s*(\d+)\s+([A-Za-z][A-Za-z\s\'-]{2,30})\s+(\d+-\d+|\d+(?:\.\d+)?)', re.MULTILINE),
+            # Pattern 2: "1. Horse Name"
+            re.compile(r'^\s*(\d+)\.\s+([A-Za-z][A-Za-z\s\'-]{2,30})', re.MULTILINE),
+            # Pattern 3: "(1) Horse Name"
+            re.compile(r'^\s*\((\d+)\)\s+([A-Za-z][A-Za-z\s\'-]{2,30})', re.MULTILINE),
+        ]
         
-        for match in entry_pattern.finditer(section):
-            entry = {
-                'program_number': match.group(1),
-                'horse_name': match.group(2).strip(),
-                'morning_line_odds': match.group(3)
-            }
-            race['entries'].append(entry)
+        for pattern in patterns:
+            matches = list(pattern.finditer(section))
+            if matches:
+                for match in matches:
+                    entry = {
+                        'program_number': match.group(1),
+                        'horse_name': match.group(2).strip()
+                    }
+                    # Add odds if captured
+                    if len(match.groups()) > 2:
+                        entry['morning_line_odds'] = match.group(3)
+                    race['entries'].append(entry)
+                break  # Use first pattern that matches
         
         return race if race['entries'] else None
     
