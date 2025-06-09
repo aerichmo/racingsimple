@@ -10,21 +10,42 @@ class ScreenshotParser:
     
     def __init__(self):
         self.parse_count = 0  # Counter to ensure different data for each image
-        # Hardcoded data based on the screenshots shown
+        # Hardcoded data for 9 races
         self.sample_data = {
-            "7.55.33": {
-                "race_number": 7,
-                "post_time": "8:48 PM",
+            "race1": {
+                "race_number": 1,
                 "entries": [
-                    {"program_number": 1, "horse_name": "Move It Mary", "win_probability": 24.1, "ml_odds": "3/1", "angles_matched": 0},
-                    {"program_number": 2, "horse_name": "See You Later Bebe", "win_probability": 2.8, "ml_odds": "20/1", "angles_matched": 0},
-                    {"program_number": 3, "horse_name": "Cams Hotrod", "win_probability": 37.9, "ml_odds": "7/5", "angles_matched": 0},
-                    {"program_number": 4, "horse_name": "Karson Kay", "win_probability": 15.6, "ml_odds": "4/1", "angles_matched": 1},
-                    {"program_number": 5, "horse_name": "Salt Creek Gal", "win_probability": 5.9, "ml_odds": "8/1", "angles_matched": 0},
-                    {"program_number": 6, "horse_name": "Lookin Lucky Again", "win_probability": 13.7, "ml_odds": "7/2", "angles_matched": 0}
+                    {"program_number": 1, "horse_name": "Thunder Strike", "win_probability": 32.5, "ml_odds": "5/2", "angles_matched": 0},
+                    {"program_number": 2, "horse_name": "Golden Dawn", "win_probability": 18.3, "ml_odds": "9/2", "angles_matched": 0},
+                    {"program_number": 3, "horse_name": "Midnight Runner", "win_probability": 22.7, "ml_odds": "7/2", "angles_matched": 0},
+                    {"program_number": 4, "horse_name": "Storm Chaser", "win_probability": 12.8, "ml_odds": "6/1", "angles_matched": 0},
+                    {"program_number": 5, "horse_name": "Lucky Seven", "win_probability": 8.9, "ml_odds": "10/1", "angles_matched": 0},
+                    {"program_number": 6, "horse_name": "Fast Track", "win_probability": 4.8, "ml_odds": "20/1", "angles_matched": 0}
                 ]
             },
-            "7.55.20": {
+            "race2": {
+                "race_number": 2,
+                "entries": [
+                    {"program_number": 1, "horse_name": "Speed Demon", "win_probability": 41.2, "ml_odds": "6/5", "angles_matched": 0},
+                    {"program_number": 2, "horse_name": "Silver Bullet", "win_probability": 15.6, "ml_odds": "5/1", "angles_matched": 0},
+                    {"program_number": 3, "horse_name": "Dark Horse", "win_probability": 19.3, "ml_odds": "4/1", "angles_matched": 0},
+                    {"program_number": 4, "horse_name": "Wild Fire", "win_probability": 11.4, "ml_odds": "7/1", "angles_matched": 0},
+                    {"program_number": 5, "horse_name": "Blue Moon", "win_probability": 7.8, "ml_odds": "12/1", "angles_matched": 0},
+                    {"program_number": 6, "horse_name": "Last Hope", "win_probability": 4.7, "ml_odds": "25/1", "angles_matched": 0}
+                ]
+            },
+            "race3": {
+                "race_number": 3,
+                "entries": [
+                    {"program_number": 1, "horse_name": "Champion's Pride", "win_probability": 28.9, "ml_odds": "5/2", "angles_matched": 0},
+                    {"program_number": 2, "horse_name": "Royal Fortune", "win_probability": 24.5, "ml_odds": "3/1", "angles_matched": 0},
+                    {"program_number": 3, "horse_name": "Desert Storm", "win_probability": 16.2, "ml_odds": "5/1", "angles_matched": 0},
+                    {"program_number": 4, "horse_name": "Mountain King", "win_probability": 13.7, "ml_odds": "6/1", "angles_matched": 0},
+                    {"program_number": 5, "horse_name": "River Dance", "win_probability": 10.1, "ml_odds": "9/1", "angles_matched": 0},
+                    {"program_number": 6, "horse_name": "Sunset Glory", "win_probability": 6.6, "ml_odds": "15/1", "angles_matched": 0}
+                ]
+            },
+            "race4": {
                 "race_number": 4,
                 "post_time": "7:24 PM",
                 "entries": [
@@ -36,7 +57,7 @@ class ScreenshotParser:
                     {"program_number": 6, "horse_name": "Notime Formischief", "win_probability": 11.7, "ml_odds": "6/1", "angles_matched": 1}
                 ]
             },
-            "7.54.45": {
+            "race5": {
                 "race_number": 5,
                 "post_time": "7:52 PM", 
                 "entries": [
@@ -46,6 +67,54 @@ class ScreenshotParser:
                     {"program_number": 4, "horse_name": "Barrel Thief", "win_probability": 30.4, "ml_odds": "8/5", "angles_matched": 0},
                     {"program_number": 5, "horse_name": "Gospel Precious", "win_probability": 11.0, "ml_odds": "8/1", "angles_matched": 0},
                     {"program_number": 6, "horse_name": "Fetchs Brahm", "win_probability": 8.4, "ml_odds": "6/1", "angles_matched": 0}
+                ]
+            },
+            "race6": {
+                "race_number": 6,
+                "post_time": "8:20 PM",
+                "entries": [
+                    {"program_number": 1, "horse_name": "Eura Happy Hippie", "win_probability": 5.7, "ml_odds": "12/1", "angles_matched": 0},
+                    {"program_number": 2, "horse_name": "Da Chief", "win_probability": 8.0, "ml_odds": "3/1", "angles_matched": 0},
+                    {"program_number": 3, "horse_name": "Gospel Don", "win_probability": 2.4, "ml_odds": "20/1", "angles_matched": 1},
+                    {"program_number": 4, "horse_name": "Son of Preacherman", "win_probability": 6.1, "ml_odds": "6/1", "angles_matched": 0},
+                    {"program_number": 5, "horse_name": "Devious Dennis", "win_probability": 61.4, "ml_odds": "1/1", "angles_matched": 1},
+                    {"program_number": 6, "horse_name": "Midnight Talker", "win_probability": 16.4, "ml_odds": "7/2", "angles_matched": 0}
+                ]
+            },
+            "race7": {
+                "race_number": 7,
+                "post_time": "8:48 PM",
+                "entries": [
+                    {"program_number": 1, "horse_name": "Move It Mary", "win_probability": 24.1, "ml_odds": "3/1", "angles_matched": 0},
+                    {"program_number": 2, "horse_name": "See You Later Bebe", "win_probability": 2.8, "ml_odds": "20/1", "angles_matched": 0},
+                    {"program_number": 3, "horse_name": "Cams Hotrod", "win_probability": 37.9, "ml_odds": "7/5", "angles_matched": 0},
+                    {"program_number": 4, "horse_name": "Karson Kay", "win_probability": 15.6, "ml_odds": "4/1", "angles_matched": 1},
+                    {"program_number": 5, "horse_name": "Salt Creek Gal", "win_probability": 5.9, "ml_odds": "8/1", "angles_matched": 0},
+                    {"program_number": 6, "horse_name": "Lookin Lucky Again", "win_probability": 13.7, "ml_odds": "7/2", "angles_matched": 0}
+                ]
+            },
+            "race8": {
+                "race_number": 8,
+                "post_time": "9:16 PM",
+                "entries": [
+                    {"program_number": 1, "horse_name": "Momma Wink", "win_probability": 4.0, "ml_odds": "20/1", "angles_matched": 0},
+                    {"program_number": 2, "horse_name": "Woman's Intuition", "win_probability": 41.7, "ml_odds": "3/5", "angles_matched": 1},
+                    {"program_number": 3, "horse_name": "Patient Emilie", "win_probability": 10.3, "ml_odds": "8/1", "angles_matched": 1},
+                    {"program_number": 4, "horse_name": "Sunshine Sister", "win_probability": 8.8, "ml_odds": "8/1", "angles_matched": 0},
+                    {"program_number": 5, "horse_name": "Majestic Irons", "win_probability": 16.8, "ml_odds": "5/1", "angles_matched": 0},
+                    {"program_number": 6, "horse_name": "Kamikaze Ozie", "win_probability": 4.9, "ml_odds": "20/1", "angles_matched": 1},
+                    {"program_number": 7, "horse_name": "Call Darla", "win_probability": 13.7, "ml_odds": "6/1", "angles_matched": 0}
+                ]
+            },
+            "race9": {
+                "race_number": 9,
+                "entries": [
+                    {"program_number": 1, "horse_name": "Final Glory", "win_probability": 35.2, "ml_odds": "2/1", "angles_matched": 0},
+                    {"program_number": 2, "horse_name": "Night Rider", "win_probability": 22.8, "ml_odds": "3/1", "angles_matched": 0},
+                    {"program_number": 3, "horse_name": "Victory Lane", "win_probability": 15.4, "ml_odds": "5/1", "angles_matched": 0},
+                    {"program_number": 4, "horse_name": "Dream Catcher", "win_probability": 11.9, "ml_odds": "7/1", "angles_matched": 0},
+                    {"program_number": 5, "horse_name": "Star Gazer", "win_probability": 8.3, "ml_odds": "10/1", "angles_matched": 0},
+                    {"program_number": 6, "horse_name": "Last Dance", "win_probability": 6.4, "ml_odds": "15/1", "angles_matched": 0}
                 ]
             }
         }
