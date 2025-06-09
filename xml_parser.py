@@ -503,10 +503,18 @@ class EquibasePDFParser:
         self.parser = RacingXMLParser()
     
     def parse_pdf_file(self, file_path: str) -> List[Dict]:
-        """Parse file - will work with XML files"""
+        """Parse file - will work with XML and PDF files"""
         if file_path.lower().endswith('.xml'):
             return self.parser.parse_xml_file(file_path)
+        elif file_path.lower().endswith('.pdf'):
+            # Import PDF parser only when needed
+            try:
+                from pdf_parser import RacingPDFParser
+                pdf_parser = RacingPDFParser()
+                return pdf_parser.parse_pdf_file(file_path)
+            except ImportError:
+                logger.error("PDF parser not available")
+                return []
         else:
-            # For actual PDFs, return empty list or implement PDF parsing
-            logger.warning(f"File {file_path} is not an XML file")
+            logger.warning(f"File {file_path} is not an XML or PDF file")
             return []

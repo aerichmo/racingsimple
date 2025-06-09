@@ -40,11 +40,16 @@ def upload_and_analyze():
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
         filename_lower = file.filename.lower()
-        if not (filename_lower.endswith('.xml') or filename_lower.endswith('.zip')):
-            return jsonify({'success': False, 'error': 'File must be an XML or ZIP file'}), 400
+        if not (filename_lower.endswith('.xml') or filename_lower.endswith('.zip') or filename_lower.endswith('.pdf')):
+            return jsonify({'success': False, 'error': 'File must be a PDF, XML or ZIP file'}), 400
         
         # Save file temporarily
-        suffix = '.zip' if filename_lower.endswith('.zip') else '.xml'
+        if filename_lower.endswith('.zip'):
+            suffix = '.zip'
+        elif filename_lower.endswith('.pdf'):
+            suffix = '.pdf'
+        else:
+            suffix = '.xml'
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
             file.save(tmp_file.name)
             tmp_path = tmp_file.name
