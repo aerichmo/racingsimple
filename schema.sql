@@ -1,6 +1,10 @@
 -- Simplified schema for betting analysis
 -- Only tracking: race number, horse name, probability of win, and M/L odds
 
+-- Drop existing indexes
+DROP INDEX IF EXISTS idx_races_session;
+DROP INDEX IF EXISTS idx_entries_race;
+
 -- Drop existing tables
 DROP TABLE IF EXISTS race_entries CASCADE;
 DROP TABLE IF EXISTS races CASCADE;
