@@ -61,10 +61,22 @@ class ScreenshotParser:
             data_key = data_keys[self.parse_count % len(data_keys)]
             self.parse_count += 1
             
-            data = self.sample_data[data_key].copy()
+            # Deep copy the data to avoid reference issues
+            import copy
+            data = copy.deepcopy(self.sample_data[data_key])
             data['image_path'] = image_path
             
-            logger.info(f"Using sample data: Race {data['race_number']} with {len(data['entries'])} entries for {os.path.basename(image_path)}")
+            # Ensure we have the required fields
+            if 'entries' not in data:
+                data['entries'] = []
+            
+            logger.info(f"Using sample data: Race {data.get('race_number', 'Unknown')} with {len(data.get('entries', []))} entries for {os.path.basename(image_path)}")
+            
+            # Debug: Log the actual data structure
+            logger.debug(f"Data structure: race_number={data.get('race_number')}, entries count={len(data.get('entries', []))}")
+            if data.get('entries'):
+                logger.debug(f"First entry: {data['entries'][0]}")
+            
             return data
             
         except Exception as e:
@@ -75,10 +87,21 @@ class ScreenshotParser:
         """Parse multiple screenshots and return all race data"""
         all_races = []
         
-        for path in image_paths:
-            race_data = self.parse_screenshot(path)
-            if race_data and race_data.get('entries'):
-                all_races.append(race_data)
-                logger.info(f"Parsed race {race_data.get('race_number', 'Unknown')} with {len(race_data['entries'])} entries")
+        logger.info(f"parse_multiple_screenshots called with {len(image_paths)} paths")
         
+        for path in image_paths:
+            logger.info(f"Processing screenshot: {path}")
+            race_data = self.parse_screenshot(path)
+            
+            if race_data:
+                logger.info(f"Race data returned: {race_data.get('race_number', 'None')}, entries: {len(race_data.get('entries', []))}")
+                if race_data.get('entries'):
+                    all_races.append(race_data)
+                    logger.info(f"Added race {race_data.get('race_number', 'Unknown')} with {len(race_data['entries'])} entries")
+                else:
+                    logger.warning(f"Race data has no entries for {path}")
+            else:
+                logger.warning(f"No race data returned for {path}")
+        
+        logger.info(f"Returning {len(all_races)} races total")
         return all_races

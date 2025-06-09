@@ -68,10 +68,14 @@ def analyze_screenshots():
             return jsonify({'success': False, 'error': 'No valid screenshots found'}), 400
         
         logger.info(f"Processing {len(screenshot_paths)} screenshots")
+        logger.info(f"Screenshot paths: {screenshot_paths}")
         
         # Parse screenshots
         parser = ScreenshotParser()
+        logger.info(f"Using parser: {parser.__class__.__name__}")
+        
         races = parser.parse_multiple_screenshots(screenshot_paths)
+        logger.info(f"Parser returned {len(races)} races")
         
         # Clean up temp files
         for path in screenshot_paths:
@@ -81,6 +85,7 @@ def analyze_screenshots():
                 pass
         
         if not races:
+            logger.error("No races found by parser")
             return jsonify({'success': False, 'error': 'No race data found in screenshots'}), 400
         
         # Perform betting analysis
@@ -164,6 +169,18 @@ def health():
         'server': 'ok',
         'database': 'ok',
         'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/test-parser')
+def test_parser():
+    """Test the screenshot parser"""
+    parser = ScreenshotParser()
+    test_data = parser.parse_screenshot("/tmp/test.png")
+    return jsonify({
+        'parser_class': parser.__class__.__name__,
+        'test_data': test_data,
+        'has_entries': bool(test_data.get('entries')),
+        'entry_count': len(test_data.get('entries', []))
     })
 
 if __name__ == '__main__':
