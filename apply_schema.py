@@ -20,7 +20,7 @@ def apply_schema():
         cur = conn.cursor()
         
         # Read schema file
-        with open('simple_schema.sql', 'r') as f:
+        with open('schema.sql', 'r') as f:
             schema_sql = f.read()
         
         logger.info("Applying simple schema...")
