@@ -310,8 +310,14 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    displayResults(data);
-                    showSuccess('Screenshots processed successfully!');
+                    if (data.needs_manual_entry) {
+                        // Redirect to manual entry page
+                        const races = encodeURIComponent(JSON.stringify(data.races));
+                        window.location.href = `/manual-entry?session=${data.session_id}&races=${races}`;
+                    } else {
+                        displayResults(data);
+                        showSuccess('Screenshots processed successfully!');
+                    }
                 } else {
                     showError(data.error || 'Processing failed');
                 }

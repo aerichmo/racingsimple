@@ -15,23 +15,9 @@ logger = logging.getLogger(__name__)
 
 from database import Database
 
-# Try to use OCR parser, but test if it actually works
-USE_OCR = False
-try:
-    import pytesseract
-    import cv2
-    from screenshot_parser import ScreenshotParser as OCRScreenshotParser
-    # Test if tesseract is actually installed
-    pytesseract.get_tesseract_version()
-    USE_OCR = True
-    logger.info("Using OCR-based screenshot parser")
-except Exception as e:
-    logger.info(f"OCR not available ({e}), using simple parser")
-
-if not USE_OCR:
-    from screenshot_parser_simple import ScreenshotParser
-else:
-    ScreenshotParser = OCRScreenshotParser
+# Use manual parser that works with any screenshots
+from manual_parser import ManualParser as ScreenshotParser
+logger.info("Using manual parser - will prompt for data entry")
 
 # Initialize database
 db_url = os.environ.get('DATABASE_URL', 'postgresql://localhost/racingsimple')
@@ -107,7 +93,23 @@ def analyze_screenshots():
         if not races:
             return jsonify({'success': False, 'error': 'No race data found in screenshots'}), 400
         
-        # Save to database
+        # Check if any races need manual entry
+        needs_manual = any(race.get('needs_manual_entry', False) for race in races)
+        
+        if needs_manual:
+            # Create a temporary session
+            session_id = db.create_session()
+            
+            # Return redirect to manual entry
+            return jsonify({
+                'success': True,
+                'needs_manual_entry': True,
+                'session_id': session_id,
+                'races': races,
+                'redirect_url': f'/manual-entry?session={session_id}&races={request.host_url.replace("http://", "").replace("https://", "")}'
+            })
+        
+        # Save to database if data is complete
         session_id = db.create_session()
         db.save_race_data(session_id, races)
         
@@ -141,6 +143,39 @@ def get_session(session_id):
         })
     except Exception as e:
         logger.error(f"Error retrieving session: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/manual-entry')
+def manual_entry():
+    """Manual data entry page"""
+    return render_template('manual_entry.html')
+
+@app.route('/api/save-manual-data', methods=['POST'])
+def save_manual_data():
+    """Save manually entered race data"""
+    if db is None:
+        return jsonify({'success': False, 'error': 'Database not initialized'}), 503
+        
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+        races = data.get('races', [])
+        
+        if not races:
+            return jsonify({'success': False, 'error': 'No race data provided'}), 400
+        
+        # Save the manually entered data
+        db.save_race_data(session_id, races)
+        
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'total_races': len(races),
+            'total_entries': sum(len(race.get('entries', [])) for race in races)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error saving manual data: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/health')
