@@ -15,18 +15,140 @@ def hello():
 <head>
     <title>STALL10N Horse Racing</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { color: #333; }
-        .race-date { margin: 20px 0; }
-        table { border-collapse: collapse; width: 100%; margin: 10px 0; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .no-data { color: #888; font-style: italic; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background-color: #001E60;
+            color: #FFFFFF;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 { 
+            color: #4DBDF5;
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        h2 {
+            color: #A9DDF7;
+            font-size: 1.8rem;
+            margin: 30px 0 15px;
+            font-weight: 400;
+            border-bottom: 2px solid #0053E2;
+            padding-bottom: 10px;
+        }
+        h3 {
+            color: #4DBDF5;
+            font-size: 1.3rem;
+            margin: 20px 0 10px;
+            font-weight: 400;
+        }
+        .race-date { 
+            margin: 40px 0;
+            background: linear-gradient(135deg, #001E60 0%, #0053E2 100%);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 83, 226, 0.3);
+        }
+        table { 
+            border-collapse: collapse; 
+            width: 100%; 
+            margin: 20px 0;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+        }
+        th, td { 
+            padding: 15px;
+            text-align: center;
+            width: 20%;
+        }
+        th { 
+            background-color: #0053E2;
+            color: #FFFFFF;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+            border-bottom: 3px solid #4DBDF5;
+        }
+        td {
+            background-color: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid rgba(77, 189, 245, 0.2);
+            font-weight: 400;
+        }
+        tr:hover td {
+            background-color: rgba(77, 189, 245, 0.1);
+            transition: background-color 0.3s ease;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .program-number {
+            font-weight: 700;
+            color: #4DBDF5;
+        }
+        .horse-name {
+            font-weight: 500;
+            color: #FFFFFF;
+        }
+        .probability {
+            color: #A9DDF7;
+        }
+        .adj-odds {
+            color: #4DBDF5;
+            font-weight: 600;
+        }
+        .morning-line {
+            color: #A9DDF7;
+        }
+        .no-data { 
+            color: #A9DDF7; 
+            font-style: italic;
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2rem;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            h1 {
+                font-size: 1.8rem;
+            }
+            h2 {
+                font-size: 1.4rem;
+            }
+            h3 {
+                font-size: 1.1rem;
+            }
+            th, td {
+                padding: 10px 5px;
+                font-size: 0.9rem;
+            }
+            .race-date {
+                padding: 20px 15px;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>STALL10N Horse Racing Platform</h1>
-    <div id="races"></div>
+    <div class="container">
+        <h1>STALL10N Horse Racing Platform</h1>
+        <div id="races"></div>
+    </div>
     <script>
         fetch('/api/races')
             .then(response => response.json())
@@ -70,11 +192,11 @@ def hello():
                         
                         horses.forEach(horse => {
                             html += `<tr>
-                                <td>${horse.program_number}</td>
-                                <td>${horse.horse_name}</td>
-                                <td>${horse.win_probability}%</td>
-                                <td>${horse.adj_odds ? horse.adj_odds + '%' : '-'}</td>
-                                <td>${horse.morning_line}</td>
+                                <td class="program-number">${horse.program_number}</td>
+                                <td class="horse-name">${horse.horse_name}</td>
+                                <td class="probability">${horse.win_probability}%</td>
+                                <td class="adj-odds">${horse.adj_odds ? horse.adj_odds + '%' : '-'}</td>
+                                <td class="morning-line">${horse.morning_line}</td>
                             </tr>`;
                         });
                         
