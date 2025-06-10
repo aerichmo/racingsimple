@@ -22,8 +22,8 @@ def hello():
         }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            background-color: #001E60;
-            color: #FFFFFF;
+            background-color: #FFFFFF;
+            color: #001E60;
             line-height: 1.6;
         }
         .container {
@@ -32,7 +32,7 @@ def hello():
             padding: 20px;
         }
         h1 { 
-            color: #4DBDF5;
+            color: #0053E2;
             font-size: 2.5rem;
             margin-bottom: 30px;
             text-align: center;
@@ -41,7 +41,7 @@ def hello():
             text-transform: uppercase;
         }
         h2 {
-            color: #A9DDF7;
+            color: #001E60;
             font-size: 1.8rem;
             margin: 30px 0 15px;
             font-weight: 400;
@@ -49,26 +49,28 @@ def hello():
             padding-bottom: 10px;
         }
         h3 {
-            color: #4DBDF5;
+            color: #0053E2;
             font-size: 1.3rem;
             margin: 20px 0 10px;
             font-weight: 400;
         }
         .race-date { 
             margin: 40px 0;
-            background: linear-gradient(135deg, #001E60 0%, #0053E2 100%);
+            background: #FFFFFF;
             padding: 30px;
             border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 83, 226, 0.3);
+            box-shadow: 0 5px 20px rgba(0, 30, 96, 0.1);
+            border: 1px solid #A9DDF7;
         }
         table { 
             border-collapse: collapse; 
             width: 100%; 
             margin: 20px 0;
-            background-color: rgba(255, 255, 255, 0.05);
+            background-color: #FFFFFF;
             border-radius: 10px;
             overflow: hidden;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 3px 15px rgba(0, 30, 96, 0.1);
+            border: 1px solid #A9DDF7;
         }
         th, td { 
             padding: 15px;
@@ -85,12 +87,13 @@ def hello():
             border-bottom: 3px solid #4DBDF5;
         }
         td {
-            background-color: rgba(255, 255, 255, 0.02);
-            border-bottom: 1px solid rgba(77, 189, 245, 0.2);
+            background-color: #FFFFFF;
+            border-bottom: 1px solid #A9DDF7;
             font-weight: 400;
+            color: #001E60;
         }
         tr:hover td {
-            background-color: rgba(77, 189, 245, 0.1);
+            background-color: #A9DDF7;
             transition: background-color 0.3s ease;
         }
         tr:last-child td {
@@ -102,20 +105,20 @@ def hello():
         }
         .horse-name {
             font-weight: 500;
-            color: #FFFFFF;
+            color: #001E60;
         }
         .probability {
-            color: #A9DDF7;
+            color: #001E60;
         }
         .adj-odds {
-            color: #4DBDF5;
+            color: #0053E2;
             font-weight: 600;
         }
         .morning-line {
-            color: #A9DDF7;
+            color: #001E60;
         }
         .no-data { 
-            color: #A9DDF7; 
+            color: #001E60; 
             font-style: italic;
             text-align: center;
             padding: 50px;
