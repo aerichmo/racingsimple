@@ -75,7 +75,7 @@ def hello():
         th, td { 
             padding: 15px;
             text-align: center;
-            width: 20%;
+            width: 16.66%;
         }
         th { 
             background-color: #0053E2;
@@ -117,6 +117,54 @@ def hello():
         .morning-line {
             color: #001E60;
         }
+        .realtime-odds {
+            color: #0053E2;
+            font-weight: 500;
+        }
+        .bet-recommendation {
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #A9DDF7;
+            border-radius: 10px;
+            color: #001E60;
+        }
+        .bet-recommendation h4 {
+            color: #0053E2;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .bet-recommendation p {
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+        .date-selector {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .date-selector label {
+            font-size: 1.1rem;
+            color: #001E60;
+            margin-right: 10px;
+            font-weight: 500;
+        }
+        .date-selector select {
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: 2px solid #0053E2;
+            border-radius: 8px;
+            background-color: #FFFFFF;
+            color: #001E60;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .date-selector select:hover {
+            background-color: #A9DDF7;
+        }
+        .date-selector select:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 83, 226, 0.2);
+        }
         .no-data { 
             color: #001E60; 
             font-style: italic;
@@ -149,65 +197,119 @@ def hello():
 </head>
 <body>
     <div class="container">
-        <h1>STALL10N Horse Racing Platform</h1>
+        <h1>STALL10N</h1>
+        <div class="date-selector">
+            <label for="raceDate">Select Date:</label>
+            <select id="raceDate">
+                <option value="">All Dates</option>
+            </select>
+        </div>
         <div id="races"></div>
     </div>
     <script>
+        let allRaceData = [];
+        
+        function renderRaces(selectedDate = '') {
+            const container = document.getElementById('races');
+            const filteredData = selectedDate ? allRaceData.filter(race => race.race_date === selectedDate) : allRaceData;
+            
+            if (filteredData.length === 0) {
+                container.innerHTML = '<p class="no-data">No race data available for the selected date.</p>';
+                return;
+            }
+            
+            const racesByDate = {};
+            filteredData.forEach(race => {
+                if (!racesByDate[race.race_date]) {
+                    racesByDate[race.race_date] = [];
+                }
+                racesByDate[race.race_date].push(race);
+            });
+            
+            let html = '';
+            for (const [date, races] of Object.entries(racesByDate)) {
+                html += `<div class="race-date"><h2>Date: ${date}</h2>`;
+                
+                const racesByNumber = {};
+                races.forEach(race => {
+                    if (!racesByNumber[race.race_number]) {
+                        racesByNumber[race.race_number] = [];
+                    }
+                    racesByNumber[race.race_number].push(race);
+                });
+                
+                for (const [raceNum, horses] of Object.entries(racesByNumber)) {
+                    html += `<h3>Race ${raceNum}</h3>`;
+                    html += `<table>
+                        <tr>
+                            <th>Program #</th>
+                            <th>Horse Name</th>
+                            <th>Win Probability</th>
+                            <th>Adjusted Probability</th>
+                            <th>Real-Time Odds</th>
+                            <th>Morning Line</th>
+                        </tr>`;
+                    
+                    horses.forEach(horse => {
+                        html += `<tr>
+                            <td class="program-number">${horse.program_number}</td>
+                            <td class="horse-name">${horse.horse_name}</td>
+                            <td class="probability">${horse.win_probability}%</td>
+                            <td class="adj-odds">${horse.adj_odds ? horse.adj_odds + '%' : '-'}</td>
+                            <td class="realtime-odds">${horse.realtime_odds || '-'}</td>
+                            <td class="morning-line">${horse.morning_line}</td>
+                        </tr>`;
+                    });
+                    
+                    html += '</table>';
+                    
+                    // Add bet recommendation section
+                    const betRec = horses[0]?.bet_recommendation;
+                    if (betRec) {
+                        html += `<div class="bet-recommendation">
+                            <h4>Bet Recommendation</h4>
+                            <p>${betRec}</p>
+                        </div>`;
+                    }
+                }
+                html += '</div>';
+            }
+            container.innerHTML = html;
+        }
+        
         fetch('/api/races')
             .then(response => response.json())
             .then(data => {
-                const container = document.getElementById('races');
+                allRaceData = data;
+                
                 if (data.length === 0) {
-                    container.innerHTML = '<p class="no-data">No race data available yet.</p>';
+                    document.getElementById('races').innerHTML = '<p class="no-data">No race data available yet.</p>';
                     return;
                 }
                 
-                const racesByDate = {};
-                data.forEach(race => {
-                    if (!racesByDate[race.race_date]) {
-                        racesByDate[race.race_date] = [];
-                    }
-                    racesByDate[race.race_date].push(race);
+                // Populate date dropdown
+                const uniqueDates = [...new Set(data.map(race => race.race_date))].sort();
+                const dateSelect = document.getElementById('raceDate');
+                
+                uniqueDates.forEach(date => {
+                    const option = document.createElement('option');
+                    option.value = date;
+                    option.textContent = date;
+                    dateSelect.appendChild(option);
                 });
                 
-                let html = '';
-                for (const [date, races] of Object.entries(racesByDate)) {
-                    html += `<div class="race-date"><h2>Date: ${date}</h2>`;
-                    
-                    const racesByNumber = {};
-                    races.forEach(race => {
-                        if (!racesByNumber[race.race_number]) {
-                            racesByNumber[race.race_number] = [];
-                        }
-                        racesByNumber[race.race_number].push(race);
-                    });
-                    
-                    for (const [raceNum, horses] of Object.entries(racesByNumber)) {
-                        html += `<h3>Race ${raceNum}</h3>`;
-                        html += `<table>
-                            <tr>
-                                <th>Program #</th>
-                                <th>Horse Name</th>
-                                <th>Win Probability</th>
-                                <th>ADJ Odds</th>
-                                <th>Morning Line</th>
-                            </tr>`;
-                        
-                        horses.forEach(horse => {
-                            html += `<tr>
-                                <td class="program-number">${horse.program_number}</td>
-                                <td class="horse-name">${horse.horse_name}</td>
-                                <td class="probability">${horse.win_probability}%</td>
-                                <td class="adj-odds">${horse.adj_odds ? horse.adj_odds + '%' : '-'}</td>
-                                <td class="morning-line">${horse.morning_line}</td>
-                            </tr>`;
-                        });
-                        
-                        html += '</table>';
-                    }
-                    html += '</div>';
+                // Set default to most recent date
+                if (uniqueDates.length > 0) {
+                    dateSelect.value = uniqueDates[uniqueDates.length - 1];
+                    renderRaces(uniqueDates[uniqueDates.length - 1]);
+                } else {
+                    renderRaces();
                 }
-                container.innerHTML = html;
+                
+                // Add event listener for date changes
+                dateSelect.addEventListener('change', (e) => {
+                    renderRaces(e.target.value);
+                });
             })
             .catch(error => {
                 document.getElementById('races').innerHTML = `<p class="no-data">Error loading data: ${error}</p>`;
@@ -272,14 +374,26 @@ def setup_database():
                 win_probability DECIMAL(5,2),
                 adj_odds DECIMAL(5,2),
                 morning_line VARCHAR(50),
+                realtime_odds VARCHAR(50),
+                bet_recommendation TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
-        # Add adj_odds column if it doesn't exist
+        # Add new columns if they don't exist
         cur.execute('''
             ALTER TABLE races 
             ADD COLUMN IF NOT EXISTS adj_odds DECIMAL(5,2)
+        ''')
+        
+        cur.execute('''
+            ALTER TABLE races 
+            ADD COLUMN IF NOT EXISTS realtime_odds VARCHAR(50)
+        ''')
+        
+        cur.execute('''
+            ALTER TABLE races 
+            ADD COLUMN IF NOT EXISTS bet_recommendation TEXT
         ''')
         
         # Create index for faster queries
@@ -311,8 +425,9 @@ def races():
             # Insert race data
             cur.execute('''
                 INSERT INTO races (race_date, race_number, program_number, 
-                                 horse_name, win_probability, adj_odds, morning_line)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                 horse_name, win_probability, adj_odds, morning_line,
+                                 realtime_odds, bet_recommendation)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 data['race_date'],
                 data['race_number'],
@@ -320,7 +435,9 @@ def races():
                 data['horse_name'],
                 data['win_probability'],
                 data.get('adj_odds'),
-                data['morning_line']
+                data['morning_line'],
+                data.get('realtime_odds'),
+                data.get('bet_recommendation')
             ))
             
             conn.commit()
@@ -338,7 +455,8 @@ def races():
             
             cur.execute('''
                 SELECT race_date, race_number, program_number, 
-                       horse_name, win_probability, adj_odds, morning_line
+                       horse_name, win_probability, adj_odds, morning_line,
+                       realtime_odds, bet_recommendation
                 FROM races
                 ORDER BY race_date, race_number, program_number
             ''')
@@ -352,7 +470,9 @@ def races():
                     'horse_name': row[3],
                     'win_probability': float(row[4]) if row[4] else None,
                     'adj_odds': float(row[5]) if row[5] else None,
-                    'morning_line': row[6]
+                    'morning_line': row[6],
+                    'realtime_odds': row[7],
+                    'bet_recommendation': row[8]
                 })
             
             cur.close()
@@ -441,8 +561,9 @@ def batch_races():
         for race in races:
             cur.execute('''
                 INSERT INTO races (race_date, race_number, program_number, 
-                                 horse_name, win_probability, adj_odds, morning_line)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                 horse_name, win_probability, adj_odds, morning_line,
+                                 realtime_odds, bet_recommendation)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 race['race_date'],
                 race['race_number'],
@@ -450,7 +571,9 @@ def batch_races():
                 race['horse_name'],
                 race['win_probability'],
                 race.get('adj_odds'),
-                race['morning_line']
+                race['morning_line'],
+                race.get('realtime_odds'),
+                race.get('bet_recommendation')
             ))
         
         conn.commit()
