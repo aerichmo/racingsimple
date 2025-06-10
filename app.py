@@ -64,6 +64,7 @@ def hello():
                                 <th>Program #</th>
                                 <th>Horse Name</th>
                                 <th>Win Probability</th>
+                                <th>ADJ Odds</th>
                                 <th>Morning Line</th>
                             </tr>`;
                         
@@ -72,6 +73,7 @@ def hello():
                                 <td>${horse.program_number}</td>
                                 <td>${horse.horse_name}</td>
                                 <td>${horse.win_probability}%</td>
+                                <td>${horse.adj_odds ? horse.adj_odds + '%' : '-'}</td>
                                 <td>${horse.morning_line}</td>
                             </tr>`;
                         });
@@ -143,9 +145,16 @@ def setup_database():
                 program_number INTEGER NOT NULL,
                 horse_name VARCHAR(255) NOT NULL,
                 win_probability DECIMAL(5,2),
+                adj_odds DECIMAL(5,2),
                 morning_line VARCHAR(50),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        ''')
+        
+        # Add adj_odds column if it doesn't exist
+        cur.execute('''
+            ALTER TABLE races 
+            ADD COLUMN IF NOT EXISTS adj_odds DECIMAL(5,2)
         ''')
         
         # Create index for faster queries
@@ -177,14 +186,15 @@ def races():
             # Insert race data
             cur.execute('''
                 INSERT INTO races (race_date, race_number, program_number, 
-                                 horse_name, win_probability, morning_line)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                                 horse_name, win_probability, adj_odds, morning_line)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             ''', (
                 data['race_date'],
                 data['race_number'],
                 data['program_number'],
                 data['horse_name'],
                 data['win_probability'],
+                data.get('adj_odds'),
                 data['morning_line']
             ))
             
@@ -203,7 +213,7 @@ def races():
             
             cur.execute('''
                 SELECT race_date, race_number, program_number, 
-                       horse_name, win_probability, morning_line
+                       horse_name, win_probability, adj_odds, morning_line
                 FROM races
                 ORDER BY race_date, race_number, program_number
             ''')
@@ -216,7 +226,8 @@ def races():
                     'program_number': row[2],
                     'horse_name': row[3],
                     'win_probability': float(row[4]) if row[4] else None,
-                    'morning_line': row[5]
+                    'adj_odds': float(row[5]) if row[5] else None,
+                    'morning_line': row[6]
                 })
             
             cur.close()
@@ -243,14 +254,15 @@ def batch_races():
         for race in races:
             cur.execute('''
                 INSERT INTO races (race_date, race_number, program_number, 
-                                 horse_name, win_probability, morning_line)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                                 horse_name, win_probability, adj_odds, morning_line)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             ''', (
                 race['race_date'],
                 race['race_number'],
                 race['program_number'],
                 race['horse_name'],
                 race['win_probability'],
+                race.get('adj_odds'),
                 race['morning_line']
             ))
         
