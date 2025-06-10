@@ -782,6 +782,9 @@ def admin():
             <div class="form-group">
                 <label for="raceDate">Race Date:</label>
                 <select id="raceDate">
+                    <option value="2025-06-12">June 12, 2025 (Override)</option>
+                    <option value="2025-06-13">June 13, 2025 (Override)</option>
+                    <option value="2025-06-14">June 14, 2025 (Override)</option>
                     <option value="2025-06-18">June 18, 2025</option>
                     <option value="2025-06-19">June 19, 2025</option>
                     <option value="2025-06-20">June 20, 2025</option>
@@ -808,9 +811,15 @@ def admin():
         
         <div class="upload-section">
             <h2>Manual Race Entry</h2>
+            <div style="background-color: #A9DDF7; padding: 10px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 0; font-size: 0.9rem;"><strong>Note:</strong> For June 12-14, this will override existing data. All entries go through SQL database and are automatically synced to Render.</p>
+            </div>
             <div class="form-group">
                 <label for="manualDate">Race Date:</label>
                 <select id="manualDate">
+                    <option value="2025-06-12">June 12, 2025 (Override)</option>
+                    <option value="2025-06-13">June 13, 2025 (Override)</option>
+                    <option value="2025-06-14">June 14, 2025 (Override)</option>
                     <option value="2025-06-18">June 18, 2025</option>
                     <option value="2025-06-19">June 19, 2025</option>
                     <option value="2025-06-20">June 20, 2025</option>
@@ -833,6 +842,69 @@ def admin():
         </div>
         
         <div class="preview-section" id="previewSection"></div>
+        
+        <div class="upload-section">
+            <h2>Update Real-Time Odds</h2>
+            <div class="form-group">
+                <label for="oddsDate">Race Date:</label>
+                <select id="oddsDate">
+                    <option value="2025-06-11">June 11, 2025</option>
+                    <option value="2025-06-12">June 12, 2025</option>
+                    <option value="2025-06-13">June 13, 2025</option>
+                    <option value="2025-06-14">June 14, 2025</option>
+                    <option value="2025-06-18">June 18, 2025</option>
+                    <option value="2025-06-19">June 19, 2025</option>
+                    <option value="2025-06-20">June 20, 2025</option>
+                    <option value="2025-06-21">June 21, 2025</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="oddsRaceNumber">Race Number:</label>
+                <input type="number" id="oddsRaceNumber" min="1" max="20" value="1" />
+            </div>
+            
+            <div class="form-group">
+                <label for="oddsProgramNumber">Program Number:</label>
+                <input type="number" id="oddsProgramNumber" min="1" max="20" value="1" />
+            </div>
+            
+            <div class="form-group">
+                <label for="realtimeOdds">Real-Time Odds:</label>
+                <input type="text" id="realtimeOdds" placeholder="e.g., 5/2" />
+            </div>
+            
+            <button class="button" onclick="updateRealtimeOdds()">Update Real-Time Odds</button>
+        </div>
+        
+        <div class="upload-section">
+            <h2>Update Bet Recommendations</h2>
+            <div class="form-group">
+                <label for="betDate">Race Date:</label>
+                <select id="betDate">
+                    <option value="2025-06-11">June 11, 2025</option>
+                    <option value="2025-06-12">June 12, 2025</option>
+                    <option value="2025-06-13">June 13, 2025</option>
+                    <option value="2025-06-14">June 14, 2025</option>
+                    <option value="2025-06-18">June 18, 2025</option>
+                    <option value="2025-06-19">June 19, 2025</option>
+                    <option value="2025-06-20">June 20, 2025</option>
+                    <option value="2025-06-21">June 21, 2025</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="betRaceNumber">Race Number:</label>
+                <input type="number" id="betRaceNumber" min="1" max="20" value="1" />
+            </div>
+            
+            <div class="form-group">
+                <label for="betRecommendation">Bet Recommendation:</label>
+                <textarea id="betRecommendation" style="width: 100%; padding: 12px; border: 2px solid #A9DDF7; border-radius: 8px; font-size: 1rem; min-height: 100px;" placeholder="Enter bet recommendation for this race..."></textarea>
+            </div>
+            
+            <button class="button" onclick="updateBetRecommendation()">Update Bet Recommendation</button>
+        </div>
     </div>
     
     <script>
@@ -965,10 +1037,149 @@ def admin():
                 showStatus(`Error: ${error.message}`, 'error');
             }
         }
+        
+        // Update real-time odds
+        async function updateRealtimeOdds() {
+            const date = document.getElementById('oddsDate').value;
+            const raceNumber = document.getElementById('oddsRaceNumber').value;
+            const programNumber = document.getElementById('oddsProgramNumber').value;
+            const realtimeOdds = document.getElementById('realtimeOdds').value;
+            
+            if (!realtimeOdds) {
+                showStatus('Please enter real-time odds', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/races/update-realtime-odds', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        race_date: date,
+                        race_number: parseInt(raceNumber),
+                        program_number: parseInt(programNumber),
+                        realtime_odds: realtimeOdds
+                    })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    showStatus(`Successfully updated real-time odds for horse #${programNumber}`, 'success');
+                    document.getElementById('realtimeOdds').value = '';
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Update bet recommendation
+        async function updateBetRecommendation() {
+            const date = document.getElementById('betDate').value;
+            const raceNumber = document.getElementById('betRaceNumber').value;
+            const betRecommendation = document.getElementById('betRecommendation').value;
+            
+            if (!betRecommendation) {
+                showStatus('Please enter a bet recommendation', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/races/update-bet-recommendation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        race_date: date,
+                        race_number: parseInt(raceNumber),
+                        bet_recommendation: betRecommendation
+                    })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    showStatus(`Successfully updated bet recommendation for Race ${raceNumber}`, 'success');
+                    document.getElementById('betRecommendation').value = '';
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
     </script>
 </body>
 </html>
 ''')
+
+@app.route('/api/races/update-realtime-odds', methods=['POST'])
+def update_realtime_odds():
+    try:
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'error': 'No database configured'}), 500
+        
+        data = request.json
+        
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        cur.execute('''
+            UPDATE races 
+            SET realtime_odds = %s
+            WHERE race_date = %s 
+            AND race_number = %s 
+            AND program_number = %s
+        ''', (
+            data['realtime_odds'],
+            data['race_date'],
+            data['race_number'],
+            data['program_number']
+        ))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'message': 'Real-time odds updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/races/update-bet-recommendation', methods=['POST'])
+def update_bet_recommendation():
+    try:
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'error': 'No database configured'}), 500
+        
+        data = request.json
+        
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        # Update all horses in the race with the same bet recommendation
+        cur.execute('''
+            UPDATE races 
+            SET bet_recommendation = %s
+            WHERE race_date = %s 
+            AND race_number = %s
+        ''', (
+            data['bet_recommendation'],
+            data['race_date'],
+            data['race_number']
+        ))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'message': 'Bet recommendation updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/upload-screenshot', methods=['POST'])
 def upload_screenshot():
