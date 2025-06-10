@@ -237,6 +237,68 @@ def races():
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
+@app.route('/api/races/<int:race_id>/adj-odds', methods=['PUT'])
+def update_adj_odds(race_id):
+    try:
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'error': 'No database configured'}), 500
+        
+        data = request.json
+        adj_odds = data.get('adj_odds')
+        
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        cur.execute('''
+            UPDATE races 
+            SET adj_odds = %s
+            WHERE id = %s
+        ''', (adj_odds, race_id))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'message': 'ADJ Odds updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/races/batch-adj-odds', methods=['POST'])
+def batch_update_adj_odds():
+    try:
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'error': 'No database configured'}), 500
+        
+        data = request.json
+        updates = data.get('updates', [])
+        
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        for update in updates:
+            cur.execute('''
+                UPDATE races 
+                SET adj_odds = %s
+                WHERE race_date = %s 
+                AND race_number = %s 
+                AND program_number = %s
+            ''', (
+                update['adj_odds'],
+                update['race_date'],
+                update['race_number'],
+                update['program_number']
+            ))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'message': f'{len(updates)} ADJ Odds updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/races/batch', methods=['POST'])
 def batch_races():
     try:
