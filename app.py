@@ -781,50 +781,19 @@ def admin():
         <a href="/" class="nav-link">← Back to Races</a>
         <h1>STALL10N Admin</h1>
         
-        <div class="upload-section">
-            <h2>Upload Race Screenshots</h2>
-            <div class="form-group">
-                <label for="raceDate">Race Date:</label>
-                <select id="raceDate">
-                    <option value="2025-06-12">June 12, 2025 (Override)</option>
-                    <option value="2025-06-13">June 13, 2025 (Override)</option>
-                    <option value="2025-06-14">June 14, 2025 (Override)</option>
-                    <option value="2025-06-18">June 18, 2025</option>
-                    <option value="2025-06-19">June 19, 2025</option>
-                    <option value="2025-06-20">June 20, 2025</option>
-                    <option value="2025-06-21">June 21, 2025</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <div class="file-upload">
-                    <input type="file" id="screenshots" multiple accept="image/*" />
-                    <label for="screenshots" class="file-upload-label">
-                        Choose Screenshots (Race 1-10)
-                    </label>
-                </div>
-                <div class="selected-files" id="selectedFiles"></div>
-            </div>
-            
-            <div id="statusMessage"></div>
-            
-            <button class="button" onclick="processScreenshots()" id="processBtn">
-                Process Screenshots
-            </button>
-        </div>
         
         <div class="upload-section">
-            <h2>Automated Odds Scraping</h2>
+            <h2>Odds Management</h2>
             <div style="background-color: #FFE5B4; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <p style="margin: 0 0 10px 0;"><strong>Racing Data Scraper:</strong> Fetches odds from multiple racing sources</p>
-                <button class="button" onclick="triggerScraping()" style="background-color: #FF6B35; margin-right: 10px;">
-                    Scrape Odds Now
-                </button>
+                <p style="margin: 0 0 10px 0;"><strong>Quick Actions:</strong> Update odds for all horses</p>
                 <button class="button" onclick="loadTestOdds()" style="background-color: #4169E1; margin-right: 10px;">
-                    Load Odds Data
+                    Load Odds Data (5-2, 3-1, etc.)
+                </button>
+                <button class="button" onclick="triggerScraping()" style="background-color: #FF6B35; margin-right: 10px;">
+                    Try Web Scraping
                 </button>
                 <button class="button" onclick="checkScraperStatus()" style="background-color: #6B8E23;">
-                    Check Scraper Status
+                    Check Status
                 </button>
                 <div id="scraperStatus" style="margin-top: 10px;"></div>
             </div>
@@ -865,40 +834,6 @@ def admin():
         <div class="preview-section" id="previewSection"></div>
         
         <div class="upload-section">
-            <h2>Update Real-Time Odds</h2>
-            <div class="form-group">
-                <label for="oddsDate">Race Date:</label>
-                <select id="oddsDate">
-                    <option value="2025-06-11">June 11, 2025</option>
-                    <option value="2025-06-12">June 12, 2025</option>
-                    <option value="2025-06-13">June 13, 2025</option>
-                    <option value="2025-06-14">June 14, 2025</option>
-                    <option value="2025-06-18">June 18, 2025</option>
-                    <option value="2025-06-19">June 19, 2025</option>
-                    <option value="2025-06-20">June 20, 2025</option>
-                    <option value="2025-06-21">June 21, 2025</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="oddsRaceNumber">Race Number:</label>
-                <input type="number" id="oddsRaceNumber" min="1" max="20" value="1" />
-            </div>
-            
-            <div class="form-group">
-                <label for="oddsProgramNumber">Program Number:</label>
-                <input type="number" id="oddsProgramNumber" min="1" max="20" value="1" />
-            </div>
-            
-            <div class="form-group">
-                <label for="realtimeOdds">Real-Time Odds:</label>
-                <input type="text" id="realtimeOdds" placeholder="e.g., 5/2" />
-            </div>
-            
-            <button class="button" onclick="updateRealtimeOdds()">Update Real-Time Odds</button>
-        </div>
-        
-        <div class="upload-section">
             <h2>Update Bet Recommendations</h2>
             <div class="form-group">
                 <label for="betDate">Race Date:</label>
@@ -929,55 +864,6 @@ def admin():
     </div>
     
     <script>
-        // Track selected files
-        document.getElementById('screenshots').addEventListener('change', function(e) {
-            const files = Array.from(e.target.files);
-            const fileList = files.map(f => f.name).join(', ');
-            document.getElementById('selectedFiles').textContent = 
-                files.length ? `Selected: ${fileList}` : '';
-        });
-        
-        // Process screenshots
-        async function processScreenshots() {
-            const files = document.getElementById('screenshots').files;
-            const raceDate = document.getElementById('raceDate').value;
-            const statusDiv = document.getElementById('statusMessage');
-            const processBtn = document.getElementById('processBtn');
-            
-            if (files.length === 0) {
-                showStatus('Please select screenshot files', 'error');
-                return;
-            }
-            
-            processBtn.disabled = true;
-            showStatus('Processing screenshots... This may take a moment.', 'processing');
-            
-            // Note: In a real implementation, you would send these to a backend
-            // that can process images (OCR) to extract the race data
-            // For now, we'll show a message about manual entry
-            
-            setTimeout(() => {
-                showStatus('Screenshot processing requires OCR integration. Please use manual entry for now.', 'error');
-                processBtn.disabled = false;
-                
-                // Show preview of uploaded images
-                const previewDiv = document.getElementById('previewSection');
-                previewDiv.innerHTML = '<h3>Uploaded Screenshots (Manual Entry Required)</h3>';
-                
-                Array.from(files).forEach((file, index) => {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const img = document.createElement('img');
-                        img.src = e.target.result;
-                        img.className = 'preview-image';
-                        img.alt = `Race ${index + 1}`;
-                        previewDiv.appendChild(img);
-                    };
-                    reader.readAsDataURL(file);
-                });
-            }, 2000);
-        }
-        
         function showStatus(message, type) {
             const statusDiv = document.getElementById('statusMessage');
             statusDiv.textContent = message;
@@ -1118,44 +1004,6 @@ def admin():
                     showStatus(result.message, 'success');
                     document.getElementById('scraperStatus').innerHTML = 
                         `<p style="color: green;">✓ ${result.message}</p>`;
-                } else {
-                    showStatus(`Error: ${result.error}`, 'error');
-                }
-            } catch (error) {
-                showStatus(`Error: ${error.message}`, 'error');
-            }
-        }
-        
-        // Update real-time odds
-        async function updateRealtimeOdds() {
-            const date = document.getElementById('oddsDate').value;
-            const raceNumber = document.getElementById('oddsRaceNumber').value;
-            const programNumber = document.getElementById('oddsProgramNumber').value;
-            const realtimeOdds = document.getElementById('realtimeOdds').value;
-            
-            if (!realtimeOdds) {
-                showStatus('Please enter real-time odds', 'error');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/races/update-realtime-odds', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        race_date: date,
-                        race_number: parseInt(raceNumber),
-                        program_number: parseInt(programNumber),
-                        realtime_odds: realtimeOdds
-                    })
-                });
-                
-                const result = await response.json();
-                if (response.ok) {
-                    showStatus(`Successfully updated real-time odds for horse #${programNumber}`, 'success');
-                    document.getElementById('realtimeOdds').value = '';
                 } else {
                     showStatus(`Error: ${result.error}`, 'error');
                 }
