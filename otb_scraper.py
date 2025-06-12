@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class OTBScraper:
     """
-    Scraper for OffTrackBetting.com
+    Scraper for OffTrackBetting.com race results
     """
     def __init__(self):
         self.session = requests.Session()
@@ -51,41 +51,32 @@ class OTBScraper:
             logger.error(f"Error fetching current races: {e}")
             return None
     
-    def get_race_details(self, meetno, track_name, race_number):
-        """Try to get detailed race information including odds"""
+    def get_race_results(self, meetno, track_name, date=None):
+        """Get race results for a specific track and date"""
         try:
-            # OTB uses meetno in their URLs
-            # Pattern from resultsUrl: /results/10/belmont-park.html
-            # Possible patterns for entries/odds:
-            # /entries/[meetno]/[track-slug]/[race]
-            # /odds/[meetno]/[race]
-            
-            # Create URL-friendly track slug
+            # Get results from the results page
             track_slug = track_name.lower().replace(' ', '-').replace('(', '%28').replace(')', '%29')
             
-            urls_to_try = [
-                f"https://www.offtrackbetting.com/entries/{meetno}/{track_slug}/{race_number}",
-                f"https://www.offtrackbetting.com/odds/{meetno}/{race_number}",
-                f"https://www.offtrackbetting.com/race/{meetno}/{race_number}",
-                f"https://www.offtrackbetting.com/entries/{meetno}",
-            ]
+            if date:
+                # Specific date results
+                url = f"https://www.offtrackbetting.com/results/{meetno}/{track_slug}-{date}.html"
+            else:
+                # Today's results
+                url = f"https://www.offtrackbetting.com/results/{meetno}/{track_slug}.html"
             
-            for url in urls_to_try:
-                try:
-                    response = self.session.get(url, timeout=5)
-                    if response.status_code == 200:
-                        return self._parse_race_page(response.text)
-                except:
-                    continue
-                    
-            return None
+            response = self.session.get(url, timeout=10)
+            if response.status_code == 200:
+                return self._parse_results_page(response.text, track_name)
+            else:
+                logger.warning(f"Results page returned status {response.status_code}")
+                return None
             
         except Exception as e:
             logger.error(f"Error getting race details: {e}")
             return None
     
-    def _parse_race_page(self, html):
-        """Parse a race detail page for odds"""
+    def _parse_results_page(self, html, track_name):
+        """Parse a results page for race outcomes"""
         try:
             soup = BeautifulSoup(html, 'html.parser')
             race_data = {
@@ -198,92 +189,70 @@ class OTBScraper:
             logger.error(f"Error extracting horse from div: {e}")
             return None
     
-    def scrape_all_available(self):
-        """Main method to scrape all available data"""
-        all_data = {
+    def get_completed_races(self):
+        """Get results for completed races from major tracks"""
+        results = {
             'timestamp': datetime.now().isoformat(),
             'source': 'OffTrackBetting.com',
-            'races': []
+            'completed_races': []
         }
         
         # First get the race schedule
         race_schedule = self.get_current_races()
         if not race_schedule:
             logger.error("Could not get race schedule")
-            return all_data
+            return results
         
-        # Focus on major US tracks - match by name since there's no code field
+        # Focus on major US tracks
         major_track_names = {
-            'Belmont Park': 'BEL',
-            'Saratoga': 'SAR', 
-            'Aqueduct': 'AQU',
-            'Gulfstream Park': 'GP',
-            'Santa Anita': 'SA',
-            'Churchill Downs': 'CD',
-            'Keeneland': 'KEE',
-            'Del Mar': 'DMR',
-            'Oaklawn Park': 'OP',
-            'Fair Grounds': 'FG'
+            'Belmont Park': ('BEL', '10'),
+            'Gulfstream Park': ('GP', '36'),
+            'Santa Anita': ('SA', '80'),
+            'Churchill Downs': ('CD', '17'),
+            'Keeneland': ('KEE', '47'),
+            'Del Mar': ('DMR', '19'),
+            'Aqueduct': ('AQU', '4'),
+            'Saratoga': ('SAR', '81')
         }
         
         tracks = race_schedule.get('tracks', [])
         for track in tracks:
             track_name = track.get('name', '')
             meetno = track.get('meetno', '')
+            current_race = track.get('currentRace', '1')
             
             # Check if this is a major track
-            track_code = None
-            for major_name, code in major_track_names.items():
+            for major_name, (code, expected_meetno) in major_track_names.items():
                 if major_name.lower() in track_name.lower():
-                    track_code = code
+                    logger.info(f"Found {track_name} - Race {current_race} (meetno: {meetno})")
+                    
+                    # Only check if races have been completed
+                    if int(current_race) > 1:
+                        results['completed_races'].append({
+                            'track': track_name,
+                            'track_code': code,
+                            'meetno': meetno,
+                            'current_race': current_race,
+                            'completed_races': int(current_race) - 1
+                        })
                     break
-            
-            if not track_code:
-                continue
-                
-            logger.info(f"Checking {track_name} ({track_code})")
-            
-            # Try to get race details for first few races
-            for race_num in range(1, 4):  # Check races 1-3
-                race_details = self.get_race_details(meetno, track_name, race_num)
-                if race_details:
-                    race_details['track'] = track_name
-                    race_details['track_code'] = track_code
-                    race_details['race_number'] = str(race_num)
-                    race_details['meetno'] = meetno
-                    all_data['races'].append(race_details)
-                
-                time.sleep(1)  # Rate limiting
         
-        logger.info(f"Found {len(all_data['races'])} races with data")
-        return all_data
+        logger.info(f"Found {len(results['completed_races'])} tracks with completed races")
+        return results
 
 
 if __name__ == "__main__":
     scraper = OTBScraper()
     
-    # Test getting race schedule
-    logger.info("Testing OTB scraper...")
+    # Test getting completed races
+    logger.info("Testing OTB results scraper...")
     
-    # First just get the schedule
-    schedule = scraper.get_current_races()
-    if schedule:
-        print(f"Got schedule for: {schedule.get('headline')}")
-        print(f"Total tracks: {len(schedule.get('tracks', []))}")
-        
-        # Show first 5 tracks
-        for track in schedule.get('tracks', [])[:5]:
-            print(f"- {track.get('name')} ({track.get('code')}) - Race {track.get('currentRace')}")
-        
-        # Save full schedule
-        with open('otb_schedule.json', 'w') as f:
-            json.dump(schedule, f, indent=2)
+    results = scraper.get_completed_races()
     
-    # Try full scraping
-    data = scraper.scrape_all_available()
+    print(f"\nFound {len(results['completed_races'])} tracks with completed races:")
+    for track in results['completed_races']:
+        print(f"- {track['track']} ({track['track_code']}): {track['completed_races']} races completed")
     
     # Save results
-    with open('otb_scraped_data.json', 'w') as f:
-        json.dump(data, f, indent=2)
-    
-    print(f"\nScraped {len(data['races'])} races from OTB")
+    with open('otb_results.json', 'w') as f:
+        json.dump(results, f, indent=2)

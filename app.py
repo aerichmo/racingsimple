@@ -6,10 +6,8 @@ from datetime import datetime
 import json
 import base64
 from io import BytesIO
-from apscheduler.schedulers.background import BackgroundScheduler
 from otb_scraper import OTBScraper
 import logging
-import atexit
 
 app = Flask(__name__)
 
@@ -255,7 +253,6 @@ def hello():
                             <th>Horse Name</th>
                             <th>Win Probability</th>
                             <th>Adjusted Probability</th>
-                            <th>Real-Time Odds</th>
                             <th>Morning Line</th>
                         </tr>`;
                     
@@ -265,7 +262,6 @@ def hello():
                             <td class="horse-name">${horse.horse_name}</td>
                             <td class="probability">${horse.win_probability}%</td>
                             <td class="adj-odds">${horse.adj_odds ? horse.adj_odds + '%' : '-'}</td>
-                            <td class="realtime-odds">${horse.realtime_odds || '-'}</td>
                             <td class="morning-line">${horse.morning_line}</td>
                         </tr>`;
                     });
@@ -783,16 +779,16 @@ def admin():
         
         
         <div class="upload-section">
-            <h2>OffTrackBetting.com Integration</h2>
+            <h2>Race Results Import</h2>
             <div style="background-color: #FFE5B4; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <p style="margin: 0 0 10px 0;"><strong>Data Source:</strong> OTB Race Schedule API</p>
-                <button class="button" onclick="scrapeOTB()" style="background-color: #FF6B35; margin-right: 10px;">
-                    Fetch OTB Data
+                <p style="margin: 0 0 10px 0;"><strong>Data Source:</strong> OffTrackBetting.com Results</p>
+                <button class="button" onclick="fetchRaceResults()" style="background-color: #FF6B35; margin-right: 10px;">
+                    Fetch Today's Results
                 </button>
-                <button class="button" onclick="checkScraperStatus()" style="background-color: #6B8E23;">
+                <button class="button" onclick="checkResultsStatus()" style="background-color: #6B8E23;">
                     Check Status
                 </button>
-                <div id="scraperStatus" style="margin-top: 10px;"></div>
+                <div id="resultsStatus" style="margin-top: 10px;"></div>
             </div>
         </div>
         
@@ -942,14 +938,14 @@ def admin():
             }
         }
         
-        // Scrape OTB data
-        async function scrapeOTB() {
-            showStatus('Fetching data from OffTrackBetting.com...', 'info');
-            document.getElementById('scraperStatus').innerHTML = 
-                '<p style="color: blue;">⟳ Connecting to OTB API...</p>';
+        // Fetch race results
+        async function fetchRaceResults() {
+            showStatus('Fetching race results from OTB...', 'info');
+            document.getElementById('resultsStatus').innerHTML = 
+                '<p style="color: blue;">⟳ Checking for completed races...</p>';
             
             try {
-                const response = await fetch('/api/scrape-otb', {
+                const response = await fetch('/api/fetch-results', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -959,30 +955,29 @@ def admin():
                 const result = await response.json();
                 if (response.ok) {
                     showStatus(result.message, 'success');
-                    document.getElementById('scraperStatus').innerHTML = 
+                    document.getElementById('resultsStatus').innerHTML = 
                         `<p style="color: green;">✓ ${result.message}</p>
-                         <p style="font-size: 0.9rem;">Tracks found: ${result.tracks_found || 0}</p>`;
+                         <p style="font-size: 0.9rem;">Tracks checked: ${result.tracks_checked || 0}</p>`;
                 } else {
                     showStatus(`Error: ${result.error}`, 'error');
-                    document.getElementById('scraperStatus').innerHTML = 
-                        `<p style="color: red;">✗ Failed to fetch OTB data</p>`;
+                    document.getElementById('resultsStatus').innerHTML = 
+                        `<p style="color: red;">✗ Failed to fetch results</p>`;
                 }
             } catch (error) {
                 showStatus(`Error: ${error.message}`, 'error');
             }
         }
         
-        // Check scraper status
-        async function checkScraperStatus() {
+        // Check results status
+        async function checkResultsStatus() {
             try {
-                const response = await fetch('/api/scraper-status');
+                const response = await fetch('/api/results-status');
                 const result = await response.json();
                 
                 if (response.ok) {
-                    document.getElementById('scraperStatus').innerHTML = 
-                        `<p><strong>Status:</strong> ${result.status}</p>
-                         <p><strong>Next Run:</strong> ${result.next_run || 'No scheduled runs'}</p>
-                         <p><strong>Active Jobs:</strong> ${result.jobs_count}</p>`;
+                    document.getElementById('resultsStatus').innerHTML = 
+                        `<p><strong>Last Check:</strong> ${result.last_check || 'Never'}</p>
+                         <p><strong>Results Found:</strong> ${result.results_count || 0}</p>`;
                 } else {
                     showStatus(`Error: ${result.error}`, 'error');
                 }
@@ -1031,38 +1026,6 @@ def admin():
 </html>
 ''')
 
-@app.route('/api/races/update-realtime-odds', methods=['POST'])
-def update_realtime_odds():
-    try:
-        DATABASE_URL = os.environ.get('DATABASE_URL')
-        if not DATABASE_URL:
-            return jsonify({'error': 'No database configured'}), 500
-        
-        data = request.json
-        
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        
-        cur.execute('''
-            UPDATE races 
-            SET realtime_odds = %s
-            WHERE race_date = %s 
-            AND race_number = %s 
-            AND program_number = %s
-        ''', (
-            data['realtime_odds'],
-            data['race_date'],
-            data['race_number'],
-            data['program_number']
-        ))
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        return jsonify({'message': 'Real-time odds updated successfully'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/races/update-bet-recommendation', methods=['POST'])
 def update_bet_recommendation():
@@ -1117,80 +1080,58 @@ def upload_screenshot():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/scrape-otb', methods=['POST'])
-def scrape_otb():
-    """Scrape data from OffTrackBetting.com"""
+@app.route('/api/fetch-results', methods=['POST'])
+def fetch_results():
+    """Fetch race results from OffTrackBetting.com"""
     try:
         scraper = OTBScraper()
         
-        # First get race schedule
+        # Get race schedule to find completed races
         race_schedule = scraper.get_current_races()
         if not race_schedule:
             return jsonify({'error': 'Could not fetch OTB race schedule'}), 500
         
         tracks = race_schedule.get('tracks', [])
-        app.logger.info(f"Found {len(tracks)} tracks from OTB")
+        completed_count = 0
         
-        # For now, just return the track information
-        # In a real implementation, we would try to get odds for each track/race
-        major_tracks = [t for t in tracks if t.get('code') in ['BEL', 'SAR', 'AQU', 'GP', 'SA', 'CD', 'KEE', 'DMR', 'OP', 'FG']]
+        # Check major US tracks for completed races
+        major_track_names = ['Belmont Park', 'Gulfstream Park', 'Santa Anita', 'Churchill Downs', 
+                           'Keeneland', 'Del Mar', 'Aqueduct', 'Saratoga']
+        
+        for track in tracks:
+            track_name = track.get('name', '')
+            current_race = track.get('currentRace', '1')
+            
+            # Check if this is a major track and has completed races
+            if any(major in track_name for major in major_track_names):
+                if int(current_race) > 1:  # Has completed races
+                    completed_count += 1
         
         return jsonify({
-            'message': f'Found {len(tracks)} tracks from OTB API',
-            'tracks_found': len(tracks),
-            'major_tracks': len(major_tracks),
-            'headline': race_schedule.get('headline', ''),
-            'data': {
-                'tracks': major_tracks[:10]  # Return first 10 major tracks
-            }
+            'message': f'Found {completed_count} tracks with completed races',
+            'tracks_checked': len(tracks),
+            'completed_tracks': completed_count
         })
         
     except Exception as e:
         app.logger.error(f"Scraping error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/scraper-status', methods=['GET'])
-def scraper_status():
-    """Get the status of the odds scraper"""
+@app.route('/api/results-status', methods=['GET'])
+def results_status():
+    """Get the status of results fetching"""
     try:
+        # In a real implementation, you'd track last check time and results
         return jsonify({
-            'status': 'active' if scheduler.running else 'stopped',
-            'next_run': str(scheduler.get_jobs()[0].next_run_time) if scheduler.get_jobs() else None,
-            'jobs_count': len(scheduler.get_jobs())
+            'last_check': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'results_count': 0,
+            'status': 'ready'
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
-def scheduled_scrape():
-    """Function to run scheduled scraping"""
-    try:
-        app.logger.info("Starting scheduled OTB scrape...")
-        scraper = OTBScraper()
-        race_schedule = scraper.get_current_races()
-        
-        if race_schedule:
-            app.logger.info(f"OTB schedule fetched: {race_schedule.get('headline', '')}")
-        else:
-            app.logger.error("Could not fetch OTB schedule")
-        
-    except Exception as e:
-        app.logger.error(f"Scheduled scrape error: {str(e)}")
-
-# Initialize scheduler
-scheduler = BackgroundScheduler()
-scheduler.add_job(
-    func=scheduled_scrape,
-    trigger="interval",
-    minutes=30,  # Run every 30 minutes
-    id='odds_scraper',
-    name='Scrape odds from Equibase',
-    replace_existing=True
-)
-scheduler.start()
-
-# Shut down the scheduler when exiting the app
-atexit.register(lambda: scheduler.shutdown())
+# Scheduler removed - no real-time odds tracking needed
 
 if __name__ == '__main__':
     app.run()
