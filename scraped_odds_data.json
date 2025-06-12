@@ -1,0 +1,64 @@
+{
+  "timestamp": "2025-06-12T16:35:21.714285",
+  "races": [
+    {
+      "source": "Test",
+      "race_number": "1",
+      "track": "Belmont Park",
+      "horses": [
+        {
+          "horse_name": "Thunder Strike",
+          "morning_line": "5-2",
+          "post_position": "1"
+        },
+        {
+          "horse_name": "Lightning Bolt",
+          "morning_line": "3-1",
+          "post_position": "2"
+        },
+        {
+          "horse_name": "Storm Chaser",
+          "morning_line": "7-2",
+          "post_position": "3"
+        },
+        {
+          "horse_name": "Wind Walker",
+          "morning_line": "9-2",
+          "post_position": "4"
+        },
+        {
+          "horse_name": "Rain Dancer",
+          "morning_line": "6-1",
+          "post_position": "5"
+        }
+      ]
+    },
+    {
+      "source": "Test",
+      "race_number": "2",
+      "track": "Belmont Park",
+      "horses": [
+        {
+          "horse_name": "Speed Demon",
+          "morning_line": "2-1",
+          "post_position": "1"
+        },
+        {
+          "horse_name": "Fast Track",
+          "morning_line": "5-2",
+          "post_position": "2"
+        },
+        {
+          "horse_name": "Quick Silver",
+          "morning_line": "4-1",
+          "post_position": "3"
+        },
+        {
+          "horse_name": "Rapid Fire",
+          "morning_line": "8-1",
+          "post_position": "4"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "timestamp": "2025-06-12T16:31:55.376331",
+  "tracks": [
+    {
+      "track_name": "Entries",
+      "track_code": "index?SAP=TN",
+      "races": []
+    },
+    {
+      "track_name": "Thoroughbred",
+      "track_code": "index?SAP=TN",
+      "races": []
+    },
+    {
+      "track_name": "Thoroughbred",
+      "track_code": "index?SAP=TN",
+      "races": []
+    },
+    {
+      "track_name": "Belmont At The Big A",
+      "track_code": "BAQ-calendar",
+      "races": []
+    },
+    {
+      "track_name": "12",
+      "track_code": "RaceCardIndexBAQ061225USA-EQB",
+      "races": []
+    }
+  ]
+}

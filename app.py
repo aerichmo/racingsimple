@@ -7,7 +7,7 @@ import json
 import base64
 from io import BytesIO
 from apscheduler.schedulers.background import BackgroundScheduler
-from scraper import EquibaseScraper
+from simple_scraper import SimpleHorseRacingScraper, generate_test_data
 import logging
 import atexit
 
@@ -816,9 +816,12 @@ def admin():
         <div class="upload-section">
             <h2>Automated Odds Scraping</h2>
             <div style="background-color: #FFE5B4; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <p style="margin: 0 0 10px 0;"><strong>Equibase Scraper:</strong> Automatically fetches morning line odds from Equibase.com</p>
+                <p style="margin: 0 0 10px 0;"><strong>Racing Data Scraper:</strong> Fetches odds from multiple racing sources</p>
                 <button class="button" onclick="triggerScraping()" style="background-color: #FF6B35; margin-right: 10px;">
                     Scrape Odds Now
+                </button>
+                <button class="button" onclick="loadTestOdds()" style="background-color: #4169E1; margin-right: 10px;">
+                    Load Test Odds
                 </button>
                 <button class="button" onclick="checkScraperStatus()" style="background-color: #6B8E23;">
                     Check Scraper Status
@@ -1099,6 +1102,30 @@ def admin():
             }
         }
         
+        // Load test odds data
+        async function loadTestOdds() {
+            showStatus('Loading test odds data...', 'info');
+            try {
+                const response = await fetch('/api/load-test-odds', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    showStatus(result.message, 'success');
+                    document.getElementById('scraperStatus').innerHTML = 
+                        `<p style="color: green;">✓ ${result.message}</p>`;
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+        
         // Update real-time odds
         async function updateRealtimeOdds() {
             const date = document.getElementById('oddsDate').value;
@@ -1267,8 +1294,8 @@ def upload_screenshot():
 def scrape_odds_manual():
     """Manually trigger odds scraping"""
     try:
-        scraper = EquibaseScraper()
-        scraped_data = scraper.scrape_all_tracks()
+        scraper = SimpleHorseRacingScraper()
+        scraped_data = scraper.scrape_all_sources()
         
         # Process and store the scraped data
         DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -1279,26 +1306,25 @@ def scrape_odds_manual():
         cur = conn.cursor()
         
         updates_count = 0
-        for track in scraped_data.get('tracks', []):
-            for race in track.get('races', []):
-                race_number = race.get('race_number', '').replace('Race ', '')
-                
-                for horse in race.get('horses', []):
-                    # Try to match by horse name and update morning line odds
-                    cur.execute('''
-                        UPDATE races 
-                        SET morning_line = %s,
-                            realtime_odds = %s
-                        WHERE LOWER(horse_name) = LOWER(%s)
-                        AND race_date = CURRENT_DATE
-                        AND race_number = %s
-                    ''', (
-                        horse.get('morning_line', ''),
-                        horse.get('morning_line', ''),  # Use morning line as initial odds
-                        horse.get('horse_name', ''),
-                        race_number
-                    ))
-                    updates_count += cur.rowcount
+        for race in scraped_data.get('races', []):
+            race_number = race.get('race_number', '').replace('Race ', '')
+            
+            for horse in race.get('horses', []):
+                # Try to match by horse name and update morning line odds
+                cur.execute('''
+                    UPDATE races 
+                    SET morning_line = %s,
+                        realtime_odds = %s
+                    WHERE LOWER(horse_name) = LOWER(%s)
+                    AND race_date = CURRENT_DATE
+                    AND race_number = %s
+                ''', (
+                    horse.get('morning_line', ''),
+                    horse.get('morning_line', ''),  # Use morning line as initial odds
+                    horse.get('horse_name', ''),
+                    race_number
+                ))
+                updates_count += cur.rowcount
         
         conn.commit()
         cur.close()
@@ -1325,34 +1351,98 @@ def scraper_status():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/load-test-odds', methods=['POST'])
+def load_test_odds():
+    """Load test odds data for demonstration"""
+    try:
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'error': 'No database configured'}), 500
+        
+        # Generate test data
+        test_data = generate_test_data()
+        
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        updates_count = 0
+        for race in test_data.get('races', []):
+            race_number = int(race.get('race_number', '1'))
+            
+            for horse in race.get('horses', []):
+                # Update odds for horses that match by name
+                cur.execute('''
+                    UPDATE races 
+                    SET morning_line = %s,
+                        realtime_odds = %s
+                    WHERE LOWER(horse_name) LIKE LOWER(%s)
+                    AND race_date = CURRENT_DATE
+                    AND race_number = %s
+                ''', (
+                    horse.get('morning_line', ''),
+                    horse.get('morning_line', ''),
+                    '%' + horse.get('horse_name', '').split()[0] + '%',  # Match partial name
+                    race_number
+                ))
+                
+                if cur.rowcount == 0:
+                    # If no match, try to update by program number
+                    cur.execute('''
+                        UPDATE races 
+                        SET morning_line = %s,
+                            realtime_odds = %s
+                        WHERE race_date = CURRENT_DATE
+                        AND race_number = %s
+                        AND program_number = %s
+                    ''', (
+                        horse.get('morning_line', ''),
+                        horse.get('morning_line', ''),
+                        race_number,
+                        int(horse.get('post_position', 1))
+                    ))
+                
+                updates_count += cur.rowcount
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            'message': f'Test odds loaded. Updated {updates_count} horses.',
+            'data': test_data
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Test odds error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 def scheduled_scrape():
     """Function to run scheduled scraping"""
     try:
         app.logger.info("Starting scheduled odds scrape...")
-        scraper = EquibaseScraper()
-        scraped_data = scraper.scrape_all_tracks()
+        scraper = SimpleHorseRacingScraper()
+        scraped_data = scraper.scrape_all_sources()
         
         DATABASE_URL = os.environ.get('DATABASE_URL')
         if DATABASE_URL:
             conn = psycopg2.connect(DATABASE_URL)
             cur = conn.cursor()
             
-            for track in scraped_data.get('tracks', []):
-                for race in track.get('races', []):
-                    race_number = race.get('race_number', '').replace('Race ', '')
-                    
-                    for horse in race.get('horses', []):
-                        cur.execute('''
-                            UPDATE races 
-                            SET realtime_odds = %s
-                            WHERE LOWER(horse_name) = LOWER(%s)
-                            AND race_date = CURRENT_DATE
-                            AND race_number = %s
-                        ''', (
-                            horse.get('morning_line', ''),
-                            horse.get('horse_name', ''),
-                            race_number
-                        ))
+            for race in scraped_data.get('races', []):
+                race_number = race.get('race_number', '').replace('Race ', '')
+                
+                for horse in race.get('horses', []):
+                    cur.execute('''
+                        UPDATE races 
+                        SET realtime_odds = %s
+                        WHERE LOWER(horse_name) = LOWER(%s)
+                        AND race_date = CURRENT_DATE
+                        AND race_number = %s
+                    ''', (
+                        horse.get('morning_line', ''),
+                        horse.get('horse_name', ''),
+                        race_number
+                    ))
             
             conn.commit()
             cur.close()
