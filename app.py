@@ -7,7 +7,7 @@ import json
 import base64
 from io import BytesIO
 from apscheduler.schedulers.background import BackgroundScheduler
-from simple_scraper import SimpleHorseRacingScraper
+from otb_scraper import OTBScraper
 import logging
 import atexit
 
@@ -783,14 +783,11 @@ def admin():
         
         
         <div class="upload-section">
-            <h2>Odds Management</h2>
+            <h2>OffTrackBetting.com Integration</h2>
             <div style="background-color: #FFE5B4; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <p style="margin: 0 0 10px 0;"><strong>Quick Actions:</strong> Update odds for all horses</p>
-                <button class="button" onclick="loadTestOdds()" style="background-color: #4169E1; margin-right: 10px;">
-                    Load Odds Data (5-2, 3-1, etc.)
-                </button>
-                <button class="button" onclick="triggerScraping()" style="background-color: #FF6B35; margin-right: 10px;">
-                    Try Web Scraping
+                <p style="margin: 0 0 10px 0;"><strong>Data Source:</strong> OTB Race Schedule API</p>
+                <button class="button" onclick="scrapeOTB()" style="background-color: #FF6B35; margin-right: 10px;">
+                    Fetch OTB Data
                 </button>
                 <button class="button" onclick="checkScraperStatus()" style="background-color: #6B8E23;">
                     Check Status
@@ -945,11 +942,14 @@ def admin():
             }
         }
         
-        // Trigger odds scraping
-        async function triggerScraping() {
-            showStatus('Starting odds scraping...', 'info');
+        // Scrape OTB data
+        async function scrapeOTB() {
+            showStatus('Fetching data from OffTrackBetting.com...', 'info');
+            document.getElementById('scraperStatus').innerHTML = 
+                '<p style="color: blue;">⟳ Connecting to OTB API...</p>';
+            
             try {
-                const response = await fetch('/api/scrape-odds', {
+                const response = await fetch('/api/scrape-otb', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -960,9 +960,12 @@ def admin():
                 if (response.ok) {
                     showStatus(result.message, 'success');
                     document.getElementById('scraperStatus').innerHTML = 
-                        `<p style="color: green;">✓ ${result.message}</p>`;
+                        `<p style="color: green;">✓ ${result.message}</p>
+                         <p style="font-size: 0.9rem;">Tracks found: ${result.tracks_found || 0}</p>`;
                 } else {
                     showStatus(`Error: ${result.error}`, 'error');
+                    document.getElementById('scraperStatus').innerHTML = 
+                        `<p style="color: red;">✗ Failed to fetch OTB data</p>`;
                 }
             } catch (error) {
                 showStatus(`Error: ${error.message}`, 'error');
@@ -980,30 +983,6 @@ def admin():
                         `<p><strong>Status:</strong> ${result.status}</p>
                          <p><strong>Next Run:</strong> ${result.next_run || 'No scheduled runs'}</p>
                          <p><strong>Active Jobs:</strong> ${result.jobs_count}</p>`;
-                } else {
-                    showStatus(`Error: ${result.error}`, 'error');
-                }
-            } catch (error) {
-                showStatus(`Error: ${error.message}`, 'error');
-            }
-        }
-        
-        // Load test odds data
-        async function loadTestOdds() {
-            showStatus('Loading test odds data...', 'info');
-            try {
-                const response = await fetch('/api/load-test-odds', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                const result = await response.json();
-                if (response.ok) {
-                    showStatus(result.message, 'success');
-                    document.getElementById('scraperStatus').innerHTML = 
-                        `<p style="color: green;">✓ ${result.message}</p>`;
                 } else {
                     showStatus(`Error: ${result.error}`, 'error');
                 }
@@ -1138,49 +1117,32 @@ def upload_screenshot():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/scrape-odds', methods=['POST'])
-def scrape_odds_manual():
-    """Manually trigger odds scraping"""
+@app.route('/api/scrape-otb', methods=['POST'])
+def scrape_otb():
+    """Scrape data from OffTrackBetting.com"""
     try:
-        scraper = SimpleHorseRacingScraper()
-        scraped_data = scraper.scrape_all_sources()
+        scraper = OTBScraper()
         
-        # Process and store the scraped data
-        DATABASE_URL = os.environ.get('DATABASE_URL')
-        if not DATABASE_URL:
-            return jsonify({'error': 'No database configured'}), 500
+        # First get race schedule
+        race_schedule = scraper.get_current_races()
+        if not race_schedule:
+            return jsonify({'error': 'Could not fetch OTB race schedule'}), 500
         
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
+        tracks = race_schedule.get('tracks', [])
+        app.logger.info(f"Found {len(tracks)} tracks from OTB")
         
-        updates_count = 0
-        for race in scraped_data.get('races', []):
-            race_number = race.get('race_number', '').replace('Race ', '')
-            
-            for horse in race.get('horses', []):
-                # Try to match by horse name and update morning line odds
-                cur.execute('''
-                    UPDATE races 
-                    SET morning_line = %s,
-                        realtime_odds = %s
-                    WHERE LOWER(horse_name) = LOWER(%s)
-                    AND race_date = CURRENT_DATE
-                    AND race_number = %s
-                ''', (
-                    horse.get('morning_line', ''),
-                    horse.get('morning_line', ''),  # Use morning line as initial odds
-                    horse.get('horse_name', ''),
-                    race_number
-                ))
-                updates_count += cur.rowcount
-        
-        conn.commit()
-        cur.close()
-        conn.close()
+        # For now, just return the track information
+        # In a real implementation, we would try to get odds for each track/race
+        major_tracks = [t for t in tracks if t.get('code') in ['BEL', 'SAR', 'AQU', 'GP', 'SA', 'CD', 'KEE', 'DMR', 'OP', 'FG']]
         
         return jsonify({
-            'message': f'Scraping completed. Updated {updates_count} horses.',
-            'data': scraped_data
+            'message': f'Found {len(tracks)} tracks from OTB API',
+            'tracks_found': len(tracks),
+            'major_tracks': len(major_tracks),
+            'headline': race_schedule.get('headline', ''),
+            'data': {
+                'tracks': major_tracks[:10]  # Return first 10 major tracks
+            }
         })
         
     except Exception as e:
@@ -1199,86 +1161,18 @@ def scraper_status():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/load-test-odds', methods=['POST'])
-def load_test_odds():
-    """Load odds data directly"""
-    try:
-        DATABASE_URL = os.environ.get('DATABASE_URL')
-        if not DATABASE_URL:
-            return jsonify({'error': 'No database configured'}), 500
-        
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        
-        # Direct odds update - no test data
-        odds_by_position = [
-            '5-2', '3-1', '7-2', '9-2', '6-1', 
-            '8-1', '10-1', '12-1', '15-1', '20-1'
-        ]
-        
-        updates_count = 0
-        
-        # Update odds for all horses based on program number
-        for race_num in range(1, 11):  # Races 1-10
-            for prog_num in range(1, 11):  # Program numbers 1-10
-                odds_index = (prog_num - 1) % len(odds_by_position)
-                odds_value = odds_by_position[odds_index]
-                
-                cur.execute('''
-                    UPDATE races 
-                    SET morning_line = %s,
-                        realtime_odds = %s
-                    WHERE race_date = CURRENT_DATE
-                    AND race_number = %s
-                    AND program_number = %s
-                ''', (odds_value, odds_value, race_num, prog_num))
-                
-                updates_count += cur.rowcount
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        return jsonify({
-            'message': f'Odds loaded. Updated {updates_count} horses.'
-        })
-        
-    except Exception as e:
-        app.logger.error(f"Test odds error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
 
 def scheduled_scrape():
     """Function to run scheduled scraping"""
     try:
-        app.logger.info("Starting scheduled odds scrape...")
-        scraper = SimpleHorseRacingScraper()
-        scraped_data = scraper.scrape_all_sources()
+        app.logger.info("Starting scheduled OTB scrape...")
+        scraper = OTBScraper()
+        race_schedule = scraper.get_current_races()
         
-        DATABASE_URL = os.environ.get('DATABASE_URL')
-        if DATABASE_URL:
-            conn = psycopg2.connect(DATABASE_URL)
-            cur = conn.cursor()
-            
-            for race in scraped_data.get('races', []):
-                race_number = race.get('race_number', '').replace('Race ', '')
-                
-                for horse in race.get('horses', []):
-                    cur.execute('''
-                        UPDATE races 
-                        SET realtime_odds = %s
-                        WHERE LOWER(horse_name) = LOWER(%s)
-                        AND race_date = CURRENT_DATE
-                        AND race_number = %s
-                    ''', (
-                        horse.get('morning_line', ''),
-                        horse.get('horse_name', ''),
-                        race_number
-                    ))
-            
-            conn.commit()
-            cur.close()
-            conn.close()
-            app.logger.info("Scheduled scrape completed successfully")
+        if race_schedule:
+            app.logger.info(f"OTB schedule fetched: {race_schedule.get('headline', '')}")
+        else:
+            app.logger.error("Could not fetch OTB schedule")
         
     except Exception as e:
         app.logger.error(f"Scheduled scrape error: {str(e)}")
