@@ -6,6 +6,10 @@ from datetime import datetime
 import json
 import base64
 from io import BytesIO
+from apscheduler.schedulers.background import BackgroundScheduler
+from scraper import EquibaseScraper
+import logging
+import atexit
 
 app = Flask(__name__)
 
@@ -810,6 +814,20 @@ def admin():
         </div>
         
         <div class="upload-section">
+            <h2>Automated Odds Scraping</h2>
+            <div style="background-color: #FFE5B4; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 0 0 10px 0;"><strong>Equibase Scraper:</strong> Automatically fetches morning line odds from Equibase.com</p>
+                <button class="button" onclick="triggerScraping()" style="background-color: #FF6B35; margin-right: 10px;">
+                    Scrape Odds Now
+                </button>
+                <button class="button" onclick="checkScraperStatus()" style="background-color: #6B8E23;">
+                    Check Scraper Status
+                </button>
+                <div id="scraperStatus" style="margin-top: 10px;"></div>
+            </div>
+        </div>
+        
+        <div class="upload-section">
             <h2>Manual Race Entry</h2>
             <div style="background-color: #A9DDF7; padding: 10px; border-radius: 8px; margin-bottom: 20px;">
                 <p style="margin: 0; font-size: 0.9rem;"><strong>Note:</strong> For June 12-14, this will override existing data. All entries go through SQL database and are automatically synced to Render.</p>
@@ -1038,6 +1056,49 @@ def admin():
             }
         }
         
+        // Trigger odds scraping
+        async function triggerScraping() {
+            showStatus('Starting odds scraping...', 'info');
+            try {
+                const response = await fetch('/api/scrape-odds', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    showStatus(result.message, 'success');
+                    document.getElementById('scraperStatus').innerHTML = 
+                        `<p style="color: green;">✓ ${result.message}</p>`;
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Check scraper status
+        async function checkScraperStatus() {
+            try {
+                const response = await fetch('/api/scraper-status');
+                const result = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('scraperStatus').innerHTML = 
+                        `<p><strong>Status:</strong> ${result.status}</p>
+                         <p><strong>Next Run:</strong> ${result.next_run || 'No scheduled runs'}</p>
+                         <p><strong>Active Jobs:</strong> ${result.jobs_count}</p>`;
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+        
         // Update real-time odds
         async function updateRealtimeOdds() {
             const date = document.getElementById('oddsDate').value;
@@ -1201,6 +1262,120 @@ def upload_screenshot():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/scrape-odds', methods=['POST'])
+def scrape_odds_manual():
+    """Manually trigger odds scraping"""
+    try:
+        scraper = EquibaseScraper()
+        scraped_data = scraper.scrape_all_tracks()
+        
+        # Process and store the scraped data
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'error': 'No database configured'}), 500
+        
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        updates_count = 0
+        for track in scraped_data.get('tracks', []):
+            for race in track.get('races', []):
+                race_number = race.get('race_number', '').replace('Race ', '')
+                
+                for horse in race.get('horses', []):
+                    # Try to match by horse name and update morning line odds
+                    cur.execute('''
+                        UPDATE races 
+                        SET morning_line = %s,
+                            realtime_odds = %s
+                        WHERE LOWER(horse_name) = LOWER(%s)
+                        AND race_date = CURRENT_DATE
+                        AND race_number = %s
+                    ''', (
+                        horse.get('morning_line', ''),
+                        horse.get('morning_line', ''),  # Use morning line as initial odds
+                        horse.get('horse_name', ''),
+                        race_number
+                    ))
+                    updates_count += cur.rowcount
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            'message': f'Scraping completed. Updated {updates_count} horses.',
+            'data': scraped_data
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Scraping error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/scraper-status', methods=['GET'])
+def scraper_status():
+    """Get the status of the odds scraper"""
+    try:
+        return jsonify({
+            'status': 'active' if scheduler.running else 'stopped',
+            'next_run': str(scheduler.get_jobs()[0].next_run_time) if scheduler.get_jobs() else None,
+            'jobs_count': len(scheduler.get_jobs())
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def scheduled_scrape():
+    """Function to run scheduled scraping"""
+    try:
+        app.logger.info("Starting scheduled odds scrape...")
+        scraper = EquibaseScraper()
+        scraped_data = scraper.scrape_all_tracks()
+        
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if DATABASE_URL:
+            conn = psycopg2.connect(DATABASE_URL)
+            cur = conn.cursor()
+            
+            for track in scraped_data.get('tracks', []):
+                for race in track.get('races', []):
+                    race_number = race.get('race_number', '').replace('Race ', '')
+                    
+                    for horse in race.get('horses', []):
+                        cur.execute('''
+                            UPDATE races 
+                            SET realtime_odds = %s
+                            WHERE LOWER(horse_name) = LOWER(%s)
+                            AND race_date = CURRENT_DATE
+                            AND race_number = %s
+                        ''', (
+                            horse.get('morning_line', ''),
+                            horse.get('horse_name', ''),
+                            race_number
+                        ))
+            
+            conn.commit()
+            cur.close()
+            conn.close()
+            app.logger.info("Scheduled scrape completed successfully")
+        
+    except Exception as e:
+        app.logger.error(f"Scheduled scrape error: {str(e)}")
+
+# Initialize scheduler
+scheduler = BackgroundScheduler()
+scheduler.add_job(
+    func=scheduled_scrape,
+    trigger="interval",
+    minutes=30,  # Run every 30 minutes
+    id='odds_scraper',
+    name='Scrape odds from Equibase',
+    replace_existing=True
+)
+scheduler.start()
+
+# Shut down the scheduler when exiting the app
+atexit.register(lambda: scheduler.shutdown())
 
 if __name__ == '__main__':
     app.run()
