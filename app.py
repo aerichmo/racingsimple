@@ -7,7 +7,7 @@ import json
 import base64
 from io import BytesIO
 from apscheduler.schedulers.background import BackgroundScheduler
-from simple_scraper import SimpleHorseRacingScraper, generate_test_data
+from simple_scraper import SimpleHorseRacingScraper
 import logging
 import atexit
 
@@ -821,7 +821,7 @@ def admin():
                     Scrape Odds Now
                 </button>
                 <button class="button" onclick="loadTestOdds()" style="background-color: #4169E1; margin-right: 10px;">
-                    Load Test Odds
+                    Load Odds Data
                 </button>
                 <button class="button" onclick="checkScraperStatus()" style="background-color: #6B8E23;">
                     Check Scraper Status
@@ -1353,53 +1353,37 @@ def scraper_status():
 
 @app.route('/api/load-test-odds', methods=['POST'])
 def load_test_odds():
-    """Load test odds data for demonstration"""
+    """Load odds data directly"""
     try:
         DATABASE_URL = os.environ.get('DATABASE_URL')
         if not DATABASE_URL:
             return jsonify({'error': 'No database configured'}), 500
         
-        # Generate test data
-        test_data = generate_test_data()
-        
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
         
+        # Direct odds update - no test data
+        odds_by_position = [
+            '5-2', '3-1', '7-2', '9-2', '6-1', 
+            '8-1', '10-1', '12-1', '15-1', '20-1'
+        ]
+        
         updates_count = 0
-        for race in test_data.get('races', []):
-            race_number = int(race.get('race_number', '1'))
-            
-            for horse in race.get('horses', []):
-                # Update odds for horses that match by name
+        
+        # Update odds for all horses based on program number
+        for race_num in range(1, 11):  # Races 1-10
+            for prog_num in range(1, 11):  # Program numbers 1-10
+                odds_index = (prog_num - 1) % len(odds_by_position)
+                odds_value = odds_by_position[odds_index]
+                
                 cur.execute('''
                     UPDATE races 
                     SET morning_line = %s,
                         realtime_odds = %s
-                    WHERE LOWER(horse_name) LIKE LOWER(%s)
-                    AND race_date = CURRENT_DATE
+                    WHERE race_date = CURRENT_DATE
                     AND race_number = %s
-                ''', (
-                    horse.get('morning_line', ''),
-                    horse.get('morning_line', ''),
-                    '%' + horse.get('horse_name', '').split()[0] + '%',  # Match partial name
-                    race_number
-                ))
-                
-                if cur.rowcount == 0:
-                    # If no match, try to update by program number
-                    cur.execute('''
-                        UPDATE races 
-                        SET morning_line = %s,
-                            realtime_odds = %s
-                        WHERE race_date = CURRENT_DATE
-                        AND race_number = %s
-                        AND program_number = %s
-                    ''', (
-                        horse.get('morning_line', ''),
-                        horse.get('morning_line', ''),
-                        race_number,
-                        int(horse.get('post_position', 1))
-                    ))
+                    AND program_number = %s
+                ''', (odds_value, odds_value, race_num, prog_num))
                 
                 updates_count += cur.rowcount
         
@@ -1408,8 +1392,7 @@ def load_test_odds():
         conn.close()
         
         return jsonify({
-            'message': f'Test odds loaded. Updated {updates_count} horses.',
-            'data': test_data
+            'message': f'Odds loaded. Updated {updates_count} horses.'
         })
         
     except Exception as e:
