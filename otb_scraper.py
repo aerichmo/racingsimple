@@ -79,9 +79,7 @@ class OTBScraper:
         """Parse a results page for race outcomes"""
         try:
             soup = BeautifulSoup(html, 'html.parser')
-            race_data = {
-                'horses': []
-            }
+            all_races = []
             
             # Look for common patterns in OTB pages
             # Odds might be in tables with class names like:
@@ -203,8 +201,9 @@ class OTBScraper:
             logger.error("Could not get race schedule")
             return results
         
-        # Focus on major US tracks
+        # Focus on Fair Meadows and major US tracks
         major_track_names = {
+            'Fair Meadows': ('FMT', None),  # Add Fair Meadows
             'Belmont Park': ('BEL', '10'),
             'Gulfstream Park': ('GP', '36'),
             'Santa Anita': ('SA', '80'),
