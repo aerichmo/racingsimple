@@ -6,8 +6,6 @@ from datetime import datetime
 import json
 import base64
 from io import BytesIO
-from otb_scraper import OTBScraper
-from fair_meadows_results import FairMeadowsResults
 import logging
 
 app = Flask(__name__)
@@ -121,10 +119,6 @@ def hello():
         }
         .morning-line {
             color: #001E60;
-        }
-        .realtime-odds {
-            color: #0053E2;
-            font-weight: 500;
         }
         .bet-recommendation {
             margin: 20px 0;
@@ -392,10 +386,6 @@ def setup_database():
             ADD COLUMN IF NOT EXISTS adj_odds DECIMAL(5,2)
         ''')
         
-        cur.execute('''
-            ALTER TABLE races 
-            ADD COLUMN IF NOT EXISTS realtime_odds VARCHAR(50)
-        ''')
         
         cur.execute('''
             ALTER TABLE races 
@@ -432,8 +422,8 @@ def races():
             cur.execute('''
                 INSERT INTO races (race_date, race_number, program_number, 
                                  horse_name, win_probability, adj_odds, morning_line,
-                                 realtime_odds, bet_recommendation)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                 bet_recommendation)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 data['race_date'],
                 data['race_number'],
@@ -442,7 +432,6 @@ def races():
                 data['win_probability'],
                 data.get('adj_odds'),
                 data['morning_line'],
-                data.get('realtime_odds'),
                 data.get('bet_recommendation')
             ))
             
@@ -462,7 +451,7 @@ def races():
             cur.execute('''
                 SELECT race_date, race_number, program_number, 
                        horse_name, win_probability, adj_odds, morning_line,
-                       realtime_odds, bet_recommendation
+                       bet_recommendation
                 FROM races
                 ORDER BY race_date, race_number, program_number
             ''')
@@ -477,8 +466,7 @@ def races():
                     'win_probability': float(row[4]) if row[4] else None,
                     'adj_odds': float(row[5]) if row[5] else None,
                     'morning_line': row[6],
-                    'realtime_odds': row[7],
-                    'bet_recommendation': row[8]
+                    'bet_recommendation': row[7]
                 })
             
             cur.close()
@@ -568,8 +556,8 @@ def batch_races():
             cur.execute('''
                 INSERT INTO races (race_date, race_number, program_number, 
                                  horse_name, win_probability, adj_odds, morning_line,
-                                 realtime_odds, bet_recommendation)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                 bet_recommendation)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 race['race_date'],
                 race['race_number'],
@@ -578,7 +566,6 @@ def batch_races():
                 race['win_probability'],
                 race.get('adj_odds'),
                 race['morning_line'],
-                race.get('realtime_odds'),
                 race.get('bet_recommendation')
             ))
         
@@ -780,20 +767,6 @@ def admin():
         
         
         <div class="upload-section">
-            <h2>Fair Meadows Results Import</h2>
-            <div style="background-color: #FFE5B4; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <p style="margin: 0 0 10px 0;"><strong>Track:</strong> Fair Meadows Race Track</p>
-                <button class="button" onclick="fetchRaceResults()" style="background-color: #FF6B35; margin-right: 10px;">
-                    Fetch Fair Meadows Results
-                </button>
-                <button class="button" onclick="viewResults()" style="background-color: #6B8E23;">
-                    View Results
-                </button>
-                <div id="resultsStatus" style="margin-top: 10px;"></div>
-            </div>
-        </div>
-        
-        <div class="upload-section">
             <h2>Manual Race Entry</h2>
             <div style="background-color: #A9DDF7; padding: 10px; border-radius: 8px; margin-bottom: 20px;">
                 <p style="margin: 0; font-size: 0.9rem;"><strong>Note:</strong> For June 12-14, this will override existing data. All entries go through SQL database and are automatically synced to Render.</p>
@@ -939,60 +912,6 @@ def admin():
             }
         }
         
-        // Fetch race results
-        async function fetchRaceResults() {
-            showStatus('Fetching Fair Meadows results...', 'info');
-            document.getElementById('resultsStatus').innerHTML = 
-                '<p style="color: blue;">⟳ Pulling race results from Fair Meadows...</p>';
-            
-            try {
-                const response = await fetch('/api/fetch-results', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                const result = await response.json();
-                if (response.ok) {
-                    showStatus(result.message, 'success');
-                    document.getElementById('resultsStatus').innerHTML = 
-                        `<p style="color: green;">✓ ${result.message}</p>
-                         <p style="font-size: 0.9rem;">Date: ${result.date || 'Today'}</p>
-                         <p style="font-size: 0.9rem;">Races Updated: ${result.races_updated || 0}</p>`;
-                } else {
-                    showStatus(`Error: ${result.error}`, 'error');
-                    document.getElementById('resultsStatus').innerHTML = 
-                        `<p style="color: red;">✗ Failed to fetch results</p>`;
-                }
-            } catch (error) {
-                showStatus(`Error: ${error.message}`, 'error');
-            }
-        }
-        
-        // View results page
-        function viewResults() {
-            window.location.href = '/results';
-        }
-        
-        // Check results status
-        async function checkResultsStatus() {
-            try {
-                const response = await fetch('/api/results-status');
-                const result = await response.json();
-                
-                if (response.ok) {
-                    document.getElementById('resultsStatus').innerHTML = 
-                        `<p><strong>Last Check:</strong> ${result.last_check || 'Never'}</p>
-                         <p><strong>Results Found:</strong> ${result.results_count || 0}</p>`;
-                } else {
-                    showStatus(`Error: ${result.error}`, 'error');
-                }
-            } catch (error) {
-                showStatus(`Error: ${error.message}`, 'error');
-            }
-        }
-        
         // Update bet recommendation
         async function updateBetRecommendation() {
             const date = document.getElementById('betDate').value;
@@ -1087,229 +1006,9 @@ def upload_screenshot():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/fetch-results', methods=['POST'])
-def fetch_results():
-    """Fetch Fair Meadows race results"""
-    try:
-        # Fetch Fair Meadows results
-        fetcher = FairMeadowsResults()
-        results = fetcher.fetch_results()
-        
-        # Update database
-        success = fetcher.update_database(results)
-        
-        if success:
-            return jsonify({
-                'message': f'Successfully fetched {len(results["races"])} Fair Meadows race results',
-                'tracks_checked': 1,
-                'races_updated': len(results['races']),
-                'track': results['track'],
-                'date': results['date']
-            })
-        else:
-            return jsonify({
-                'error': 'Failed to update database with results'
-            }), 500
-        
-    except Exception as e:
-        app.logger.error(f"Scraping error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/results-status', methods=['GET'])
-def results_status():
-    """Get the status of results fetching"""
-    try:
-        # In a real implementation, you'd track last check time and results
-        return jsonify({
-            'last_check': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'results_count': 0,
-            'status': 'ready'
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/results')
-def results_page():
-    """Display race results"""
-    try:
-        DATABASE_URL = os.environ.get('DATABASE_URL')
-        if not DATABASE_URL:
-            return "No database configured", 500
-        
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        
-        # Get recent results
-        cur.execute('''
-            SELECT race_date, track, race_number, position, 
-                   program_number, horse_name, 
-                   win_payout, place_payout, show_payout
-            FROM race_results
-            WHERE race_date >= CURRENT_DATE - INTERVAL '7 days'
-            ORDER BY race_date DESC, race_number, position
-        ''')
-        
-        results = cur.fetchall()
-        cur.close()
-        conn.close()
-        
-        # Group results by date and race
-        grouped_results = {}
-        for row in results:
-            date_key = row[0].strftime('%Y-%m-%d')
-            race_key = f"{row[1]} - Race {row[2]}"
-            
-            if date_key not in grouped_results:
-                grouped_results[date_key] = {}
-            if race_key not in grouped_results[date_key]:
-                grouped_results[date_key][race_key] = []
-            
-            grouped_results[date_key][race_key].append({
-                'position': row[3],
-                'program': row[4],
-                'horse': row[5],
-                'win': row[6],
-                'place': row[7],
-                'show': row[8]
-            })
-        
-        return render_template_string('''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Race Results - STALL10N</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #f5f5f5;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        h1 {
-            color: #0053E2;
-            text-align: center;
-        }
-        .nav-link {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: #0053E2;
-            text-decoration: none;
-        }
-        .date-section {
-            margin-bottom: 40px;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .date-header {
-            color: #001E60;
-            font-size: 1.2rem;
-            margin-bottom: 20px;
-            font-weight: 600;
-        }
-        .race-section {
-            margin-bottom: 30px;
-        }
-        .race-header {
-            background-color: #0053E2;
-            color: white;
-            padding: 10px 15px;
-            font-weight: 600;
-            border-radius: 5px 5px 0 0;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-        }
-        th {
-            background-color: #f8f9fa;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-            border-bottom: 2px solid #dee2e6;
-        }
-        td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #dee2e6;
-        }
-        .position-1 {
-            background-color: #FFD700;
-            font-weight: bold;
-        }
-        .position-2 {
-            background-color: #C0C0C0;
-        }
-        .position-3 {
-            background-color: #CD7F32;
-        }
-        .payout {
-            color: #28a745;
-            font-weight: 600;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <a href="/admin" class="nav-link">← Back to Admin</a>
-        <h1>Fair Meadows Race Results</h1>
-        
-        {% for date, races in grouped_results.items() %}
-        <div class="date-section">
-            <div class="date-header">{{ date }}</div>
-            
-            {% for race_name, horses in races.items() %}
-            <div class="race-section">
-                <div class="race-header">{{ race_name }}</div>
-                <table>
-                    <tr>
-                        <th>Position</th>
-                        <th>Program #</th>
-                        <th>Horse Name</th>
-                        <th>Win</th>
-                        <th>Place</th>
-                        <th>Show</th>
-                    </tr>
-                    {% for horse in horses %}
-                    <tr class="position-{{ horse.position }}">
-                        <td>{{ horse.position }}</td>
-                        <td>{{ horse.program }}</td>
-                        <td>{{ horse.horse }}</td>
-                        <td class="payout">
-                            {% if horse.win %}${{ "%.2f"|format(horse.win) }}{% else %}-{% endif %}
-                        </td>
-                        <td class="payout">
-                            {% if horse.place %}${{ "%.2f"|format(horse.place) }}{% else %}-{% endif %}
-                        </td>
-                        <td class="payout">
-                            {% if horse.show %}${{ "%.2f"|format(horse.show) }}{% else %}-{% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </table>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="date-section">
-            <p style="text-align: center; color: #666;">No results available. Click "Fetch Fair Meadows Results" in the admin panel to import results.</p>
-        </div>
-        {% endfor %}
-    </div>
-</body>
-</html>
-        ''', grouped_results=grouped_results)
-        
-    except Exception as e:
-        return f"Error loading results: {str(e)}", 500
 
 
-# Scheduler removed - no real-time odds tracking needed
+
 
 if __name__ == '__main__':
     app.run()
