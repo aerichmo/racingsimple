@@ -1,0 +1,124 @@
+{
+  "track": "Fair Meadows",
+  "location": "Tulsa, Oklahoma",
+  "date": "2025-06-12",
+  "races": [
+    {
+      "race_number": 1,
+      "distance": "4F",
+      "surface": "Dirt",
+      "race_type": "Allowance",
+      "winner": {
+        "horse": "Witch Way Gray",
+        "jockey": "Roman Cruz",
+        "trainer": "Jody Pruitt",
+        "odds": "2/1"
+      },
+      "exacta": {
+        "combination": "4-2",
+        "payout": "$19.20"
+      }
+    },
+    {
+      "race_number": 2,
+      "distance": "6.5F",
+      "surface": "Dirt",
+      "race_type": "$10,000 Claiming",
+      "winner": {
+        "horse": "Cowgirlslikebling",
+        "jockey": "Emanuel Castillo Zabala",
+        "trainer": "Steve H. Davis",
+        "odds": "3/1"
+      },
+      "exacta": {
+        "combination": "6-1",
+        "payout": "$22.40"
+      }
+    },
+    {
+      "race_number": 3,
+      "distance": "1 Mile",
+      "surface": "Dirt",
+      "race_type": "Maiden Special Weight",
+      "winner": {
+        "horse": "Tail of Whoa",
+        "jockey": "Curtis Kimes",
+        "trainer": "Shon M. Dunlap",
+        "odds": "4/1"
+      },
+      "exacta": {
+        "combination": "3-4",
+        "payout": "$62.00"
+      }
+    },
+    {
+      "race_number": 4,
+      "distance": "4F",
+      "surface": "Dirt",
+      "race_type": "$10,000 Claiming",
+      "winner": {
+        "horse": "Coin Purse",
+        "jockey": "Roman Cruz",
+        "trainer": "George Blatchford",
+        "odds": "4/1"
+      },
+      "exacta": {
+        "combination": "6-5",
+        "payout": "$40.00"
+      }
+    },
+    {
+      "race_number": 5,
+      "distance": "1 Mile",
+      "surface": "Dirt",
+      "race_type": "Allowance",
+      "winner": {
+        "horse": "Catale Winemixer",
+        "jockey": "Belen Quinonez",
+        "trainer": "Randy E. Swango",
+        "odds": "4/1"
+      },
+      "exacta": {
+        "combination": "3-5",
+        "payout": "$16.80"
+      }
+    },
+    {
+      "race_number": 6,
+      "distance": "1 Mile",
+      "surface": "Dirt",
+      "race_type": "Allowance",
+      "winner": {
+        "horse": "R Doc",
+        "jockey": "Curtis Kimes",
+        "trainer": "Jory Ferrell",
+        "odds": "2/1"
+      },
+      "exacta": {
+        "combination": "3-6",
+        "payout": "$30.40"
+      }
+    },
+    {
+      "race_number": 7,
+      "distance": "6F",
+      "surface": "Dirt",
+      "race_type": "$10,000 Maiden Claiming",
+      "winner": {
+        "horse": "Sweet Devotion",
+        "jockey": "Travis Cunningham",
+        "trainer": "Jerry Glen Stephens",
+        "odds": "Not provided"
+      },
+      "exacta": {
+        "combination": "Not provided",
+        "payout": "Not provided"
+      }
+    }
+  ],
+  "notes": [
+    "Results from completed races on June 12, 2025",
+    "Fair Meadows runs Thursday-Sunday during their meet",
+    "Track features Quarter Horse, Paint, Appaloosa, and Thoroughbred racing"
+  ]
+}

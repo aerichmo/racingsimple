@@ -7,8 +7,12 @@ import json
 import base64
 from io import BytesIO
 import logging
+from race_data_endpoints import add_race_data_endpoints
 
 app = Flask(__name__)
+
+# Add race data endpoints
+add_race_data_endpoints(app)
 
 @app.route('/')
 def hello():
@@ -249,6 +253,8 @@ def hello():
                             <th>Win Probability</th>
                             <th>Adjusted Probability</th>
                             <th>Morning Line</th>
+                            <th>Live Odds</th>
+                            <th>Status</th>
                         </tr>`;
                     
                     horses.forEach(horse => {
@@ -258,6 +264,8 @@ def hello():
                             <td class="probability">${horse.win_probability}%</td>
                             <td class="adj-odds">${horse.adj_odds ? horse.adj_odds + '%' : '-'}</td>
                             <td class="morning-line">${horse.morning_line}</td>
+                            <td class="live-odds" id="odds-${date}-${raceNum}-${horse.program_number}">${horse.realtime_odds || '-'}</td>
+                            <td class="status" id="status-${date}-${raceNum}-${horse.program_number}">-</td>
                         </tr>`;
                     });
                     
@@ -314,6 +322,80 @@ def hello():
             .catch(error => {
                 document.getElementById('races').innerHTML = `<p class="no-data">Error loading data: ${error}</p>`;
             });
+        
+        // Fetch live odds and results
+        async function fetchLiveData() {
+            const selectedDate = document.getElementById('raceDate').value || new Date().toISOString().split('T')[0];
+            
+            // Get unique tracks from current data
+            const tracks = [...new Set(allRaceData.map(r => r.track_name || 'Fair Meadows'))];
+            
+            for (const track of tracks) {
+                // Get race numbers for this track
+                const raceNumbers = [...new Set(allRaceData
+                    .filter(r => (r.track_name || 'Fair Meadows') === track)
+                    .map(r => r.race_number))];
+                
+                for (const raceNum of raceNumbers) {
+                    try {
+                        // Fetch live odds
+                        const oddsResponse = await fetch(`/api/live-odds/${encodeURIComponent(track)}/${raceNum}`);
+                        if (oddsResponse.ok) {
+                            const oddsData = await oddsResponse.json();
+                            if (oddsData.success && oddsData.horses) {
+                                oddsData.horses.forEach(horse => {
+                                    const oddsEl = document.getElementById(`odds-${selectedDate}-${raceNum}-${horse.program_number}`);
+                                    if (oddsEl && horse.live_odds) {
+                                        oddsEl.textContent = horse.live_odds;
+                                        oddsEl.style.fontWeight = 'bold';
+                                        oddsEl.style.color = '#0053E2';
+                                    }
+                                });
+                            }
+                        }
+                        
+                        // Fetch results for completed races
+                        const resultsResponse = await fetch(`/api/race-results/${selectedDate}`);
+                        if (resultsResponse.ok) {
+                            const resultsData = await resultsResponse.json();
+                            if (resultsData.success && resultsData.results) {
+                                resultsData.results.forEach(result => {
+                                    if (result.track === track && result.race_number < raceNum) {
+                                        // Mark winner in previous races
+                                        const horses = allRaceData.filter(r => 
+                                            r.race_date === selectedDate && 
+                                            r.race_number === result.race_number &&
+                                            (r.track_name || 'Fair Meadows') === track
+                                        );
+                                        horses.forEach(horse => {
+                                            const statusEl = document.getElementById(`status-${selectedDate}-${result.race_number}-${horse.program_number}`);
+                                            if (statusEl) {
+                                                if (horse.horse_name === result.winner) {
+                                                    statusEl.textContent = 'WIN';
+                                                    statusEl.style.color = '#00AA00';
+                                                    statusEl.style.fontWeight = 'bold';
+                                                } else {
+                                                    statusEl.textContent = 'Finished';
+                                                    statusEl.style.color = '#666';
+                                                }
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching data for ${track} Race ${raceNum}:`, error);
+                    }
+                }
+            }
+        }
+        
+        // Auto-refresh live data every 2 minutes
+        setInterval(fetchLiveData, 120000);
+        
+        // Fetch live data after initial load
+        setTimeout(fetchLiveData, 1000);
     </script>
 </body>
 </html>
