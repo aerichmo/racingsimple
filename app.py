@@ -124,6 +124,10 @@ def hello():
         .morning-line {
             color: #001E60;
         }
+        .live-odds {
+            color: #FF6B00;
+            font-weight: 600;
+        }
         .bet-recommendation {
             margin: 20px 0;
             padding: 20px;
@@ -253,6 +257,7 @@ def hello():
                             <th>Win Probability</th>
                             <th>Adjusted Probability</th>
                             <th>Morning Line</th>
+                            <th>Live Odds</th>
                         </tr>`;
                     
                     horses.forEach(horse => {
@@ -262,6 +267,7 @@ def hello():
                             <td class="probability">${horse.win_probability}%</td>
                             <td class="adj-odds">${horse.adj_odds ? horse.adj_odds + '%' : '-'}</td>
                             <td class="morning-line">${horse.morning_line}</td>
+                            <td class="live-odds">${horse.realtime_odds || '-'}</td>
                         </tr>`;
                     });
                     
@@ -455,7 +461,7 @@ def races():
             cur.execute('''
                 SELECT race_date, race_number, program_number, 
                        horse_name, win_probability, adj_odds, morning_line,
-                       bet_recommendation
+                       bet_recommendation, realtime_odds
                 FROM races
                 ORDER BY race_date, race_number, program_number
             ''')
@@ -470,7 +476,8 @@ def races():
                     'win_probability': float(row[4]) if row[4] else None,
                     'adj_odds': float(row[5]) if row[5] else None,
                     'morning_line': row[6],
-                    'bet_recommendation': row[7]
+                    'bet_recommendation': row[7],
+                    'realtime_odds': row[8] if len(row) > 8 else None
                 })
             
             cur.close()
