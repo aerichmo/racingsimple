@@ -8,6 +8,7 @@ import base64
 from io import BytesIO
 import logging
 from simplified_endpoints import add_simplified_endpoints
+from betting_strategy import calculate_betting_strategy
 
 app = Flask(__name__)
 
@@ -127,6 +128,61 @@ def hello():
         .live-odds {
             color: #FF6B00;
             font-weight: 600;
+        }
+        .strategy-score {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .strategy-high { color: #00A652; }
+        .strategy-good { color: #0053E2; }
+        .strategy-fair { color: #FF6B00; }
+        .strategy-low { color: #666666; }
+        .bet-type {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .bet-type-win {
+            background-color: #00A652;
+            color: white;
+        }
+        .bet-type-place {
+            background-color: #0053E2;
+            color: white;
+        }
+        .bet-type-show {
+            background-color: #FF6B00;
+            color: white;
+        }
+        .bet-type-none {
+            background-color: #E0E0E0;
+            color: #666666;
+        }
+        .strategy-info {
+            cursor: help;
+            position: relative;
+        }
+        .strategy-tooltip {
+            display: none;
+            position: absolute;
+            background: #001E60;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            z-index: 1000;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 5px;
+        }
+        .strategy-info:hover .strategy-tooltip {
+            display: block;
         }
         .bet-recommendation {
             margin: 20px 0;
@@ -255,9 +311,31 @@ def hello():
                             <th>Adjusted Probability</th>
                             <th>Morning Line</th>
                             <th>Live Odds</th>
+                            <th>Strategy Score</th>
+                            <th>Bet Type</th>
                         </tr>`;
                     
                     horses.forEach(horse => {
+                        let strategyCell = '-';
+                        let betTypeCell = '-';
+                        
+                        if (horse.betting_strategy) {
+                            const score = horse.betting_strategy.strategy_score;
+                            let scoreClass = 'strategy-low';
+                            if (score >= 80) scoreClass = 'strategy-high';
+                            else if (score >= 60) scoreClass = 'strategy-good';
+                            else if (score >= 40) scoreClass = 'strategy-fair';
+                            
+                            strategyCell = `<span class="strategy-score ${scoreClass}">${score}</span>`;
+                            
+                            const betType = horse.betting_strategy.bet_type;
+                            const betClass = `bet-type-${betType.type.toLowerCase()}`;
+                            betTypeCell = `<span class="bet-type ${betClass} strategy-info">
+                                ${betType.display}
+                                <span class="strategy-tooltip">${betType.reason}</span>
+                            </span>`;
+                        }
+                        
                         html += `<tr>
                             <td class="program-number">${horse.program_number}</td>
                             <td class="horse-name">${horse.horse_name}</td>
@@ -265,18 +343,32 @@ def hello():
                             <td class="adj-odds">${horse.adj_odds ? horse.adj_odds + '%' : '-'}</td>
                             <td class="morning-line">${horse.morning_line}</td>
                             <td class="live-odds">${horse.realtime_odds || '-'}</td>
+                            <td>${strategyCell}</td>
+                            <td>${betTypeCell}</td>
                         </tr>`;
                     });
                     
                     html += '</table>';
                     
-                    // Add bet recommendation section
-                    const betRec = horses[0]?.bet_recommendation;
-                    if (betRec) {
+                    // Add betting summary for best bets in this race
+                    const bestBets = horses
+                        .filter(h => h.betting_strategy && h.betting_strategy.strategy_score >= 40)
+                        .sort((a, b) => b.betting_strategy.strategy_score - a.betting_strategy.strategy_score);
+                    
+                    if (bestBets.length > 0) {
                         html += `<div class="bet-recommendation">
-                            <h4>Bet Recommendation</h4>
-                            <p>${betRec}</p>
-                        </div>`;
+                            <h4>Recommended Bets for Race ${raceNum}</h4>`;
+                        
+                        bestBets.forEach(horse => {
+                            const strategy = horse.betting_strategy;
+                            const kelly = strategy.metrics.kelly_percentage;
+                            html += `<p><strong>${horse.program_number}. ${horse.horse_name}</strong> - 
+                                ${strategy.bet_type.display} bet
+                                ${kelly ? `(Kelly: ${kelly}%)` : ''}
+                                - ${strategy.recommendation}</p>`;
+                        });
+                        
+                        html += `</div>`;
                     }
                 }
                 html += '</div>';
@@ -465,7 +557,7 @@ def races():
             
             races = []
             for row in cur.fetchall():
-                races.append({
+                race_data = {
                     'race_date': row[0].strftime('%Y-%m-%d'),
                     'race_number': row[1],
                     'program_number': row[2],
@@ -475,7 +567,20 @@ def races():
                     'morning_line': row[6],
                     'bet_recommendation': row[7],
                     'realtime_odds': row[8] if len(row) > 8 else None
-                })
+                }
+                
+                # Calculate betting strategy if we have the required data
+                if race_data['adj_odds'] and race_data['realtime_odds']:
+                    strategy = calculate_betting_strategy(
+                        race_data['adj_odds'], 
+                        race_data['realtime_odds'],
+                        race_data['win_probability']
+                    )
+                    race_data['betting_strategy'] = strategy
+                else:
+                    race_data['betting_strategy'] = None
+                
+                races.append(race_data)
             
             cur.close()
             conn.close()
