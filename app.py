@@ -432,8 +432,8 @@ def races():
             cur.execute('''
                 INSERT INTO races (race_date, race_number, program_number, 
                                  horse_name, win_probability, adj_odds, morning_line,
-                                 bet_recommendation)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                 bet_recommendation, realtime_odds)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 data['race_date'],
                 data['race_number'],
@@ -442,7 +442,8 @@ def races():
                 data['win_probability'],
                 data.get('adj_odds'),
                 data['morning_line'],
-                data.get('bet_recommendation')
+                data.get('bet_recommendation'),
+                data.get('realtime_odds')
             ))
             
             conn.commit()
@@ -567,8 +568,8 @@ def batch_races():
             cur.execute('''
                 INSERT INTO races (race_date, race_number, program_number, 
                                  horse_name, win_probability, adj_odds, morning_line,
-                                 bet_recommendation)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                 bet_recommendation, realtime_odds)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 race['race_date'],
                 race['race_number'],
@@ -577,7 +578,8 @@ def batch_races():
                 race['win_probability'],
                 race.get('adj_odds'),
                 race['morning_line'],
-                race.get('bet_recommendation')
+                race.get('bet_recommendation'),
+                race.get('realtime_odds')
             ))
         
         conn.commit()
