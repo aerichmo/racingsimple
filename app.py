@@ -1014,5 +1014,78 @@ def upload_screenshot():
 
 
 
+@app.route('/api/races/delete-null-morning-lines', methods=['DELETE'])
+def delete_null_morning_lines():
+    """
+    Delete all races that have NULL morning lines
+    """
+    try:
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'error': 'No database configured'}), 500
+        
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        # Delete all races with NULL morning lines
+        cur.execute('''
+            DELETE FROM races 
+            WHERE morning_line IS NULL
+        ''')
+        
+        deleted_count = cur.rowcount
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            'message': f'Successfully deleted {deleted_count} races with null morning lines',
+            'deleted_count': deleted_count
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/races/<race_date>/<int:race_number>/<int:program_number>', methods=['DELETE'])
+def delete_race_entry(race_date, race_number, program_number):
+    """
+    Delete a specific race entry
+    """
+    try:
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'error': 'No database configured'}), 500
+        
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        # Delete the specific race entry
+        cur.execute('''
+            DELETE FROM races 
+            WHERE race_date = %s 
+            AND race_number = %s 
+            AND program_number = %s
+        ''', (race_date, race_number, program_number))
+        
+        deleted_count = cur.rowcount
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        if deleted_count > 0:
+            return jsonify({
+                'message': f'Successfully deleted race entry',
+                'deleted': True
+            })
+        else:
+            return jsonify({
+                'message': 'No matching race entry found',
+                'deleted': False
+            }), 404
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run()
