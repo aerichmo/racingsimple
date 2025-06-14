@@ -278,11 +278,61 @@ def hello():
             <select id="raceDate">
                 <option value="">All Dates</option>
             </select>
+            <button id="refreshBtn" style="margin-left: 20px; padding: 10px 20px; background-color: #0053E2; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem;">Refresh Data</button>
         </div>
         <div id="races"></div>
     </div>
     <script>
         let allRaceData = [];
+        
+        function loadRaceData() {
+            // Show loading state
+            const refreshBtn = document.getElementById('refreshBtn');
+            const originalText = refreshBtn.textContent;
+            refreshBtn.textContent = 'Loading...';
+            refreshBtn.disabled = true;
+            
+            fetch('/api/races')
+                .then(response => response.json())
+                .then(data => {
+                    allRaceData = data;
+                    
+                    if (data.length === 0) {
+                        document.getElementById('races').innerHTML = '<p class="no-data">No race data available yet.</p>';
+                        return;
+                    }
+                    
+                    // Populate date dropdown if empty
+                    const dateSelect = document.getElementById('raceDate');
+                    if (dateSelect.options.length <= 1) {
+                        const uniqueDates = [...new Set(data.map(race => race.race_date))].sort();
+                        uniqueDates.forEach(date => {
+                            const option = document.createElement('option');
+                            option.value = date;
+                            option.textContent = date;
+                            dateSelect.appendChild(option);
+                        });
+                        
+                        // Set default to most recent date
+                        if (uniqueDates.length > 0) {
+                            dateSelect.value = uniqueDates[uniqueDates.length - 1];
+                        }
+                    }
+                    
+                    // Render races for current selected date
+                    renderRaces(dateSelect.value);
+                    
+                    // Restore button state
+                    refreshBtn.textContent = 'Refresh Data';
+                    refreshBtn.disabled = false;
+                })
+                .catch(error => {
+                    document.getElementById('races').innerHTML = `<p class="no-data">Error loading data: ${error}</p>`;
+                    // Restore button state
+                    refreshBtn.textContent = 'Refresh Data';
+                    refreshBtn.disabled = false;
+                });
+        }
         
         function renderRaces(selectedDate = '') {
             const container = document.getElementById('races');
@@ -453,6 +503,11 @@ def hello():
                     if (race) {
                         race.realtime_odds = newValue || null;
                     }
+                    
+                    // Reload data to get updated betting strategies
+                    setTimeout(() => {
+                        loadRaceData();
+                    }, 500);
                 } else {
                     // Restore original value on error
                     cell.textContent = cell.dataset.currentOdds || '-';
@@ -465,43 +520,18 @@ def hello():
             }
         }
         
-        fetch('/api/races')
-            .then(response => response.json())
-            .then(data => {
-                allRaceData = data;
-                
-                if (data.length === 0) {
-                    document.getElementById('races').innerHTML = '<p class="no-data">No race data available yet.</p>';
-                    return;
-                }
-                
-                // Populate date dropdown
-                const uniqueDates = [...new Set(data.map(race => race.race_date))].sort();
-                const dateSelect = document.getElementById('raceDate');
-                
-                uniqueDates.forEach(date => {
-                    const option = document.createElement('option');
-                    option.value = date;
-                    option.textContent = date;
-                    dateSelect.appendChild(option);
-                });
-                
-                // Set default to most recent date
-                if (uniqueDates.length > 0) {
-                    dateSelect.value = uniqueDates[uniqueDates.length - 1];
-                    renderRaces(uniqueDates[uniqueDates.length - 1]);
-                } else {
-                    renderRaces();
-                }
-                
-                // Add event listener for date changes
-                dateSelect.addEventListener('change', (e) => {
-                    renderRaces(e.target.value);
-                });
-            })
-            .catch(error => {
-                document.getElementById('races').innerHTML = `<p class="no-data">Error loading data: ${error}</p>`;
-            });
+        // Initial load
+        loadRaceData();
+        
+        // Add event listener for date changes
+        document.getElementById('raceDate').addEventListener('change', (e) => {
+            renderRaces(e.target.value);
+        });
+        
+        // Add refresh button handler
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            loadRaceData();
+        });
     </script>
 </body>
 </html>
