@@ -128,6 +128,18 @@ def hello():
         .live-odds {
             color: #FF6B00;
             font-weight: 600;
+            cursor: pointer;
+            position: relative;
+        }
+        .live-odds:hover {
+            background-color: #f0f0f0;
+        }
+        .live-odds-input {
+            width: 80px;
+            padding: 2px 4px;
+            border: 1px solid #1976d2;
+            border-radius: 3px;
+            font-size: 0.9rem;
         }
         .strategy-score {
             font-weight: 700;
@@ -342,7 +354,7 @@ def hello():
                             <td class="probability">${horse.win_probability}%</td>
                             <td class="adj-odds">${horse.adj_odds ? horse.adj_odds + '%' : '-'}</td>
                             <td class="morning-line">${horse.morning_line}</td>
-                            <td class="live-odds">${horse.realtime_odds || '-'}</td>
+                            <td class="live-odds" data-race-date="${date}" data-race-number="${raceNum}" data-program-number="${horse.program_number}" data-current-odds="${horse.realtime_odds || ''}">${horse.realtime_odds || '-'}</td>
                             <td>${strategyCell}</td>
                             <td>${betTypeCell}</td>
                         </tr>`;
@@ -374,6 +386,83 @@ def hello():
                 html += '</div>';
             }
             container.innerHTML = html;
+            
+            // Add click handlers for live odds cells
+            document.querySelectorAll('.live-odds').forEach(cell => {
+                cell.addEventListener('click', handleLiveOddsClick);
+            });
+        }
+        
+        function handleLiveOddsClick(event) {
+            const cell = event.target;
+            if (cell.querySelector('input')) return; // Already editing
+            
+            const currentValue = cell.dataset.currentOdds || '';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'live-odds-input';
+            input.value = currentValue;
+            
+            // Replace cell content with input
+            cell.innerHTML = '';
+            cell.appendChild(input);
+            input.focus();
+            input.select();
+            
+            // Handle when user finishes editing
+            input.addEventListener('blur', () => saveOdds(cell, input));
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    input.blur();
+                }
+            });
+        }
+        
+        async function saveOdds(cell, input) {
+            const newValue = input.value.trim();
+            const raceDate = cell.dataset.raceDate;
+            const raceNumber = parseInt(cell.dataset.raceNumber);
+            const programNumber = parseInt(cell.dataset.programNumber);
+            
+            try {
+                const response = await fetch('/api/races/update-live-odds', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        race_date: raceDate,
+                        race_number: raceNumber,
+                        program_number: programNumber,
+                        live_odds: newValue || null
+                    })
+                });
+                
+                if (response.ok) {
+                    // Update the cell
+                    cell.dataset.currentOdds = newValue;
+                    cell.textContent = newValue || '-';
+                    
+                    // Update the data in memory
+                    const race = allRaceData.find(r => 
+                        r.race_date === raceDate && 
+                        r.race_number === raceNumber && 
+                        r.program_number === programNumber
+                    );
+                    if (race) {
+                        race.realtime_odds = newValue || null;
+                    }
+                } else {
+                    // Restore original value on error
+                    cell.textContent = cell.dataset.currentOdds || '-';
+                    console.error('Failed to update live odds');
+                }
+            } catch (error) {
+                // Restore original value on error
+                cell.textContent = cell.dataset.currentOdds || '-';
+                console.error('Error updating live odds:', error);
+            }
         }
         
         fetch('/api/races')
@@ -648,6 +737,44 @@ def batch_update_adj_odds():
         conn.close()
         
         return jsonify({'message': f'{len(updates)} ADJ Odds updated successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/races/update-live-odds', methods=['PUT'])
+def update_live_odds():
+    """Update live odds for a specific race entry"""
+    try:
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'error': 'No database configured'}), 500
+        
+        data = request.json
+        race_date = data.get('race_date')
+        race_number = data.get('race_number')
+        program_number = data.get('program_number')
+        live_odds = data.get('live_odds')
+        
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        cur.execute('''
+            UPDATE races 
+            SET realtime_odds = %s
+            WHERE race_date = %s 
+            AND race_number = %s 
+            AND program_number = %s
+        ''', (
+            live_odds,
+            race_date,
+            race_number,
+            program_number
+        ))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'message': 'Live odds updated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

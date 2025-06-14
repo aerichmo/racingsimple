@@ -1,0 +1,906 @@
+{
+  "track": "Fair Meadows",
+  "date": "2025-06-14",
+  "races": {
+    "1": {
+      "race_number": 1,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Bp Captain Papas Baby",
+          "run_style": "S",
+          "morning_line": "15/1",
+          "live_odds": "",
+          "true_odds": "4.3%",
+          "itm_true_odds": "16.2%",
+          "adj_true_odds": "3.4%"
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Far Faster",
+          "run_style": "S",
+          "morning_line": "10/1",
+          "live_odds": "",
+          "true_odds": "22.2%",
+          "itm_true_odds": "64.1%",
+          "adj_true_odds": "20.3%"
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Criminal Streak",
+          "run_style": "E",
+          "morning_line": "8/5",
+          "live_odds": "",
+          "true_odds": "23.6%",
+          "itm_true_odds": "66.4%",
+          "adj_true_odds": "27.8%"
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Voodoo Grip",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "",
+          "true_odds": "21.3%",
+          "itm_true_odds": "62.5%",
+          "adj_true_odds": "18.6%"
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Apollitical Spy",
+          "run_style": "P",
+          "morning_line": "9/5",
+          "live_odds": "",
+          "true_odds": "20.8%",
+          "itm_true_odds": "61.6%",
+          "adj_true_odds": "24.1%"
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Wave Goodbye",
+          "run_style": "S",
+          "morning_line": "15/1",
+          "live_odds": "",
+          "true_odds": "5.6%",
+          "itm_true_odds": "20.8%",
+          "adj_true_odds": "3.6%"
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Barbs Royal Dash",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "",
+          "true_odds": "2.2%",
+          "itm_true_odds": "8.5%",
+          "adj_true_odds": "2.2%"
+        }
+      ]
+    },
+    "2": {
+      "race_number": 2,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Lilmissmadeyalook",
+          "run_style": "P",
+          "morning_line": "4/1",
+          "live_odds": "",
+          "true_odds": "6.1%",
+          "itm_true_odds": "22.7%",
+          "adj_true_odds": "4.8%"
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Jess a Snowy Monday",
+          "run_style": "S",
+          "morning_line": "12/1",
+          "live_odds": "",
+          "true_odds": "11.7%",
+          "itm_true_odds": "40.4%",
+          "adj_true_odds": "12.5%"
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Mistery Ten Four",
+          "run_style": "P",
+          "morning_line": "9/2",
+          "live_odds": "",
+          "true_odds": "8.3%",
+          "itm_true_odds": "30.1%",
+          "adj_true_odds": "5.8%"
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Fancy Royal Dash",
+          "run_style": "S",
+          "morning_line": "6/1",
+          "live_odds": "",
+          "true_odds": "5.7%",
+          "itm_true_odds": "21.3%",
+          "adj_true_odds": "4.0%"
+        },
+        {
+          "program_number": 5,
+          "horse_name": "One Valiant J Lo",
+          "run_style": "P",
+          "morning_line": "2/1",
+          "live_odds": "",
+          "true_odds": "35.3%",
+          "itm_true_odds": "79.4%",
+          "adj_true_odds": "38.7%"
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Red Fox Chick",
+          "run_style": "S",
+          "morning_line": "5/1",
+          "live_odds": "",
+          "true_odds": "15.3%",
+          "itm_true_odds": "50.0%",
+          "adj_true_odds": "14.8%"
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Miss Kitty Dodge",
+          "run_style": "P",
+          "morning_line": "5/1",
+          "live_odds": "",
+          "true_odds": "17.5%",
+          "itm_true_odds": "55.0%",
+          "adj_true_odds": "19.5%"
+        }
+      ]
+    },
+    "3": {
+      "race_number": 3,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Eye Am Tuff",
+          "run_style": "P",
+          "morning_line": "4/1",
+          "live_odds": "",
+          "true_odds": "24.2%",
+          "itm_true_odds": "64.9%",
+          "adj_true_odds": "23.8%"
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Wisper Jet",
+          "run_style": "P",
+          "morning_line": "5/2",
+          "live_odds": "",
+          "true_odds": "9.6%",
+          "itm_true_odds": "32.6%",
+          "adj_true_odds": "10.1%"
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Hh Suitcase Sam",
+          "run_style": "P",
+          "morning_line": "12/1",
+          "live_odds": "",
+          "true_odds": "7.9%",
+          "itm_true_odds": "27.4%",
+          "adj_true_odds": "5.4%"
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Gamblin Soldier",
+          "run_style": "E",
+          "morning_line": "3/1",
+          "live_odds": "",
+          "true_odds": "26.6%",
+          "itm_true_odds": "68.2%",
+          "adj_true_odds": "30.1%"
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Smile and Be Happy",
+          "run_style": "S",
+          "morning_line": "12/1",
+          "live_odds": "",
+          "true_odds": "12.4%",
+          "itm_true_odds": "40.5%",
+          "adj_true_odds": "13.3%"
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Pfr Coopsbestproject",
+          "run_style": "P",
+          "morning_line": "6/1",
+          "live_odds": "",
+          "true_odds": "10.1%",
+          "itm_true_odds": "34.1%",
+          "adj_true_odds": "10.2%"
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Stolin Home Brew",
+          "run_style": "P",
+          "morning_line": "7/2",
+          "live_odds": "",
+          "true_odds": "9.2%",
+          "itm_true_odds": "31.4%",
+          "adj_true_odds": "7.2%"
+        }
+      ]
+    },
+    "4": {
+      "race_number": 4,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Pt Julys Cartel",
+          "run_style": "P",
+          "morning_line": "5/2",
+          "live_odds": "",
+          "true_odds": "23.6%",
+          "itm_true_odds": "64.6%",
+          "adj_true_odds": "29.9%"
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Jess a Chicks Man",
+          "run_style": "U",
+          "morning_line": "5/1",
+          "live_odds": "",
+          "true_odds": "5.8%",
+          "itm_true_odds": "20.8%",
+          "adj_true_odds": "9.4%"
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Lolito Cartel",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "",
+          "true_odds": "7.4%",
+          "itm_true_odds": "26.1%",
+          "adj_true_odds": "3.7%"
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Kween Victoria",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "",
+          "true_odds": "1.0%",
+          "itm_true_odds": "3.7%",
+          "adj_true_odds": "1.5%"
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Devons Lady Cat",
+          "run_style": "U",
+          "morning_line": "6/1",
+          "live_odds": "",
+          "true_odds": "7.3%",
+          "itm_true_odds": "25.8%",
+          "adj_true_odds": "11.1%"
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Keeping It Real 100",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "",
+          "true_odds": "2.5%",
+          "itm_true_odds": "9.2%",
+          "adj_true_odds": "1.7%"
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Signature Jess",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "",
+          "true_odds": "1.8%",
+          "itm_true_odds": "6.7%",
+          "adj_true_odds": "1.7%"
+        },
+        {
+          "program_number": 8,
+          "horse_name": "Gold Eagle H",
+          "run_style": "S",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "17.6%",
+          "itm_true_odds": "53.6%",
+          "adj_true_odds": "14.9%"
+        },
+        {
+          "program_number": 9,
+          "horse_name": "Lota Waves",
+          "run_style": "S",
+          "morning_line": "15/1",
+          "live_odds": "",
+          "true_odds": "5.6%",
+          "itm_true_odds": "20.2%",
+          "adj_true_odds": "2.8%"
+        },
+        {
+          "program_number": 10,
+          "horse_name": "Im a Fancy Susie",
+          "run_style": "P",
+          "morning_line": "2/1",
+          "live_odds": "",
+          "true_odds": "27.6%",
+          "itm_true_odds": "70.1%",
+          "adj_true_odds": "24.2%"
+        }
+      ]
+    },
+    "5": {
+      "race_number": 5,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Doux Dity Doux",
+          "run_style": "P",
+          "morning_line": "12/1",
+          "live_odds": "",
+          "true_odds": "6.4%",
+          "itm_true_odds": "21.7%",
+          "adj_true_odds": "6.6%"
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Point Peak Senator",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "",
+          "true_odds": "21.1%",
+          "itm_true_odds": "57.7%",
+          "adj_true_odds": "26.3%"
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Keeping It 100",
+          "run_style": "S",
+          "morning_line": "15/1",
+          "live_odds": "",
+          "true_odds": "5.0%",
+          "itm_true_odds": "17.2%",
+          "adj_true_odds": "4.3%"
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Wf Chick Daddy",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "",
+          "true_odds": "3.1%",
+          "itm_true_odds": "10.9%",
+          "adj_true_odds": "2.4%"
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Tela Leaving You",
+          "run_style": "P",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "4.0%",
+          "itm_true_odds": "13.9%",
+          "adj_true_odds": "2.9%"
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Stackt Deck",
+          "run_style": "P",
+          "morning_line": "4/1",
+          "live_odds": "",
+          "true_odds": "23.4%",
+          "itm_true_odds": "61.7%",
+          "adj_true_odds": "21.9%"
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Marco Polo Us",
+          "run_style": "P",
+          "morning_line": "10/1",
+          "live_odds": "",
+          "true_odds": "8.9%",
+          "itm_true_odds": "29.3%",
+          "adj_true_odds": "5.9%"
+        },
+        {
+          "program_number": 8,
+          "horse_name": "A Dash of Pop",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "",
+          "true_odds": "2.6%",
+          "itm_true_odds": "9.2%",
+          "adj_true_odds": "1.8%"
+        },
+        {
+          "program_number": 9,
+          "horse_name": "Dyna Bea",
+          "run_style": "P",
+          "morning_line": "7/2",
+          "live_odds": "",
+          "true_odds": "9.7%",
+          "itm_true_odds": "31.2%",
+          "adj_true_odds": "6.7%"
+        },
+        {
+          "program_number": 10,
+          "horse_name": "Big Racy Kiss",
+          "run_style": "P",
+          "morning_line": "5/1",
+          "live_odds": "",
+          "true_odds": "15.8%",
+          "itm_true_odds": "47.1%",
+          "adj_true_odds": "21.2%"
+        }
+      ]
+    },
+    "6": {
+      "race_number": 6,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Rebel One",
+          "run_style": "P",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "7.3%",
+          "itm_true_odds": "23.5%",
+          "adj_true_odds": "7.0%"
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Whizkey Girl",
+          "run_style": "P",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "10.3%",
+          "itm_true_odds": "31.8%",
+          "adj_true_odds": "6.4%"
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Keepinitconfidential",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "",
+          "true_odds": "15.6%",
+          "itm_true_odds": "44.7%",
+          "adj_true_odds": "13.7%"
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Tripple D",
+          "run_style": "P",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "10.3%",
+          "itm_true_odds": "32.1%",
+          "adj_true_odds": "12.5%"
+        },
+        {
+          "program_number": 5,
+          "horse_name": "B Gone",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "",
+          "true_odds": "2.8%",
+          "itm_true_odds": "9.4%",
+          "adj_true_odds": "1.9%"
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Tres Rubey",
+          "run_style": "P",
+          "morning_line": "6/1",
+          "live_odds": "",
+          "true_odds": "19.6%",
+          "itm_true_odds": "52.8%",
+          "adj_true_odds": "25.9%"
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Seriously Impressive",
+          "run_style": "P",
+          "morning_line": "7/2",
+          "live_odds": "",
+          "true_odds": "6.9%",
+          "itm_true_odds": "22.2%",
+          "adj_true_odds": "7.0%"
+        },
+        {
+          "program_number": 8,
+          "horse_name": "Jb Kool Lights",
+          "run_style": "P",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "13.6%",
+          "itm_true_odds": "40.1%",
+          "adj_true_odds": "11.1%"
+        },
+        {
+          "program_number": 9,
+          "horse_name": "La Martina Fb",
+          "run_style": "P",
+          "morning_line": "15/1",
+          "live_odds": "",
+          "true_odds": "4.0%",
+          "itm_true_odds": "13.3%",
+          "adj_true_odds": "3.1%"
+        },
+        {
+          "program_number": 10,
+          "horse_name": "Its a Kvn Corona",
+          "run_style": "P",
+          "morning_line": "10/1",
+          "live_odds": "",
+          "true_odds": "9.4%",
+          "itm_true_odds": "29.2%",
+          "adj_true_odds": "11.4%"
+        }
+      ]
+    },
+    "7": {
+      "race_number": 7,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Magnetic Levitation",
+          "run_style": "P",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "6.8%",
+          "itm_true_odds": "22.7%",
+          "adj_true_odds": "4.9%"
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Fdd Chrome",
+          "run_style": "P",
+          "morning_line": "6/1",
+          "live_odds": "",
+          "true_odds": "4.4%",
+          "itm_true_odds": "15.1%",
+          "adj_true_odds": "3.7%"
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Dolli Dulce",
+          "run_style": "P",
+          "morning_line": "7/2",
+          "live_odds": "",
+          "true_odds": "15.8%",
+          "itm_true_odds": "46.7%",
+          "adj_true_odds": "16.5%"
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Aunti Oakli",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "",
+          "true_odds": "18.3%",
+          "itm_true_odds": "52.1%",
+          "adj_true_odds": "18.2%"
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Lights N Lips",
+          "run_style": "P",
+          "morning_line": "5/1",
+          "live_odds": "",
+          "true_odds": "14.6%",
+          "itm_true_odds": "44.0%",
+          "adj_true_odds": "17.4%"
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Tempting Mariah",
+          "run_style": "S",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "8.0%",
+          "itm_true_odds": "26.4%",
+          "adj_true_odds": "6.2%"
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Miss Athena Kvn",
+          "run_style": "S",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "18.8%",
+          "itm_true_odds": "53.1%",
+          "adj_true_odds": "20.0%"
+        },
+        {
+          "program_number": 8,
+          "horse_name": "Cereza Lago",
+          "run_style": "S",
+          "morning_line": "6/1",
+          "live_odds": "",
+          "true_odds": "13.4%",
+          "itm_true_odds": "41.1%",
+          "adj_true_odds": "13.1%"
+        }
+      ]
+    },
+    "8": {
+      "race_number": 8,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Eye Eye Dynasty",
+          "run_style": "S",
+          "morning_line": "10/1",
+          "live_odds": "",
+          "true_odds": "7.3%",
+          "itm_true_odds": "26.4%",
+          "adj_true_odds": "5.5%"
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Flying Nova 123",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "",
+          "true_odds": "19.6%",
+          "itm_true_odds": "55.5%",
+          "adj_true_odds": "20.7%"
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Duanes Little Dee",
+          "run_style": "P",
+          "morning_line": "8/5",
+          "live_odds": "",
+          "true_odds": "38.7%",
+          "itm_true_odds": "82.6%",
+          "adj_true_odds": "40.0%"
+        },
+        {
+          "program_number": 4,
+          "horse_name": "A Secret to Catch",
+          "run_style": "S",
+          "morning_line": "10/1",
+          "live_odds": "",
+          "true_odds": "8.4%",
+          "itm_true_odds": "29.8%",
+          "adj_true_odds": "6.6%"
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Favorite Nova",
+          "run_style": "E",
+          "morning_line": "5/1",
+          "live_odds": "",
+          "true_odds": "16.2%",
+          "itm_true_odds": "49.5%",
+          "adj_true_odds": "18.0%"
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Rational Cowgirl 337",
+          "run_style": "P",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "5.9%",
+          "itm_true_odds": "21.4%",
+          "adj_true_odds": "5.0%"
+        },
+        {
+          "program_number": 7,
+          "horse_name": "The Durango Lights",
+          "run_style": "P",
+          "morning_line": "7/1",
+          "live_odds": "",
+          "true_odds": "3.9%",
+          "itm_true_odds": "14.5%",
+          "adj_true_odds": "4.1%"
+        }
+      ]
+    },
+    "9": {
+      "race_number": 9,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Tess Me Jessie",
+          "run_style": "P",
+          "morning_line": "12/1",
+          "live_odds": "",
+          "true_odds": "3.4%",
+          "itm_true_odds": "12.3%",
+          "adj_true_odds": "2.8%"
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Pevs Candy P",
+          "run_style": "S",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "24.2%",
+          "itm_true_odds": "63.8%",
+          "adj_true_odds": "27.5%"
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Little Sure Shot",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "",
+          "true_odds": "6.6%",
+          "itm_true_odds": "22.9%",
+          "adj_true_odds": "5.7%"
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Cynamon Toast Krunch",
+          "run_style": "P",
+          "morning_line": "7/2",
+          "live_odds": "",
+          "true_odds": "26.7%",
+          "itm_true_odds": "67.4%",
+          "adj_true_odds": "24.2%"
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Awd Shez My Hero",
+          "run_style": "P",
+          "morning_line": "12/1",
+          "live_odds": "",
+          "true_odds": "2.9%",
+          "itm_true_odds": "10.4%",
+          "adj_true_odds": "2.7%"
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Ic Fancy Eagle",
+          "run_style": "E",
+          "morning_line": "4/1",
+          "live_odds": "",
+          "true_odds": "7.3%",
+          "itm_true_odds": "24.9%",
+          "adj_true_odds": "9.1%"
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Lightz Out Marfa",
+          "run_style": "P",
+          "morning_line": "15/1",
+          "live_odds": "",
+          "true_odds": "10.7%",
+          "itm_true_odds": "35.2%",
+          "adj_true_odds": "11.7%"
+        },
+        {
+          "program_number": 8,
+          "horse_name": "Bv Shotgun Kelly",
+          "run_style": "P",
+          "morning_line": "15/1",
+          "live_odds": "",
+          "true_odds": "3.9%",
+          "itm_true_odds": "14.0%",
+          "adj_true_odds": "3.2%"
+        },
+        {
+          "program_number": 9,
+          "horse_name": "Jd Dashing Damsel",
+          "run_style": "P",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "3.4%",
+          "itm_true_odds": "12.3%",
+          "adj_true_odds": "3.1%"
+        },
+        {
+          "program_number": 10,
+          "horse_name": "Finz Up",
+          "run_style": "E",
+          "morning_line": "10/1",
+          "live_odds": "",
+          "true_odds": "10.9%",
+          "itm_true_odds": "35.8%",
+          "adj_true_odds": "10.0%"
+        }
+      ]
+    },
+    "10": {
+      "race_number": 10,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Venus Dynasty",
+          "run_style": "S",
+          "morning_line": "4/1",
+          "live_odds": "",
+          "true_odds": "18.3%",
+          "itm_true_odds": "56.5%",
+          "adj_true_odds": "19.8%"
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Country Ethics",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "",
+          "true_odds": "1.9%",
+          "itm_true_odds": "7.3%",
+          "adj_true_odds": "1.7%"
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Fabulous Philomena",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "",
+          "true_odds": "26.0%",
+          "itm_true_odds": "69.6%",
+          "adj_true_odds": "27.4%"
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Runaway Surfer",
+          "run_style": "S",
+          "morning_line": "12/1",
+          "live_odds": "",
+          "true_odds": "7.3%",
+          "itm_true_odds": "26.4%",
+          "adj_true_odds": "5.5%"
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Kash Well Spent",
+          "run_style": "S",
+          "morning_line": "12/1",
+          "live_odds": "",
+          "true_odds": "3.3%",
+          "itm_true_odds": "12.5%",
+          "adj_true_odds": "2.0%"
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Pyc Prize Lights",
+          "run_style": "S",
+          "morning_line": "12/1",
+          "live_odds": "",
+          "true_odds": "2.5%",
+          "itm_true_odds": "9.5%",
+          "adj_true_odds": "2.1%"
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Train On Track",
+          "run_style": "P",
+          "morning_line": "5/2",
+          "live_odds": "",
+          "true_odds": "26.6%",
+          "itm_true_odds": "70.5%",
+          "adj_true_odds": "33.1%"
+        },
+        {
+          "program_number": 8,
+          "horse_name": "Apollitical Essence",
+          "run_style": "U",
+          "morning_line": "8/1",
+          "live_odds": "",
+          "true_odds": "1.9%",
+          "itm_true_odds": "7.3%",
+          "adj_true_odds": "2.4%"
+        },
+        {
+          "program_number": 9,
+          "horse_name": "Faborite Wave",
+          "run_style": "P",
+          "morning_line": "6/1",
+          "live_odds": "",
+          "true_odds": "12.2%",
+          "itm_true_odds": "41.5%",
+          "adj_true_odds": "5.8%"
+        }
+      ]
+    }
+  }
+}
