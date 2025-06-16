@@ -19,6 +19,11 @@ wheels/
 .installed.cfg
 *.egg
 .env
+.env.local
+.env.*.local
+.env.horseapi
+*_api_keys.txt
+*_credentials.json
 .venv
 env/
 venv/

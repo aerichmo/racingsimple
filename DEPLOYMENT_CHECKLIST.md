@@ -1,4 +1,4 @@
-# STALL10N Deployment Checklist for June 13, 2025
+# STALL10N Deployment Checklist
 
 ## ✅ Completed
 
@@ -23,8 +23,28 @@
    - Gets previous race results + current live odds
    - Cron job ready (`cron_scheduler.py`)
 
-## 🚀 Deploy to Render
+## 🚀 Deploy to Render (Recommended)
 
+### Quick Deploy with render.yaml
+1. **Connect GitHub Repository**
+   - Go to https://dashboard.render.com
+   - New → Blueprint
+   - Connect STALL10N repository
+   - Render will auto-configure from `render.yaml`
+
+2. **Set Environment Variables**
+   ```
+   HORSEAPI_ACCESS_KEY = your_api_key_here
+   ```
+
+3. **Initialize After Deploy**
+   ```bash
+   python render_init.py
+   ```
+
+See `RENDER_QUICK_DEPLOY.md` for detailed instructions.
+
+### Manual Deploy Steps
 1. **Push Code to GitHub**
    ```bash
    git add .

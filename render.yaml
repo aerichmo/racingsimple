@@ -1,8 +1,8 @@
 databases:
-  - name: racingsimple-db
+  - name: stall10n-db
     plan: free
-    databaseName: racingsimple
-    user: racingsimple
+    databaseName: stall10n
+    user: stall10n
 
 services:
   - type: web
@@ -14,9 +14,31 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: racingsimple-db
+          name: stall10n-db
           property: connectionString
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: SECRET_KEY
         generateValue: true
+      - key: HORSEAPI_ACCESS_KEY
+        sync: false  # Add manually in dashboard for security
+      - key: PORT
+        value: 10000
+    healthCheckPath: /health
+    
+  # Optional: Background worker for continuous odds monitoring
+  - type: worker
+    name: stall10n-odds-monitor
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python horseapi_odds_monitor.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stall10n-db
+          property: connectionString
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: HORSEAPI_ACCESS_KEY
+        sync: false  # Add manually in dashboard for security

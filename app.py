@@ -9,11 +9,15 @@ from io import BytesIO
 import logging
 from simplified_endpoints import add_simplified_endpoints
 from betting_strategy import calculate_betting_strategy
+from horseapi_odds_monitor import add_monitoring_endpoints
 
 app = Flask(__name__)
 
 # Add simplified race results endpoints
 add_simplified_endpoints(app)
+
+# Add HorseAPI monitoring endpoints
+monitor = add_monitoring_endpoints(app)
 
 @app.route('/')
 def hello():
@@ -920,6 +924,35 @@ def delete_race_entry(race_date, race_number, program_number):
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/health')
+def health():
+    """Health check endpoint for Render"""
+    # Check database connection
+    try:
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if DATABASE_URL:
+            conn = psycopg2.connect(DATABASE_URL)
+            cur = conn.cursor()
+            cur.execute('SELECT 1')
+            cur.close()
+            conn.close()
+            db_status = 'connected'
+        else:
+            db_status = 'not configured'
+    except:
+        db_status = 'error'
+    
+    # Check HorseAPI configuration
+    from config import Config
+    horseapi_configured = bool(Config.get_horseapi_key())
+    
+    return jsonify({
+        'status': 'healthy',
+        'database': db_status,
+        'horseapi': 'configured' if horseapi_configured else 'not configured',
+        'timestamp': datetime.now().isoformat()
+    }), 200
 
 if __name__ == '__main__':
     app.run()
