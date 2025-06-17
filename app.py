@@ -9,15 +9,16 @@ from io import BytesIO
 import logging
 from simplified_endpoints import add_simplified_endpoints
 from betting_strategy import calculate_betting_strategy
-from horseapi_odds_monitor import add_monitoring_endpoints
+# from horseapi_odds_monitor import add_monitoring_endpoints  # Removed - using StatPal now
 
 app = Flask(__name__)
 
 # Add simplified race results endpoints
 add_simplified_endpoints(app)
 
-# Add HorseAPI monitoring endpoints
-monitor = add_monitoring_endpoints(app)
+# StatPal API will be integrated here when needed
+# from statpal_service import StatPalService
+# statpal = StatPalService()
 
 @app.route('/')
 def hello():

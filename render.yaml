@@ -20,7 +20,7 @@ services:
         value: 3.11.0
       - key: SECRET_KEY
         generateValue: true
-      - key: HORSEAPI_ACCESS_KEY
+      - key: STATPAL_ACCESS_KEY
         sync: false  # Add manually in dashboard for security
       - key: PORT
         value: 10000
@@ -32,7 +32,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python horseapi_odds_monitor.py
+    startCommand: python statpal_monitor.py  # Update when StatPal monitor is created
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -40,5 +40,5 @@ services:
           property: connectionString
       - key: PYTHON_VERSION
         value: 3.11.0
-      - key: HORSEAPI_ACCESS_KEY
+      - key: STATPAL_ACCESS_KEY
         sync: false  # Add manually in dashboard for security

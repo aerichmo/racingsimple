@@ -1,95 +1,88 @@
-# Horse Racing USA API Integration Guide
+# StatPal Horse Racing API Integration Guide
 
-## API Limits
-- **Daily Quota**: 50 calls/day (40 allocated for STALL10N)
-- **Cost**: Check RapidAPI pricing page
-- **Caching**: 1-hour cache implemented to preserve quota
+## API Configuration
+- **API Key**: Configured in `.env` as `STATPAL_ACCESS_KEY`
+- **Base URL**: `https://statpal.io/api/v1/horse-racing`
+- **Coverage**: UK races (US requires subscription upgrade)
 
 ## Setup
 
-1. **API Key**: Already configured in `odds_service.py`
+1. **API Key**: Already configured in `.env`
    ```
-   1c6ef83f5bmshae8b269821b23dep1c77dbjsn9ed69f94d9fa
+   STATPAL_ACCESS_KEY=5aad32df-dc2d-4222-9023-64f422f9071f
    ```
 
-2. **Quota Tracking**: Automatic tracking in `api_quota_tracker.py`
-   - Tracks daily usage in `api_quota.json`
-   - Prevents exceeding 40 calls/day limit
-   - Shows warnings when approaching limit
+2. **Service Module**: Use `statpal_service.py`
+   ```python
+   from statpal_service import StatPalService
+   
+   service = StatPalService()
+   ```
 
-## Usage
+## Available Endpoints
 
-### Basic Race Data Fetch
+### UK Racing (Working)
 ```python
-from api_quota_tracker import QuotaManagedOddsService
+# Get live UK races
+races = service.get_live_races('uk')
 
-service = QuotaManagedOddsService()
-result = service.get_race_odds(39302)  # Race ID from API
-
-if 'error' not in result:
-    race_data = result['data']
-    print(f"Remaining API calls today: {result['remaining_quota']}")
+# Get race details with runners
+details = service.get_race_details(race_id, 'uk')
 ```
 
-### Check Quota Status
-```python
-status = service.get_quota_status()
-print(f"Used {status['calls_today']} of {status['daily_limit']} calls today")
-```
+### US Racing (Requires Upgrade)
+Contact support@statpal.io to enable US racing data.
 
 ## Integration with STALL10N
 
 1. **Add to your Flask app** (in `app.py`):
 ```python
-from api_quota_tracker import QuotaManagedOddsService
+from statpal_service import StatPalService
 
-odds_service = QuotaManagedOddsService()
+statpal_service = StatPalService()
 
-@app.route('/api/odds/<race_id>')
-def get_odds(race_id):
-    result = odds_service.get_race_odds(race_id)
-    return jsonify(result)
+@app.route('/api/uk-races')
+def get_uk_races():
+    races = statpal_service.get_live_races('uk')
+    return jsonify(races)
 
-@app.route('/api/quota-status')
-def quota_status():
-    return jsonify(odds_service.get_quota_status())
+@app.route('/api/race/<race_id>')
+def get_race_details(race_id):
+    details = statpal_service.get_race_details(race_id, 'uk')
+    return jsonify(details)
 ```
 
-2. **Add to Admin Interface**:
-   - Add field for API Race ID in your race entry form
-   - Add "Fetch Live Odds" button that calls `/api/odds/<race_id>`
-   - Display remaining quota on admin page
+2. **Data Structure**:
+   - Races include: venue, race number, post time, distance, going conditions
+   - Horse details: name, jockey, trainer, age, weight, form statistics
 
 ## Important Notes
 
-1. **Quota Management**: 
-   - Only 40 API calls per day allowed
-   - Cache is set to 1 hour to minimize calls
-   - Check quota before important operations
+1. **Authentication**: 
+   - UK endpoints use `?access_key=YOUR_KEY` parameter
+   - US endpoints require `Authorization: Bearer YOUR_KEY` header
 
-2. **Race IDs**: 
-   - Need to discover how to find current race IDs
-   - Example ID 39302 is from 2022 (historical data)
-   - May need to explore API documentation for live race discovery
+2. **Data Format**: 
+   - Races grouped by venue/tournament
+   - Rich horse form data including win percentages and race records
 
-3. **Data Limitations**:
-   - API provides race results and horse info
-   - Live odds arrays were empty in test data
-   - May need to verify with RapidAPI support for real-time odds
+3. **Real-time Updates**:
+   - Live race data available
+   - No specific odds endpoint (integrated in race details)
 
 ## Next Steps
 
-1. Contact RapidAPI support to understand:
-   - How to get current/today's race IDs
-   - Whether live odds are available
-   - API endpoint documentation
+1. For US racing access:
+   - Email support@statpal.io
+   - Include API key: 5aad32df-dc2d-4222-9023-64f422f9071f
+   - Request US racing data access
 
 2. Implement database integration:
-   - Add `api_race_id` column to races table
-   - Create sync mechanism for odds updates
-   - Build UI for quota monitoring
+   - Store race and horse data
+   - Build sync mechanism for updates
+   - Create UI for race monitoring
 
-3. Set up automated odds updates:
-   - Cron job or scheduled task
-   - Respect quota limits
-   - Update only active races
+3. Set up automated data pulls:
+   - Schedule regular updates for live races
+   - Cache results to minimize API calls
+   - Monitor specific venues of interest
