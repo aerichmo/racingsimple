@@ -464,6 +464,19 @@ class RTNCaptureHeadless:
                 track_lines = [line for line in lines if any(word in line.lower() for word in ['park', 'downs', 'meadows', 'track', 'racing'])]
                 if track_lines:
                     logger.info(f"All visible tracks/racing text: {track_lines[:10]}")
+                    
+                    # Check for Fair Meadows season
+                    from datetime import date
+                    today = date.today()
+                    fair_meadows_start = date(2025, 6, 4)
+                    fair_meadows_end = date(2025, 7, 19)
+                    
+                    if today < fair_meadows_start:
+                        logger.info(f"Fair Meadows season hasn't started yet (starts {fair_meadows_start})")
+                    elif today > fair_meadows_end:
+                        logger.info(f"Fair Meadows season has ended (ended {fair_meadows_end})")
+                    else:
+                        logger.info("Fair Meadows should be in season but not showing on RTN")
             except:
                 pass
             
@@ -552,9 +565,12 @@ def main():
         # Find Fair Meadows
         if not capture.find_fair_meadows_stream():
             logger.warning("Fair Meadows not found - may not be racing today")
-            # Still continue to show we ran successfully
+            logger.info("Exiting - only capturing Fair Meadows data")
+            # Take final screenshot showing available tracks
+            capture.take_screenshot("debug_no_fair_meadows_final.png")
+            return
         
-        # Start capture session
+        # Start capture session only if Fair Meadows found
         session_id = db_manager.start_capture_session("Fair Meadows")
         
         # Capture loop
