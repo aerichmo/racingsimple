@@ -199,32 +199,19 @@ class RTNCaptureHeadless:
             username_field = None
             password_field = None
             
-            # Try different selectors
-            selectors = [
-                ("name", "username"),
-                ("id", "username"),
-                ("name", "email"),
-                ("type", "email"),
-                ("placeholder", "Username"),
-                ("placeholder", "Email")
-            ]
-            
-            for by, value in selectors:
+            # Look for email field by visible label
+            try:
+                # Find the email input field next to "Email:" label
+                email_label = self.driver.find_element(By.XPATH, "//td[contains(text(), 'Email:')]")
+                username_field = email_label.find_element(By.XPATH, "following-sibling::td/input")
+                logger.info("Found email field using label")
+            except:
+                # Fallback: try direct input search
                 try:
-                    if by == "name":
-                        username_field = self.driver.find_element(By.NAME, value)
-                    elif by == "id":
-                        username_field = self.driver.find_element(By.ID, value)
-                    elif by == "type":
-                        username_field = self.driver.find_element(By.CSS_SELECTOR, f"input[type='{value}']")
-                    elif by == "placeholder":
-                        username_field = self.driver.find_element(By.CSS_SELECTOR, f"input[placeholder*='{value}']")
-                    
-                    if username_field:
-                        logger.info(f"Found username field using {by}={value}")
-                        break
+                    username_field = self.driver.find_element(By.CSS_SELECTOR, "input[type='text']")
+                    logger.info("Found email field using input type")
                 except:
-                    continue
+                    username_field = None
             
             if not username_field:
                 # Take screenshot to see current page
@@ -240,8 +227,13 @@ class RTNCaptureHeadless:
             password_field.clear()
             password_field.send_keys(self.password)
             
-            # Find and click login button
-            login_button = self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
+            # Find and click login button - it's an input with value "Log in"
+            try:
+                login_button = self.driver.find_element(By.CSS_SELECTOR, "input[value='Log in']")
+            except:
+                # Try alternate selector
+                login_button = self.driver.find_element(By.XPATH, "//input[@type='submit' or @type='button']")
+            
             login_button.click()
             
             logger.info("Login submitted, waiting for redirect...")
