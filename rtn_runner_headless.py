@@ -227,12 +227,41 @@ class RTNCaptureHeadless:
             password_field.clear()
             password_field.send_keys(self.password)
             
-            # Find and click login button - it's an input with value "Log in"
-            try:
-                login_button = self.driver.find_element(By.CSS_SELECTOR, "input[value='Log in']")
-            except:
-                # Try alternate selector
-                login_button = self.driver.find_element(By.XPATH, "//input[@type='submit' or @type='button']")
+            # Find login button - multiple strategies
+            login_button = None
+            button_selectors = [
+                ("CSS", "input[value='Log in']"),
+                ("CSS", "input[type='submit']"),
+                ("CSS", "button[type='submit']"),
+                ("CSS", ".login-button"),
+                ("CSS", "#login-button"),
+                ("XPATH", "//input[@value='Log in']"),
+                ("XPATH", "//button[contains(text(), 'Log')]"),
+                ("XPATH", "//input[@type='image']"),  # Some sites use image buttons
+                ("XPATH", "//td[@bgcolor='#62B54F']//input"),  # Green button cell
+                ("XPATH", "//input[@style[contains(.,'#62B54F')]]"),  # Green styled input
+                ("XPATH", "//input[@onclick]"),  # Any input with onclick
+            ]
+            
+            for selector_type, selector in button_selectors:
+                try:
+                    if selector_type == "CSS":
+                        login_button = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    else:
+                        login_button = self.driver.find_element(By.XPATH, selector)
+                    logger.info(f"Found login button using {selector_type}: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not login_button:
+                # Last resort - find any input/button near password field
+                try:
+                    login_button = password_field.find_element(By.XPATH, "../..//input[@type='submit' or @type='button' or @type='image']")
+                    logger.info("Found login button near password field")
+                except:
+                    self.take_screenshot("debug_no_login_button.png")
+                    raise Exception("Could not find login button")
             
             # Take screenshot before clicking
             self.take_screenshot("debug_before_login_click.png")
