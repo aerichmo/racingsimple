@@ -1,0 +1,74 @@
+name: RTN Monitor Status
+
+on:
+  schedule:
+    # Check capture status daily at 9 PM CT
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-status:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        pip install psycopg2-binary requests
+    
+    - name: Check capture status
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      run: |
+        python -c "
+        import os
+        import psycopg2
+        from datetime import datetime, timedelta
+        import requests
+        
+        db_url = os.getenv('DATABASE_URL')
+        webhook_url = os.getenv('DISCORD_WEBHOOK', '')
+        
+        conn = psycopg2.connect(db_url)
+        cursor = conn.cursor()
+        
+        # Check today's captures
+        cursor.execute('''
+            SELECT 
+                COUNT(DISTINCT race_number) as races_captured,
+                COUNT(*) as total_snapshots,
+                MIN(snapshot_time) as first_capture,
+                MAX(snapshot_time) as last_capture
+            FROM rtn_odds_snapshots
+            WHERE race_date = CURRENT_DATE
+        ''')
+        
+        result = cursor.fetchone()
+        races, snapshots, first, last = result
+        
+        # Check if we have recent data
+        if snapshots > 0:
+            message = f'✅ RTN Capture Status - {datetime.now().date()}\n'
+            message += f'Races Captured: {races}\n'
+            message += f'Total Snapshots: {snapshots}\n'
+            message += f'First: {first}\n'
+            message += f'Last: {last}'
+        else:
+            message = f'⚠️ No RTN data captured today - {datetime.now().date()}'
+        
+        print(message)
+        
+        # Send to Discord if webhook provided
+        if webhook_url:
+            requests.post(webhook_url, json={'content': message})
+        
+        conn.close()
+        "

@@ -1,0 +1,97 @@
+name: RTN Fair Meadows Capture
+
+on:
+  schedule:
+    # Run Thursday-Sunday at 5:30 PM CT (10:30 PM UTC)
+    - cron: '30 22 * * 4-7'
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      duration_hours:
+        description: 'Capture duration in hours'
+        required: false
+        default: '3'
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240  # 4 hour timeout
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          tesseract-ocr \
+          tesseract-ocr-eng \
+          chromium-browser \
+          chromium-chromedriver \
+          xvfb
+    
+    - name: Install Python dependencies
+      run: |
+        pip install -r requirements_rtn.txt
+        pip install -r requirements.txt
+    
+    - name: Set up Chrome options for headless
+      run: |
+        export DISPLAY=:99
+        sudo Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
+    
+    - name: Run RTN capture
+      env:
+        RTN_USERNAME: ${{ secrets.RTN_USERNAME }}
+        RTN_PASSWORD: ${{ secrets.RTN_PASSWORD }}
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        DISPLAY: :99
+      run: |
+        python rtn_runner_headless.py --duration ${{ github.event.inputs.duration_hours || '3' }}
+    
+    - name: Upload debug images
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: debug-images
+        path: debug_*.png
+        retention-days: 7
+    
+    - name: Send notification on failure
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const issue = await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `RTN Capture Failed - ${new Date().toISOString().split('T')[0]}`,
+            body: `The RTN capture workflow failed. Check the [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`
+          })
+
+  check-races:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    
+    steps:
+    - name: Check if Fair Meadows is racing today
+      id: check
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: |
+        # Check if it's Fair Meadows season (June 4 - July 19)
+        current_date=$(date +%Y-%m-%d)
+        start_date="2025-06-04"
+        end_date="2025-07-19"
+        
+        if [[ "$current_date" > "$start_date" ]] && [[ "$current_date" < "$end_date" ]]; then
+          echo "should_run=true" >> $GITHUB_OUTPUT
+        else
+          echo "should_run=false" >> $GITHUB_OUTPUT
+        fi

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.stock.automation</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/alecrichmond/Library/Mobile Documents/com~apple~CloudDocs/STALL10N/start_automation.sh</string>
+    </array>
+    
+    <key>WorkingDirectory</key>
+    <string>/Users/alecrichmond/Library/Mobile Documents/com~apple~CloudDocs/STALL10N</string>
+    
+    <key>StandardOutPath</key>
+    <string>/Users/alecrichmond/Library/Mobile Documents/com~apple~CloudDocs/STALL10N/logs/automation_stdout.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/Users/alecrichmond/Library/Mobile Documents/com~apple~CloudDocs/STALL10N/logs/automation_stderr.log</string>
+    
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <key>KeepAlive</key>
+    <true/>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>DATABASE_URL</key>
+        <string>postgresql://localhost/stock_db</string>
+        <key>RACE_API_KEY</key>
+        <string>your_api_key_here</string>
+    </dict>
+</dict>
+</plist>

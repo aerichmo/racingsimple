@@ -1,0 +1,93 @@
+name: Test Database Connection
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-connection:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install psycopg2
+      run: pip install psycopg2-binary
+    
+    - name: Test database connection
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: |
+        python -c "
+        import os
+        import psycopg2
+        
+        try:
+            db_url = os.getenv('DATABASE_URL')
+            if not db_url:
+                print('❌ DATABASE_URL not found in secrets')
+                exit(1)
+            
+            print('🔄 Attempting to connect to database...')
+            conn = psycopg2.connect(db_url)
+            cursor = conn.cursor()
+            
+            # Test query
+            cursor.execute('SELECT version()')
+            version = cursor.fetchone()[0]
+            print(f'✅ Connected successfully!')
+            print(f'📊 PostgreSQL version: {version}')
+            
+            # Check if RTN tables exist
+            cursor.execute('''
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name LIKE 'rtn_%'
+            ''')
+            
+            tables = cursor.fetchall()
+            if tables:
+                print(f'📋 Found RTN tables:')
+                for table in tables:
+                    print(f'   - {table[0]}')
+            else:
+                print('ℹ️  No RTN tables found yet (will be created on first run)')
+            
+            conn.close()
+            print('✅ All tests passed!')
+            
+        except Exception as e:
+            print(f'❌ Connection failed: {e}')
+            exit(1)
+        "
+    
+    - name: Test RTN credentials
+      env:
+        RTN_USERNAME: ${{ secrets.RTN_USERNAME }}
+        RTN_PASSWORD: ${{ secrets.RTN_PASSWORD }}
+      run: |
+        python -c "
+        import os
+        
+        username = os.getenv('RTN_USERNAME')
+        password = os.getenv('RTN_PASSWORD')
+        
+        if username and password:
+            print(f'✅ RTN credentials found')
+            print(f'   Username: {username[:3]}***')
+            print(f'   Password: ***')
+        else:
+            missing = []
+            if not username:
+                missing.append('RTN_USERNAME')
+            if not password:
+                missing.append('RTN_PASSWORD')
+            print(f'❌ Missing secrets: {', '.join(missing)}')
+            exit(1)
+        "

@@ -1,0 +1,951 @@
+{
+  "track": "Fair Meadows",
+  "date": "2025-06-13",
+  "races": {
+    "1": {
+      "race_number": 1,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "B Playin for Keeps",
+          "run_style": "P",
+          "morning_line": "2/1",
+          "live_odds": "6/1",
+          "true_odds": "16.4%",
+          "itm_true_odds": "74.3%",
+          "adj_true_odds": "11.1%",
+          "win_probability": "17.0%",
+          "projected_odds": "5/1",
+          "probability_rank": 3,
+          "probability_factors": {
+            "form_score": 0.28,
+            "speed_rating": 0.28,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Favorite Cartels Girl",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "56/1",
+          "true_odds": "0.8%",
+          "itm_true_odds": "4.5%",
+          "adj_true_odds": "1.4%",
+          "win_probability": "11.0%",
+          "projected_odds": "8/1",
+          "probability_rank": 6,
+          "probability_factors": {
+            "form_score": 0.03,
+            "speed_rating": 0.03,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Dm Heza Dan D",
+          "run_style": "P",
+          "morning_line": "6/5",
+          "live_odds": "4/5",
+          "true_odds": "49.8%",
+          "itm_true_odds": "95.7%",
+          "adj_true_odds": "60.7%",
+          "win_probability": "20.5%",
+          "projected_odds": "4/1",
+          "probability_rank": 1,
+          "probability_factors": {
+            "form_score": 0.38,
+            "speed_rating": 0.38,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Osage Alice",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "35/1",
+          "true_odds": "0.7%",
+          "itm_true_odds": "3.9%",
+          "adj_true_odds": "1.5%",
+          "win_probability": "11.0%",
+          "projected_odds": "8/1",
+          "probability_rank": 7,
+          "probability_factors": {
+            "form_score": 0.03,
+            "speed_rating": 0.03,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Bf Hannas Hotwire",
+          "run_style": "P",
+          "morning_line": "10/1",
+          "live_odds": "10/1",
+          "true_odds": "2.9%",
+          "itm_true_odds": "16.1%",
+          "adj_true_odds": "2.6%",
+          "win_probability": "12.0%",
+          "projected_odds": "7/1",
+          "probability_rank": 4,
+          "probability_factors": {
+            "form_score": 0.07,
+            "speed_rating": 0.07,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Flying Hearts",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "97/1",
+          "true_odds": "3.4%",
+          "itm_true_odds": "18.8%",
+          "adj_true_odds": "2.0%",
+          "win_probability": "11.4%",
+          "projected_odds": "8/1",
+          "probability_rank": 5,
+          "probability_factors": {
+            "form_score": 0.03,
+            "speed_rating": 0.03,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Lachismosa",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "6/5",
+          "true_odds": "26.0%",
+          "itm_true_odds": "86.5%",
+          "adj_true_odds": "20.7%",
+          "win_probability": "17.1%",
+          "projected_odds": "5/1",
+          "probability_rank": 2,
+          "probability_factors": {
+            "form_score": 0.21,
+            "speed_rating": 0.21,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        }
+      ]
+    },
+    "2": {
+      "race_number": 2,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Js Mafia Chick",
+          "run_style": "P",
+          "morning_line": "2/1",
+          "live_odds": "3/2",
+          "true_odds": "24.6%",
+          "itm_true_odds": "76.1%",
+          "adj_true_odds": "21.8%",
+          "win_probability": "22.3%",
+          "projected_odds": "3/1",
+          "probability_rank": 2,
+          "probability_factors": {
+            "form_score": 0.28,
+            "speed_rating": 0.28,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Rp Reckless Wire Too",
+          "run_style": "P",
+          "morning_line": "4/1",
+          "live_odds": "5/1",
+          "true_odds": "14.5%",
+          "itm_true_odds": "55.3%",
+          "adj_true_odds": "13.7%",
+          "win_probability": "19.1%",
+          "projected_odds": "4/1",
+          "probability_rank": 4,
+          "probability_factors": {
+            "form_score": 0.17,
+            "speed_rating": 0.17,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Zazas Black Pearl",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "9/2",
+          "true_odds": "18.7%",
+          "itm_true_odds": "66.1%",
+          "adj_true_odds": "18.9%",
+          "win_probability": "20.0%",
+          "projected_odds": "4/1",
+          "probability_rank": 3,
+          "probability_factors": {
+            "form_score": 0.21,
+            "speed_rating": 0.21,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Kung Fu Express",
+          "run_style": "P",
+          "morning_line": "8/5",
+          "live_odds": "1/1",
+          "true_odds": "39.0%",
+          "itm_true_odds": "88.4%",
+          "adj_true_odds": "42.7%",
+          "win_probability": "23.9%",
+          "projected_odds": "3/1",
+          "probability_rank": 1,
+          "probability_factors": {
+            "form_score": 0.32,
+            "speed_rating": 0.32,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Lucky Tothe Limit",
+          "run_style": "S",
+          "morning_line": "15/1",
+          "live_odds": "21/1",
+          "true_odds": "3.2%",
+          "itm_true_odds": "14.2%",
+          "adj_true_odds": "2.9%",
+          "win_probability": "14.7%",
+          "projected_odds": "6/1",
+          "probability_rank": 5,
+          "probability_factors": {
+            "form_score": 0.05,
+            "speed_rating": 0.05,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        }
+      ]
+    },
+    "3": {
+      "race_number": 3,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Ldr Streakin",
+          "run_style": "E",
+          "morning_line": "7/5",
+          "live_odds": "1/1",
+          "true_odds": "33.2%",
+          "itm_true_odds": "78.1%",
+          "adj_true_odds": "45.1%",
+          "win_probability": "19.1%",
+          "projected_odds": "4/1",
+          "probability_rank": 1,
+          "probability_factors": {
+            "form_score": 0.34,
+            "speed_rating": 0.34,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Im a Kool Epidemic",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "19/1",
+          "true_odds": "3.6%",
+          "itm_true_odds": "13.9%",
+          "adj_true_odds": "3.3%",
+          "win_probability": "11.5%",
+          "projected_odds": "8/1",
+          "probability_rank": 7,
+          "probability_factors": {
+            "form_score": 0.03,
+            "speed_rating": 0.03,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Wildfire N Fury G",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "27/1",
+          "true_odds": "5.9%",
+          "itm_true_odds": "22.0%",
+          "adj_true_odds": "2.9%",
+          "win_probability": "11.6%",
+          "projected_odds": "8/1",
+          "probability_rank": 6,
+          "probability_factors": {
+            "form_score": 0.03,
+            "speed_rating": 0.03,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Runnin Mad",
+          "run_style": "P",
+          "morning_line": "7/2",
+          "live_odds": "6/1",
+          "true_odds": "17.3%",
+          "itm_true_odds": "54.9%",
+          "adj_true_odds": "7.9%",
+          "win_probability": "15.2%",
+          "projected_odds": "6/1",
+          "probability_rank": 3,
+          "probability_factors": {
+            "form_score": 0.18,
+            "speed_rating": 0.18,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Chromed Up Annie",
+          "run_style": "P",
+          "morning_line": "4/1",
+          "live_odds": "2/1",
+          "true_odds": "17.1%",
+          "itm_true_odds": "54.4%",
+          "adj_true_odds": "16.0%",
+          "win_probability": "15.0%",
+          "projected_odds": "6/1",
+          "probability_rank": 4,
+          "probability_factors": {
+            "form_score": 0.17,
+            "speed_rating": 0.17,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Pfr Bernal Spirit",
+          "run_style": "P",
+          "morning_line": "12/1",
+          "live_odds": "18/1",
+          "true_odds": "6.1%",
+          "itm_true_odds": "22.7%",
+          "adj_true_odds": "4.6%",
+          "win_probability": "12.0%",
+          "projected_odds": "7/1",
+          "probability_rank": 5,
+          "probability_factors": {
+            "form_score": 0.06,
+            "speed_rating": 0.06,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Cuda Been Tipsy",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "5/1",
+          "true_odds": "16.8%",
+          "itm_true_odds": "53.8%",
+          "adj_true_odds": "20.2%",
+          "win_probability": "15.5%",
+          "projected_odds": "5/1",
+          "probability_rank": 2,
+          "probability_factors": {
+            "form_score": 0.21,
+            "speed_rating": 0.21,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        }
+      ]
+    },
+    "4": {
+      "race_number": 4,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Jc First Beduino",
+          "run_style": "S",
+          "morning_line": "5/2",
+          "live_odds": "9/5",
+          "true_odds": "12.1%",
+          "itm_true_odds": "54.8%",
+          "adj_true_odds": "10.1%",
+          "win_probability": "24.5%",
+          "projected_odds": "3/1",
+          "probability_rank": 3,
+          "probability_factors": {
+            "form_score": 0.23,
+            "speed_rating": 0.23,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Jess Corona Dynasty",
+          "run_style": "S",
+          "morning_line": "8/1",
+          "live_odds": "7/1",
+          "true_odds": "17.6%",
+          "itm_true_odds": "71.5%",
+          "adj_true_odds": "12.1%",
+          "win_probability": "22.4%",
+          "projected_odds": "3/1",
+          "probability_rank": 4,
+          "probability_factors": {
+            "form_score": 0.09,
+            "speed_rating": 0.09,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Heard It From Brenda",
+          "run_style": "S",
+          "morning_line": "3/1",
+          "live_odds": "8/5",
+          "true_odds": "21.8%",
+          "itm_true_odds": "78.9%",
+          "adj_true_odds": "26.9%",
+          "win_probability": "25.7%",
+          "projected_odds": "3/1",
+          "probability_rank": 2,
+          "probability_factors": {
+            "form_score": 0.21,
+            "speed_rating": 0.21,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Jons Folly",
+          "run_style": "S",
+          "morning_line": "7/2",
+          "live_odds": "3/2",
+          "true_odds": "48.5%",
+          "itm_true_odds": "94.8%",
+          "adj_true_odds": "51.0%",
+          "win_probability": "27.4%",
+          "projected_odds": "3/1",
+          "probability_rank": 1,
+          "probability_factors": {
+            "form_score": 0.18,
+            "speed_rating": 0.18,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        }
+      ]
+    },
+    "5": {
+      "race_number": 5,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Kool Snow Wagon",
+          "run_style": "S",
+          "morning_line": "12/1",
+          "live_odds": "14/1",
+          "true_odds": "13.2%",
+          "itm_true_odds": "45.2%",
+          "adj_true_odds": "5.4%",
+          "win_probability": "14.7%",
+          "projected_odds": "6/1",
+          "probability_rank": 4,
+          "probability_factors": {
+            "form_score": 0.06,
+            "speed_rating": 0.06,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Little Country 2",
+          "run_style": "P",
+          "morning_line": "2/1",
+          "live_odds": "3/1",
+          "true_odds": "23.8%",
+          "itm_true_odds": "67.3%",
+          "adj_true_odds": "27.5%",
+          "win_probability": "19.3%",
+          "projected_odds": "4/1",
+          "probability_rank": 2,
+          "probability_factors": {
+            "form_score": 0.28,
+            "speed_rating": 0.28,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 3,
+          "horse_name": "G Water",
+          "run_style": "P",
+          "morning_line": "12/1",
+          "live_odds": "5/1",
+          "true_odds": "12.2%",
+          "itm_true_odds": "42.3%",
+          "adj_true_odds": "12.8%",
+          "win_probability": "14.7%",
+          "projected_odds": "6/1",
+          "probability_rank": 5,
+          "probability_factors": {
+            "form_score": 0.06,
+            "speed_rating": 0.06,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Vf Brava Treis",
+          "run_style": "P",
+          "morning_line": "10/1",
+          "live_odds": "8/1",
+          "true_odds": "7.1%",
+          "itm_true_odds": "26.4%",
+          "adj_true_odds": "6.2%",
+          "win_probability": "13.6%",
+          "projected_odds": "6/1",
+          "probability_rank": 6,
+          "probability_factors": {
+            "form_score": 0.07,
+            "speed_rating": 0.07,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Ballyhoo Doux",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "5/1",
+          "true_odds": "11.4%",
+          "itm_true_odds": "40.1%",
+          "adj_true_odds": "10.8%",
+          "win_probability": "16.6%",
+          "projected_odds": "5/1",
+          "probability_rank": 3,
+          "probability_factors": {
+            "form_score": 0.21,
+            "speed_rating": 0.21,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Jr123",
+          "run_style": "S",
+          "morning_line": "7/5",
+          "live_odds": "4/5",
+          "true_odds": "32.2%",
+          "itm_true_odds": "77.5%",
+          "adj_true_odds": "37.3%",
+          "win_probability": "21.1%",
+          "projected_odds": "4/1",
+          "probability_rank": 1,
+          "probability_factors": {
+            "form_score": 0.34,
+            "speed_rating": 0.34,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        }
+      ]
+    },
+    "6": {
+      "race_number": 6,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Vf Wheely Cold",
+          "run_style": "P",
+          "morning_line": "5/2",
+          "live_odds": "5/2",
+          "true_odds": "28.3%",
+          "itm_true_odds": "71.6%",
+          "adj_true_odds": "25.8%",
+          "win_probability": "17.0%",
+          "projected_odds": "5/1",
+          "probability_rank": 1,
+          "probability_factors": {
+            "form_score": 0.23,
+            "speed_rating": 0.23,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 2,
+          "horse_name": "El Apollitical Dream",
+          "run_style": "P",
+          "morning_line": "7/2",
+          "live_odds": "4/5",
+          "true_odds": "20.2%",
+          "itm_true_odds": "59.3%",
+          "adj_true_odds": "18.8%",
+          "win_probability": "15.6%",
+          "projected_odds": "5/1",
+          "probability_rank": 2,
+          "probability_factors": {
+            "form_score": 0.18,
+            "speed_rating": 0.18,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 3,
+          "horse_name": "A Political Theory",
+          "run_style": "P",
+          "morning_line": "8/1",
+          "live_odds": "13/1",
+          "true_odds": "8.8%",
+          "itm_true_odds": "30.8%",
+          "adj_true_odds": "6.5%",
+          "win_probability": "12.8%",
+          "projected_odds": "7/1",
+          "probability_rank": 6,
+          "probability_factors": {
+            "form_score": 0.09,
+            "speed_rating": 0.09,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Eg Cliff Money",
+          "run_style": "P",
+          "morning_line": "4/1",
+          "live_odds": "10/1",
+          "true_odds": "16.9%",
+          "itm_true_odds": "52.4%",
+          "adj_true_odds": "18.5%",
+          "win_probability": "14.9%",
+          "projected_odds": "6/1",
+          "probability_rank": 3,
+          "probability_factors": {
+            "form_score": 0.17,
+            "speed_rating": 0.17,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Fdd Teller Mrl",
+          "run_style": "P",
+          "morning_line": "6/1",
+          "live_odds": "8/1",
+          "true_odds": "14.6%",
+          "itm_true_odds": "47.0%",
+          "adj_true_odds": "20.0%",
+          "win_probability": "14.1%",
+          "projected_odds": "6/1",
+          "probability_rank": 4,
+          "probability_factors": {
+            "form_score": 0.12,
+            "speed_rating": 0.12,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Shurnuff Good",
+          "run_style": "P",
+          "morning_line": "5/1",
+          "live_odds": "7/1",
+          "true_odds": "10.2%",
+          "itm_true_odds": "35.0%",
+          "adj_true_odds": "8.5%",
+          "win_probability": "13.8%",
+          "projected_odds": "6/1",
+          "probability_rank": 5,
+          "probability_factors": {
+            "form_score": 0.13,
+            "speed_rating": 0.13,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Dasher Otoole",
+          "run_style": "U",
+          "morning_line": "8/1",
+          "live_odds": "16/1",
+          "true_odds": "1.0%",
+          "itm_true_odds": "3.8%",
+          "adj_true_odds": "1.9%",
+          "win_probability": "11.8%",
+          "projected_odds": "7/1",
+          "probability_rank": 7,
+          "probability_factors": {
+            "form_score": 0.09,
+            "speed_rating": 0.09,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        }
+      ]
+    },
+    "7": {
+      "race_number": 7,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Reloaded and Red D",
+          "run_style": "P",
+          "morning_line": "5/2",
+          "live_odds": "6/5",
+          "true_odds": "33.8%",
+          "itm_true_odds": "82.6%",
+          "adj_true_odds": "44.5%",
+          "win_probability": "22.7%",
+          "projected_odds": "3/1",
+          "probability_rank": 1,
+          "probability_factors": {
+            "form_score": 0.23,
+            "speed_rating": 0.23,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 3,
+          "horse_name": "First Prize Famous",
+          "run_style": "P",
+          "morning_line": "5/1",
+          "live_odds": "3/1",
+          "true_odds": "12.7%",
+          "itm_true_odds": "46.6%",
+          "adj_true_odds": "9.3%",
+          "win_probability": "18.4%",
+          "projected_odds": "4/1",
+          "probability_rank": 4,
+          "probability_factors": {
+            "form_score": 0.13,
+            "speed_rating": 0.13,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Og Kissing Bandit",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "7/2",
+          "true_odds": "21.2%",
+          "itm_true_odds": "67.2%",
+          "adj_true_odds": "17.4%",
+          "win_probability": "21.1%",
+          "projected_odds": "4/1",
+          "probability_rank": 2,
+          "probability_factors": {
+            "form_score": 0.21,
+            "speed_rating": 0.21,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 5,
+          "horse_name": "Twntyfour Karat Fun",
+          "run_style": "P",
+          "morning_line": "5/1",
+          "live_odds": "11/1",
+          "true_odds": "23.7%",
+          "itm_true_odds": "71.3%",
+          "adj_true_odds": "22.4%",
+          "win_probability": "19.9%",
+          "projected_odds": "4/1",
+          "probability_rank": 3,
+          "probability_factors": {
+            "form_score": 0.13,
+            "speed_rating": 0.13,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 6,
+          "horse_name": "My Lady Pilot",
+          "run_style": "P",
+          "morning_line": "4/1",
+          "live_odds": "5/2",
+          "true_odds": "8.7%",
+          "itm_true_odds": "33.7%",
+          "adj_true_odds": "6.3%",
+          "win_probability": "17.9%",
+          "projected_odds": "5/1",
+          "probability_rank": 5,
+          "probability_factors": {
+            "form_score": 0.17,
+            "speed_rating": 0.17,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        }
+      ]
+    },
+    "8": {
+      "race_number": 8,
+      "horses": [
+        {
+          "program_number": 1,
+          "horse_name": "Rr Crown This Dash",
+          "run_style": "P",
+          "morning_line": "5/2",
+          "live_odds": "9/5",
+          "true_odds": "30.1%",
+          "itm_true_odds": "78.2%",
+          "adj_true_odds": "36.5%",
+          "win_probability": "20.3%",
+          "projected_odds": "4/1",
+          "probability_rank": 1,
+          "probability_factors": {
+            "form_score": 0.23,
+            "speed_rating": 0.23,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 2,
+          "horse_name": "Royale Cowgirl",
+          "run_style": "P",
+          "morning_line": "3/1",
+          "live_odds": "4/5",
+          "true_odds": "30.3%",
+          "itm_true_odds": "78.4%",
+          "adj_true_odds": "31.1%",
+          "win_probability": "19.9%",
+          "projected_odds": "4/1",
+          "probability_rank": 2,
+          "probability_factors": {
+            "form_score": 0.21,
+            "speed_rating": 0.21,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 3,
+          "horse_name": "Bv King of Denial",
+          "run_style": "S",
+          "morning_line": "10/1",
+          "live_odds": "9/1",
+          "true_odds": "10.8%",
+          "itm_true_odds": "40.3%",
+          "adj_true_odds": "5.2%",
+          "win_probability": "15.2%",
+          "projected_odds": "6/1",
+          "probability_rank": 4,
+          "probability_factors": {
+            "form_score": 0.07,
+            "speed_rating": 0.07,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 4,
+          "horse_name": "Lil Kool Dixie",
+          "run_style": "P",
+          "morning_line": "5/1",
+          "live_odds": "6/1",
+          "true_odds": "17.5%",
+          "itm_true_odds": "58.8%",
+          "adj_true_odds": "18.0%",
+          "win_probability": "17.2%",
+          "projected_odds": "5/1",
+          "probability_rank": 3,
+          "probability_factors": {
+            "form_score": 0.13,
+            "speed_rating": 0.13,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 6,
+          "horse_name": "Pt Cowgirl",
+          "run_style": "S",
+          "morning_line": "20/1",
+          "live_odds": "30/1",
+          "true_odds": "2.9%",
+          "itm_true_odds": "11.5%",
+          "adj_true_odds": "2.9%",
+          "win_probability": "13.0%",
+          "projected_odds": "7/1",
+          "probability_rank": 6,
+          "probability_factors": {
+            "form_score": 0.03,
+            "speed_rating": 0.03,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        },
+        {
+          "program_number": 7,
+          "horse_name": "Valiant Jake",
+          "run_style": "S",
+          "morning_line": "12/1",
+          "live_odds": "10/1",
+          "true_odds": "8.5%",
+          "itm_true_odds": "32.7%",
+          "adj_true_odds": "6.3%",
+          "win_probability": "14.4%",
+          "projected_odds": "6/1",
+          "probability_rank": 5,
+          "probability_factors": {
+            "form_score": 0.06,
+            "speed_rating": 0.06,
+            "class_rating": 0.5,
+            "connections": 0.15
+          }
+        }
+      ]
+    }
+  },
+  "probability_analysis": {
+    "generated_at": "",
+    "method": "StatPal-based Win Probability Model",
+    "weights": {
+      "form": 0.25,
+      "class": 0.2,
+      "connections": 0.15,
+      "speed": 0.2,
+      "conditions": 0.1,
+      "fitness": 0.1
+    }
+  }
+}
