@@ -376,9 +376,37 @@ class RTNCaptureHeadless:
                     # Try as text in a table/list
                     track_element = self.driver.find_element(By.XPATH, f"//*[contains(text(), '{track_name}')]")
                     logger.info(f"Found {track_name} text element")
-                    # Click the row or parent element
-                    track_element.click()
-                    return True
+                    
+                    # Check if it's clickable
+                    try:
+                        # Try clicking the element directly
+                        track_element.click()
+                        time.sleep(1)
+                        # Check if page changed
+                        if track_name.lower() in self.driver.current_url.lower():
+                            return True
+                    except:
+                        # Try clicking parent elements
+                        for i in range(3):  # Try up to 3 parent levels
+                            try:
+                                parent = track_element.find_element(By.XPATH, "..")
+                                parent.click()
+                                time.sleep(1)
+                                if track_name.lower() in self.driver.current_url.lower():
+                                    return True
+                                track_element = parent
+                            except:
+                                break
+                    
+                    # Try JavaScript click
+                    try:
+                        self.driver.execute_script("arguments[0].click();", track_element)
+                        time.sleep(1)
+                        if track_name.lower() in self.driver.current_url.lower():
+                            return True
+                    except:
+                        pass
+                        
                 except:
                     pass
             
@@ -408,13 +436,34 @@ class RTNCaptureHeadless:
                 visible_text = self.driver.find_element(By.TAG_NAME, "body").text
                 if "fair meadows" in visible_text.lower():
                     logger.info("Fair Meadows text found on page but couldn't click it")
+                    
+                    # Find all elements containing Fair Meadows
+                    fair_meadows_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Fair Meadows') or contains(text(), 'FAIR MEADOWS')]")
+                    logger.info(f"Found {len(fair_meadows_elements)} Fair Meadows elements")
+                    
+                    # Try to understand why it's not clickable
+                    for idx, elem in enumerate(fair_meadows_elements):
+                        try:
+                            tag_name = elem.tag_name
+                            is_displayed = elem.is_displayed()
+                            is_enabled = elem.is_enabled()
+                            parent_tag = elem.find_element(By.XPATH, "..").tag_name
+                            logger.info(f"Element {idx}: tag={tag_name}, displayed={is_displayed}, enabled={is_enabled}, parent={parent_tag}")
+                            
+                            # Check if it's in a disabled/inactive state
+                            classes = elem.get_attribute("class") or ""
+                            if any(word in classes.lower() for word in ["disabled", "inactive", "unavailable"]):
+                                logger.info(f"Fair Meadows appears to be disabled/inactive: {classes}")
+                        except:
+                            pass
                 else:
                     logger.info("Fair Meadows not found in page text")
-                    # Log some visible tracks for debugging
-                    lines = visible_text.split('\n')
-                    track_lines = [line for line in lines if any(word in line.lower() for word in ['park', 'downs', 'meadows', 'track'])]
-                    if track_lines:
-                        logger.info(f"Visible tracks: {track_lines[:5]}")
+                    
+                # Log all visible tracks
+                lines = visible_text.split('\n')
+                track_lines = [line for line in lines if any(word in line.lower() for word in ['park', 'downs', 'meadows', 'track', 'racing'])]
+                if track_lines:
+                    logger.info(f"All visible tracks/racing text: {track_lines[:10]}")
             except:
                 pass
             
