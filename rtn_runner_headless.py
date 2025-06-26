@@ -191,13 +191,48 @@ class RTNCaptureHeadless:
             # Take initial screenshot
             self.take_screenshot("debug_rtn_homepage.png")
             
-            # Wait for login form with longer timeout
-            logger.info("Waiting for login form...")
-            username_field = WebDriverWait(self.driver, 20).until(
-                EC.presence_of_element_located((By.NAME, "username"))
-            )
+            # Wait for page to load
+            time.sleep(3)
             
-            password_field = self.driver.find_element(By.NAME, "password")
+            # Try multiple selectors for username field
+            logger.info("Looking for login form...")
+            username_field = None
+            password_field = None
+            
+            # Try different selectors
+            selectors = [
+                ("name", "username"),
+                ("id", "username"),
+                ("name", "email"),
+                ("type", "email"),
+                ("placeholder", "Username"),
+                ("placeholder", "Email")
+            ]
+            
+            for by, value in selectors:
+                try:
+                    if by == "name":
+                        username_field = self.driver.find_element(By.NAME, value)
+                    elif by == "id":
+                        username_field = self.driver.find_element(By.ID, value)
+                    elif by == "type":
+                        username_field = self.driver.find_element(By.CSS_SELECTOR, f"input[type='{value}']")
+                    elif by == "placeholder":
+                        username_field = self.driver.find_element(By.CSS_SELECTOR, f"input[placeholder*='{value}']")
+                    
+                    if username_field:
+                        logger.info(f"Found username field using {by}={value}")
+                        break
+                except:
+                    continue
+            
+            if not username_field:
+                # Take screenshot to see current page
+                self.take_screenshot("debug_no_login_form.png")
+                raise Exception("Could not find username field")
+            
+            # Find password field
+            password_field = self.driver.find_element(By.CSS_SELECTOR, "input[type='password']")
             
             # Enter credentials
             username_field.clear()
