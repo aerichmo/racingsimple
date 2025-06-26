@@ -14,6 +14,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.select import Select
 import time
 import psycopg2
 from datetime import datetime, timedelta
@@ -328,40 +329,95 @@ class RTNCaptureHeadless:
         try:
             logger.info("Looking for Fair Meadows stream...")
             
-            # Try multiple selectors
-            selectors = [
-                "Fair Meadows",
-                "FAIR MEADOWS",
-                "FMT",
-                "Tulsa"
+            # First, let's see what's on the page after login
+            self.take_screenshot("debug_after_login_page.png")
+            
+            # Try to find Available Simulcasts or Schedule link
+            nav_links = [
+                "Available Simulcasts",
+                "Simulcast Schedule", 
+                "Schedule",
+                "Tracks",
+                "Live Racing"
             ]
             
-            for selector in selectors:
+            for link_text in nav_links:
                 try:
-                    track_link = WebDriverWait(self.driver, 5).until(
-                        EC.element_to_be_clickable((By.PARTIAL_LINK_TEXT, selector))
-                    )
-                    track_link.click()
-                    logger.info(f"Found and clicked {selector} link")
-                    return True
+                    link = self.driver.find_element(By.PARTIAL_LINK_TEXT, link_text)
+                    logger.info(f"Found {link_text} link, clicking...")
+                    link.click()
+                    time.sleep(2)
+                    self.take_screenshot(f"debug_{link_text.lower().replace(' ', '_')}_page.png")
+                    break
                 except:
                     continue
             
-            # If not found in links, check schedule/dropdown
-            logger.info("Checking track dropdown...")
-            try:
-                # Look for track selector dropdown
-                track_dropdown = self.driver.find_element(By.CSS_SELECTOR, "select[name='track']")
-                # Select Fair Meadows option
-                from selenium.webdriver.support.select import Select
-                select = Select(track_dropdown)
-                select.select_by_visible_text("Fair Meadows")
-                logger.info("Selected Fair Meadows from dropdown")
-                return True
-            except:
-                logger.warning("Could not find track dropdown")
+            # Now look for Fair Meadows
+            track_names = [
+                "Fair Meadows",
+                "FAIR MEADOWS", 
+                "FMT",
+                "Tulsa",
+                "Prairie Meadows",  # Sometimes confused with this
+                "PRAIRIE MEADOWS"
+            ]
             
-            self.take_screenshot("debug_no_fair_meadows.png")
+            for track_name in track_names:
+                try:
+                    # Try as link
+                    track_link = self.driver.find_element(By.PARTIAL_LINK_TEXT, track_name)
+                    logger.info(f"Found {track_name} link")
+                    track_link.click()
+                    return True
+                except:
+                    pass
+                    
+                try:
+                    # Try as text in a table/list
+                    track_element = self.driver.find_element(By.XPATH, f"//*[contains(text(), '{track_name}')]")
+                    logger.info(f"Found {track_name} text element")
+                    # Click the row or parent element
+                    track_element.click()
+                    return True
+                except:
+                    pass
+            
+            # Try to find any dropdown
+            try:
+                dropdowns = self.driver.find_elements(By.TAG_NAME, "select")
+                logger.info(f"Found {len(dropdowns)} dropdown(s)")
+                for dropdown in dropdowns:
+                    try:
+                        select = Select(dropdown)
+                        # Get all options
+                        for option in select.options:
+                            if "fair" in option.text.lower() or "meadows" in option.text.lower():
+                                logger.info(f"Found option: {option.text}")
+                                select.select_by_visible_text(option.text)
+                                return True
+                    except:
+                        continue
+            except:
+                pass
+            
+            # Take screenshot to see available tracks
+            self.take_screenshot("debug_available_tracks.png")
+            
+            # Log what tracks we can see
+            try:
+                visible_text = self.driver.find_element(By.TAG_NAME, "body").text
+                if "fair meadows" in visible_text.lower():
+                    logger.info("Fair Meadows text found on page but couldn't click it")
+                else:
+                    logger.info("Fair Meadows not found in page text")
+                    # Log some visible tracks for debugging
+                    lines = visible_text.split('\n')
+                    track_lines = [line for line in lines if any(word in line.lower() for word in ['park', 'downs', 'meadows', 'track'])]
+                    if track_lines:
+                        logger.info(f"Visible tracks: {track_lines[:5]}")
+            except:
+                pass
+            
             return False
             
         except Exception as e:
