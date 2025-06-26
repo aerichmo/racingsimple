@@ -234,29 +234,60 @@ class RTNCaptureHeadless:
                 # Try alternate selector
                 login_button = self.driver.find_element(By.XPATH, "//input[@type='submit' or @type='button']")
             
-            login_button.click()
+            # Take screenshot before clicking
+            self.take_screenshot("debug_before_login_click.png")
             
-            logger.info("Login submitted, waiting for redirect...")
+            # Try different click methods
+            try:
+                login_button.click()
+            except:
+                # If regular click fails, try JavaScript click
+                logger.info("Regular click failed, trying JavaScript click")
+                self.driver.execute_script("arguments[0].click();", login_button)
+            
+            logger.info("Login button clicked, waiting for response...")
+            
+            # Wait a moment for any error messages
+            time.sleep(2)
+            
+            # Check for error messages
+            try:
+                error_msg = self.driver.find_element(By.CSS_SELECTOR, ".error, .alert, .message")
+                logger.error(f"Login error message: {error_msg.text}")
+                self.take_screenshot("debug_login_error_msg.png")
+            except:
+                logger.info("No error message found")
             
             # Wait for login to complete
-            time.sleep(5)
+            time.sleep(3)
             
-            # Verify login success by checking for logout button or user menu
-            try:
-                WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.PARTIAL_LINK_TEXT, "Logout"))
-                )
-                logger.info("Login successful!")
-                self.take_screenshot("debug_rtn_logged_in.png")
-                return True
-            except:
-                logger.warning("Could not find logout button, checking URL...")
-                if "login" not in self.driver.current_url.lower():
-                    logger.info("Login appears successful based on URL")
-                    return True
-                else:
-                    self.take_screenshot("debug_login_failed.png")
-                    return False
+            # Take screenshot after login attempt
+            self.take_screenshot("debug_after_login_attempt.png")
+            
+            # Check if we're still on login page
+            current_url = self.driver.current_url
+            logger.info(f"Current URL after login: {current_url}")
+            
+            # Verify login success by checking multiple indicators
+            login_indicators = [
+                lambda: self.driver.find_element(By.PARTIAL_LINK_TEXT, "Logout"),
+                lambda: self.driver.find_element(By.PARTIAL_LINK_TEXT, "Sign Out"),
+                lambda: self.driver.find_element(By.PARTIAL_LINK_TEXT, "My Account"),
+                lambda: "login" not in self.driver.current_url.lower()
+            ]
+            
+            for indicator in login_indicators:
+                try:
+                    result = indicator()
+                    if result:
+                        logger.info("Login successful!")
+                        self.take_screenshot("debug_rtn_logged_in.png")
+                        return True
+                except:
+                    continue
+            
+            logger.error("Login failed - still on login page")
+            return False
                     
         except Exception as e:
             logger.error(f"Login failed: {e}")
