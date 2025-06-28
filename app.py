@@ -280,7 +280,7 @@ def hello():
         <h1>STALL10N</h1>
         
         <div style="text-align: center; margin: 30px 0; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <h2 style="color: #001E60; margin-bottom: 20px; border: none;">📊 Live Fair Meadows Racing</h2>
+            <h2 style="color: #001E60; margin-bottom: 20px; border: none;">📊 Live Fair Meadows Racing - June 2025</h2>
             <div style="margin: 20px 0;">
                 <a href="/races/2025-06-27" style="display: inline-block; margin: 10px; padding: 15px 30px; background-color: #0053E2; color: white; text-decoration: none; border-radius: 5px; font-size: 1.1rem; transition: all 0.3s;">
                     📅 Friday, June 27
