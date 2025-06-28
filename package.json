@@ -16,5 +16,8 @@
     "url": "https://github.com/aerichmo/racingsimple/issues"
   },
   "homepage": "https://github.com/aerichmo/racingsimple#readme",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "puppeteer": "^24.11.0"
+  }
 }

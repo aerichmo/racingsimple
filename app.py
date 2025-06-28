@@ -279,23 +279,6 @@ def hello():
     <div class="container">
         <h1>STALL10N</h1>
         
-        <div style="text-align: center; margin: 30px 0; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <h2 style="color: #001E60; margin-bottom: 20px; border: none;">📊 Live Fair Meadows Racing - June 2025</h2>
-            <div style="margin: 20px 0;">
-                <a href="/races/2025-06-27" style="display: inline-block; margin: 10px; padding: 15px 30px; background-color: #0053E2; color: white; text-decoration: none; border-radius: 5px; font-size: 1.1rem; transition: all 0.3s;">
-                    📅 Friday, June 27
-                </a>
-                <a href="/races/2025-06-28" style="display: inline-block; margin: 10px; padding: 15px 30px; background-color: #0053E2; color: white; text-decoration: none; border-radius: 5px; font-size: 1.1rem; transition: all 0.3s;">
-                    📅 Saturday, June 28
-                </a>
-            </div>
-            <p style="color: #666; font-size: 0.9rem; margin-top: 15px;">
-                🔄 Live odds update every minute<br>
-                🎯 AI-powered betting recommendations<br>
-                💰 Value ratings, Expected Value & Kelly calculations
-            </p>
-        </div>
-        
         <div class="date-selector">
             <label for="raceDate">Select Date:</label>
             <select id="raceDate">
