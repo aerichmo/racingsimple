@@ -1064,17 +1064,30 @@ def show_races_for_date(race_date):
         .race-card {
             background: white;
             border-radius: 10px;
-            padding: 25px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
         .race-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #0053E2;
+            padding: 20px 25px;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .race-header:hover {
+            background-color: #e9ecef;
+        }
+        .race-header.active {
+            background-color: #0053E2;
+            color: white;
+        }
+        .race-header.active .race-title,
+        .race-header.active .race-info,
+        .race-header.active .toggle-icon {
+            color: white;
         }
         .race-title {
             font-size: 1.5rem;
@@ -1156,7 +1169,62 @@ def show_races_for_date(race_date):
             font-size: 0.9rem;
             margin-bottom: 20px;
         }
+        .toggle-icon {
+            font-size: 1.2rem;
+            color: #666;
+            transition: transform 0.3s;
+        }
+        .race-header.active .toggle-icon {
+            transform: rotate(180deg);
+        }
+        .race-content {
+            padding: 25px;
+            display: none;
+        }
+        .race-content.show {
+            display: block;
+        }
+        .summary-stats {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .stat-item {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .stat-item strong {
+            color: #0053E2;
+            font-weight: 600;
+        }
+        .best-bet {
+            background-color: #e8f5e9;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            color: #2e7d32;
+            font-weight: 600;
+        }
     </style>
+    <script>
+        function toggleRace(raceNum) {
+            const header = document.getElementById('header-' + raceNum);
+            const content = document.getElementById('content-' + raceNum);
+            
+            header.classList.toggle('active');
+            content.classList.toggle('show');
+        }
+        
+        // Open first race by default when page loads
+        window.addEventListener('DOMContentLoaded', function() {
+            const firstRace = document.querySelector('.race-content');
+            const firstHeader = document.querySelector('.race-header');
+            if (firstRace && firstHeader) {
+                firstRace.classList.add('show');
+                firstHeader.classList.add('active');
+            }
+        });
+    </script>
 </head>
 <body>
     <div class="container">
@@ -1175,14 +1243,25 @@ def show_races_for_date(race_date):
             
             {% for race in race_data %}
             <div class="race-card">
-                <div class="race-header">
-                    <div class="race-title">Race {{ race.race_number }}</div>
+                <div class="race-header" id="header-{{ race.race_number }}" onclick="toggleRace({{ race.race_number }})">
+                    <div>
+                        <div class="race-title">Race {{ race.race_number }}</div>
+                        <div class="summary-stats">
+                            <span class="stat-item">{{ race.distance }}</span>
+                            <span class="stat-item">{{ race.num_horses }} horses</span>
+                            {% set best_bets = race.horses | selectattr('12', 'equalto', true) | list %}
+                            {% if best_bets %}
+                                <span class="best-bet">🎯 {{ best_bets | length }} recommended bet{{ 's' if best_bets|length > 1 else '' }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
                     <div class="race-info">
-                        {{ race.distance }} | {{ race.race_type or 'Allowance' }} | {{ race.num_horses }} horses
+                        <span class="toggle-icon">▼</span>
                     </div>
                 </div>
                 
-                <table>
+                <div class="race-content" id="content-{{ race.race_number }}">
+                    <table>
                     <thead>
                         <tr>
                             <th>#</th>
@@ -1243,6 +1322,22 @@ def show_races_for_date(race_date):
                         {% endfor %}
                     </tbody>
                 </table>
+                
+                {% set recommended_horses = race.horses | selectattr('12', 'equalto', true) | list %}
+                {% if recommended_horses %}
+                <div style="margin-top: 20px; padding: 15px; background-color: #e8f5e9; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0; color: #2e7d32;">💰 Betting Recommendations</h4>
+                    {% for horse in recommended_horses | sort(attribute='11', reverse=true) %}
+                        <div style="margin: 5px 0;">
+                            <strong>#{{ horse[0] }} {{ horse[1] }}</strong> - 
+                            Score: {{ "%.0f"|format(horse[11]) }}, 
+                            Value: {{ "%.1f"|format(horse[8]) }}%, 
+                            Kelly: {{ "%.1f"|format(horse[10]) }}%
+                        </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                </div>
             </div>
             {% endfor %}
         {% else %}
