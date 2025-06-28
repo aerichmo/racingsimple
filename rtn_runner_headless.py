@@ -332,46 +332,44 @@ class RTNCaptureHeadless:
             # First, let's see what's on the page after login
             self.take_screenshot("debug_after_login_page.png")
             
+            # Wait for page to fully load after login
+            time.sleep(3)
+            
             # Look for Live Simulcasts button on the home page (NOT Available Simulcasts from menu)
             live_simulcast_found = False
             
-            # Try to find the green Live Simulcasts button
-            live_buttons = [
-                ("button", "Live Simulcasts"),
-                ("a", "Live Simulcasts"),
-                ("div", "Live Simulcasts"),
-                ("span", "Live Simulcasts")
-            ]
+            # First, let's log all visible text to understand the page
+            try:
+                page_text = self.driver.find_element(By.TAG_NAME, "body").text
+                logger.info("Page contains 'Live Simulcasts': " + str("Live Simulcasts" in page_text))
+                logger.info("Page contains 'Today': " + str("Today" in page_text))
+                logger.info("Page contains 'Historical': " + str("Historical" in page_text))
+            except:
+                pass
             
-            for tag, text in live_buttons:
-                try:
-                    # Find elements by exact text match
-                    elements = self.driver.find_elements(By.XPATH, f"//{tag}[text()='{text}']")
-                    if not elements:
-                        # Try contains for partial match
-                        elements = self.driver.find_elements(By.XPATH, f"//{tag}[contains(text(), '{text}')]")
-                    
-                    for elem in elements:
-                        # Skip if it's in the navigation menu (we want the button in the main content)
-                        parent_classes = elem.find_element(By.XPATH, "..").get_attribute("class") or ""
-                        if "nav" in parent_classes.lower() or "menu" in parent_classes.lower():
-                            continue
-                            
-                        logger.info(f"Found {text} button/link, clicking...")
-                        elem.click()
-                        time.sleep(5)  # Give more time for page to load
-                        self.take_screenshot("debug_live_simulcasts_page.png")
-                        live_simulcast_found = True
+            # Method 1: Try to find Live Simulcasts that's NOT in the navigation menu
+            try:
+                # Find all elements containing "Live Simulcasts"
+                all_live_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Live Simulcasts')]")
+                logger.info(f"Found {len(all_live_elements)} elements with 'Live Simulcasts' text")
+                
+                for elem in all_live_elements:
+                    try:
+                        # Get element position to skip navigation menu (usually at top)
+                        location = elem.location
+                        if location['y'] > 150:  # Below typical navigation height
+                            logger.info(f"Found Live Simulcasts at position y={location['y']}, clicking...")
+                            elem.click()
+                            time.sleep(5)
+                            self.take_screenshot("debug_live_simulcasts_page.png")
+                            live_simulcast_found = True
+                            logger.info(f"Current URL after clicking: {self.driver.current_url}")
+                            break
+                    except:
+                        continue
                         
-                        # Log the new page URL
-                        logger.info(f"Current URL after clicking Live Simulcasts: {self.driver.current_url}")
-                        break
-                        
-                    if live_simulcast_found:
-                        break
-                        
-                except Exception as e:
-                    continue
+            except Exception as e:
+                logger.error(f"Method 1 failed: {e}")
             
             # If we couldn't find the button, try CSS selectors for green buttons
             if not live_simulcast_found:
@@ -391,18 +389,56 @@ class RTNCaptureHeadless:
                             break
                 except:
                     pass
-            
-            # Fallback to Available Simulcasts if Live Simulcasts not found
+                    
+            # Try additional selectors for the green buttons
             if not live_simulcast_found:
-                logger.warning("Could not find Live Simulcasts button, trying Available Simulcasts link...")
+                try:
+                    # Look for any element with green background containing "Live Simulcasts"
+                    all_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Live Simulcasts')]")
+                    logger.info(f"Found {len(all_elements)} elements containing 'Live Simulcasts'")
+                    
+                    for elem in all_elements:
+                        try:
+                            # Check if it's visible and not in navigation
+                            if elem.is_displayed():
+                                elem_text = elem.text.strip()
+                                parent = elem.find_element(By.XPATH, "..")
+                                parent_text = parent.text.strip()
+                                logger.info(f"Checking element: '{elem_text}', parent: '{parent_text[:50]}...'")
+                                
+                                # Skip navigation elements
+                                if "Available Simulcasts" in parent_text or "Home" in parent_text:
+                                    continue
+                                    
+                                # Try to click it
+                                logger.info("Clicking Live Simulcasts element...")
+                                elem.click()
+                                time.sleep(5)
+                                self.take_screenshot("debug_live_simulcasts_page.png")
+                                live_simulcast_found = True
+                                logger.info(f"Current URL after clicking: {self.driver.current_url}")
+                                break
+                        except Exception as e:
+                            logger.debug(f"Could not click element: {e}")
+                            continue
+                except Exception as e:
+                    logger.error(f"Error finding Live Simulcasts elements: {e}")
+            
+            # Log final status
+            if not live_simulcast_found:
+                logger.error("Could not find Live Simulcasts button on home page")
+                self.take_screenshot("debug_could_not_find_live_button.png")
+                
+                # As absolute last resort, try Available Simulcasts from menu
+                logger.warning("LAST RESORT: Trying Available Simulcasts from navigation menu...")
                 try:
                     link = self.driver.find_element(By.PARTIAL_LINK_TEXT, "Available Simulcasts")
-                    logger.info("Found Available Simulcasts link, clicking...")
+                    logger.info("Found Available Simulcasts link in navigation, clicking...")
                     link.click()
-                    time.sleep(2)
+                    time.sleep(3)
                     self.take_screenshot("debug_available_simulcasts_page.png")
                 except:
-                    logger.error("Could not find any simulcast links")
+                    logger.error("Could not find any simulcast links at all")
             
             # Now look for Fair Meadows
             track_names = [
