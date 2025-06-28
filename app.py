@@ -1229,6 +1229,7 @@ def show_races_for_date(race_date):
 <body>
     <div class="container">
         <h1>Fair Meadows - {{ date }}</h1>
+        <!-- Updated with dropdowns: {{ date }} -->
         
         <div class="nav-links">
             <a href="/">← Home</a>
