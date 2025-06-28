@@ -73,6 +73,26 @@ class RTNDatabaseManager:
             )
         """)
         
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS betting_recommendations (
+                id SERIAL PRIMARY KEY,
+                race_date DATE,
+                race_number INTEGER,
+                horse_name VARCHAR(100),
+                program_number INTEGER,
+                live_odds VARCHAR(20),
+                adj_probability DECIMAL(5,2),
+                value_rating DECIMAL(10,2),
+                expected_value DECIMAL(10,2),
+                kelly_pct DECIMAL(5,2),
+                strategy_score DECIMAL(5,2),
+                recommend_bet BOOLEAN,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(race_date, race_number, horse_name)
+            )
+        """)
+        
         self.db_conn.commit()
         logger.info("Database tables ready")
     
@@ -128,6 +148,108 @@ class RTNDatabaseManager:
             WHERE id = %s
         """, (datetime.now(), session_id))
         self.db_conn.commit()
+    
+    def compute_betting_strategy(self, race_date, race_number, odds_data):
+        """Compute betting strategy for captured odds"""
+        try:
+            # Import betting strategy module
+            import sys
+            sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+            from betting_strategy import calculate_value_rating, calculate_expected_value, parse_odds, calculate_kelly_percentage
+            
+            cursor = self.db_conn.cursor()
+            recommendations = []
+            
+            for horse in odds_data:
+                # Get the most recent prediction for this horse if available
+                cursor.execute("""
+                    SELECT adj_odds FROM predictions
+                    WHERE race_date = %s AND race_number = %s 
+                    AND LOWER(horse_name) = LOWER(%s)
+                    ORDER BY created_at DESC LIMIT 1
+                """, (race_date, race_number, horse['horse_name']))
+                
+                result = cursor.fetchone()
+                if result and result[0]:
+                    adj_probability = result[0]
+                    decimal_odds = parse_odds(horse['odds'])
+                    
+                    if decimal_odds:
+                        # Calculate betting metrics
+                        value_rating = calculate_value_rating(adj_probability, horse['odds'])
+                        expected_value = calculate_expected_value(adj_probability, decimal_odds)
+                        kelly_pct = calculate_kelly_percentage(adj_probability, decimal_odds)
+                        
+                        # Calculate strategy score
+                        strategy_score = 0
+                        if value_rating and value_rating > 0:
+                            strategy_score += min(value_rating, 50)
+                        if expected_value and expected_value > 0:
+                            strategy_score += min(expected_value, 50)
+                            
+                        recommendation = {
+                            'horse_name': horse['horse_name'],
+                            'program_number': horse['program_number'],
+                            'live_odds': horse['odds'],
+                            'adj_probability': adj_probability,
+                            'value_rating': value_rating,
+                            'expected_value': expected_value,
+                            'kelly_pct': kelly_pct,
+                            'strategy_score': strategy_score,
+                            'recommend_bet': strategy_score >= 20
+                        }
+                        
+                        recommendations.append(recommendation)
+                        
+                        # Save to database
+                        cursor.execute("""
+                            INSERT INTO betting_recommendations 
+                            (race_date, race_number, horse_name, program_number, 
+                             live_odds, adj_probability, value_rating, expected_value,
+                             kelly_pct, strategy_score, recommend_bet)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (race_date, race_number, horse_name) 
+                            DO UPDATE SET
+                                live_odds = EXCLUDED.live_odds,
+                                value_rating = EXCLUDED.value_rating,
+                                expected_value = EXCLUDED.expected_value,
+                                kelly_pct = EXCLUDED.kelly_pct,
+                                strategy_score = EXCLUDED.strategy_score,
+                                recommend_bet = EXCLUDED.recommend_bet,
+                                updated_at = CURRENT_TIMESTAMP
+                        """, (race_date, race_number, horse['horse_name'], 
+                              horse['program_number'], horse['odds'], adj_probability,
+                              value_rating, expected_value, kelly_pct, 
+                              strategy_score, recommendation['recommend_bet']))
+                
+            self.db_conn.commit()
+            return recommendations
+            
+        except Exception as e:
+            logger.error(f"Error computing betting strategy: {e}")
+            return []
+    
+    def push_to_render(self):
+        """Push latest updates to Render deployment"""
+        try:
+            # Since data is already in the shared PostgreSQL database,
+            # Render will automatically see the updates
+            # We just need to trigger a refresh if there's a webhook
+            
+            render_webhook = os.getenv('RENDER_DEPLOY_WEBHOOK')
+            if render_webhook:
+                import requests
+                response = requests.post(render_webhook)
+                if response.status_code == 200:
+                    logger.info("Triggered Render deployment")
+                else:
+                    logger.warning(f"Render webhook returned {response.status_code}")
+            else:
+                # Data is already in the database, so the web app will see it
+                logger.info("Data pushed to database, available on Render")
+                
+        except Exception as e:
+            logger.error(f"Error pushing to Render: {e}")
     
     def close(self):
         """Close database connection"""
@@ -784,7 +906,8 @@ def main():
         session_id = db_manager.start_capture_session("Fair Meadows")
         
         # Capture loop
-        end_time = time.time() + (args.duration * 3600)
+        session_start_time = time.time()
+        end_time = session_start_time + (args.duration * 3600)
         race_number = 1
         
         while time.time() < end_time:
@@ -799,10 +922,31 @@ def main():
                     race_number, 
                     odds_data
                 )
+                
+                # Compute betting strategy for each horse
+                betting_recommendations = db_manager.compute_betting_strategy(
+                    datetime.now().date(),
+                    race_number,
+                    odds_data
+                )
+                
+                if betting_recommendations:
+                    logger.info(f"Computed betting strategy for {len(betting_recommendations)} horses")
+                    
+                # Push updates to Render
+                try:
+                    db_manager.push_to_render()
+                    logger.info("Successfully pushed updates to Render")
+                except Exception as e:
+                    logger.error(f"Failed to push to Render: {e}")
             
             # Wait between captures
-            time.sleep(300)  # 5 minutes
-            race_number += 1
+            time.sleep(60)  # 1 minute for more frequent updates
+            
+            # Check if we should move to next race (races typically last 20-30 minutes)
+            # Only increment race number if significant time has passed
+            if (time.time() - session_start_time) > (race_number * 1800):  # 30 minutes per race
+                race_number += 1
             
             # Max 10 races per session
             if race_number > 10:
