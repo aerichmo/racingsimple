@@ -332,34 +332,87 @@ class RTNCaptureHeadless:
             # First, let's see what's on the page after login
             self.take_screenshot("debug_after_login_page.png")
             
-            # Try to find Available Simulcasts or Schedule link
-            nav_links = [
-                "Available Simulcasts",
-                "Simulcast Schedule", 
-                "Schedule",
-                "Tracks",
-                "Live Racing"
+            # Look for Live Simulcasts button on the home page (NOT Available Simulcasts from menu)
+            live_simulcast_found = False
+            
+            # Try to find the green Live Simulcasts button
+            live_buttons = [
+                ("button", "Live Simulcasts"),
+                ("a", "Live Simulcasts"),
+                ("div", "Live Simulcasts"),
+                ("span", "Live Simulcasts")
             ]
             
-            for link_text in nav_links:
+            for tag, text in live_buttons:
                 try:
-                    link = self.driver.find_element(By.PARTIAL_LINK_TEXT, link_text)
-                    logger.info(f"Found {link_text} link, clicking...")
+                    # Find elements by exact text match
+                    elements = self.driver.find_elements(By.XPATH, f"//{tag}[text()='{text}']")
+                    if not elements:
+                        # Try contains for partial match
+                        elements = self.driver.find_elements(By.XPATH, f"//{tag}[contains(text(), '{text}')]")
+                    
+                    for elem in elements:
+                        # Skip if it's in the navigation menu (we want the button in the main content)
+                        parent_classes = elem.find_element(By.XPATH, "..").get_attribute("class") or ""
+                        if "nav" in parent_classes.lower() or "menu" in parent_classes.lower():
+                            continue
+                            
+                        logger.info(f"Found {text} button/link, clicking...")
+                        elem.click()
+                        time.sleep(5)  # Give more time for page to load
+                        self.take_screenshot("debug_live_simulcasts_page.png")
+                        live_simulcast_found = True
+                        
+                        # Log the new page URL
+                        logger.info(f"Current URL after clicking Live Simulcasts: {self.driver.current_url}")
+                        break
+                        
+                    if live_simulcast_found:
+                        break
+                        
+                except Exception as e:
+                    continue
+            
+            # If we couldn't find the button, try CSS selectors for green buttons
+            if not live_simulcast_found:
+                try:
+                    # Look for buttons with green styling that contain "Live"
+                    green_buttons = self.driver.find_elements(By.CSS_SELECTOR, "button.btn-success, a.btn-success, button.green, a.green")
+                    for button in green_buttons:
+                        if "Live Simulcasts" in button.text:
+                            logger.info("Found Live Simulcasts green button, clicking...")
+                            button.click()
+                            time.sleep(5)  # Give more time for page to load
+                            self.take_screenshot("debug_live_simulcasts_page.png")
+                            live_simulcast_found = True
+                            
+                            # Log the new page URL
+                            logger.info(f"Current URL after clicking Live Simulcasts: {self.driver.current_url}")
+                            break
+                except:
+                    pass
+            
+            # Fallback to Available Simulcasts if Live Simulcasts not found
+            if not live_simulcast_found:
+                logger.warning("Could not find Live Simulcasts button, trying Available Simulcasts link...")
+                try:
+                    link = self.driver.find_element(By.PARTIAL_LINK_TEXT, "Available Simulcasts")
+                    logger.info("Found Available Simulcasts link, clicking...")
                     link.click()
                     time.sleep(2)
-                    self.take_screenshot(f"debug_{link_text.lower().replace(' ', '_')}_page.png")
-                    break
+                    self.take_screenshot("debug_available_simulcasts_page.png")
                 except:
-                    continue
+                    logger.error("Could not find any simulcast links")
             
             # Now look for Fair Meadows
             track_names = [
+                "Fair Meadows At Tulsa",  # Exact text as shown
+                "Fair Meadows at Tulsa",  # Case variation
+                "FAIR MEADOWS AT TULSA",  # All caps
                 "Fair Meadows",
                 "FAIR MEADOWS", 
                 "FMT",
-                "Tulsa",
-                "Prairie Meadows",  # Sometimes confused with this
-                "PRAIRIE MEADOWS"
+                "Tulsa"
             ]
             
             for track_name in track_names:
@@ -461,9 +514,14 @@ class RTNCaptureHeadless:
                     
                 # Log all visible tracks
                 lines = visible_text.split('\n')
-                track_lines = [line for line in lines if any(word in line.lower() for word in ['park', 'downs', 'meadows', 'track', 'racing'])]
+                track_lines = [line for line in lines if any(word in line.lower() for word in ['park', 'downs', 'meadows', 'track', 'racing', 'tulsa', 'fair'])]
                 if track_lines:
-                    logger.info(f"All visible tracks/racing text: {track_lines[:10]}")
+                    logger.info(f"All visible tracks/racing text: {track_lines[:20]}")  # Show more tracks
+                    
+                # Also log any text containing "Fair" or "Tulsa"
+                fair_tulsa_lines = [line for line in lines if 'fair' in line.lower() or 'tulsa' in line.lower()]
+                if fair_tulsa_lines:
+                    logger.info(f"Lines containing Fair/Tulsa: {fair_tulsa_lines}")
                     
                     # Check for Fair Meadows season
                     from datetime import date
