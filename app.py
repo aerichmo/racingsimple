@@ -930,6 +930,10 @@ def delete_race_entry(race_date, race_number, program_number):
 @app.route('/races/<race_date>')
 def show_races_for_date(race_date):
     """Display races and betting recommendations for a specific date"""
+    # Only allow June 28, 2025
+    if race_date not in ['2025-06-28']:
+        return "Page not found", 404
+        
     try:
         DATABASE_URL = os.environ.get('DATABASE_URL')
         if not DATABASE_URL:
