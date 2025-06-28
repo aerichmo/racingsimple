@@ -526,6 +526,15 @@ class RTNCaptureHeadless:
             # Take screenshot to see available tracks
             self.take_screenshot("debug_available_tracks.png")
             
+            # Check again if we're on Fair Meadows page (in case we got there through any method)
+            try:
+                current_text = self.driver.find_element(By.TAG_NAME, "body").text
+                if "Today's races at Fair Meadows" in current_text or "Fair Meadows at Tulsa" in current_text:
+                    logger.info("Successfully on Fair Meadows stream page!")
+                    return True
+            except:
+                pass
+                
             # Log what tracks we can see
             try:
                 visible_text = self.driver.find_element(By.TAG_NAME, "body").text
@@ -577,6 +586,15 @@ class RTNCaptureHeadless:
                         logger.info(f"Fair Meadows season has ended (ended {fair_meadows_end})")
                     else:
                         logger.info("Fair Meadows should be in season but not showing on RTN")
+            except:
+                pass
+                
+            # Final check before giving up - are we on Fair Meadows page?
+            try:
+                final_text = self.driver.find_element(By.TAG_NAME, "body").text
+                if "Today's races at Fair Meadows" in final_text or "Fair Meadows at Tulsa" in final_text:
+                    logger.info("Final check: We ARE on Fair Meadows page!")
+                    return True
             except:
                 pass
             
@@ -647,7 +665,7 @@ class RTNCaptureHeadless:
                     # Look for any table or list containing horse names
                     tables = self.driver.find_elements(By.TAG_NAME, "table")
                     for table in tables:
-                        if "Runner" in table.text or "Horse" in table.text:
+                        if "Runner" in table.text or "Horse" in table.text or "ML Odds" in table.text:
                             rows = table.find_elements(By.TAG_NAME, "tr")
                             for row in rows[1:]:  # Skip header
                                 cells = row.find_elements(By.TAG_NAME, "td")
@@ -662,6 +680,35 @@ class RTNCaptureHeadless:
                                         horses_data.append(horse_info)
                                     except:
                                         pass
+                except:
+                    pass
+                    
+            # Method 3: Look for specific Fair Meadows layout
+            if not horses_data:
+                try:
+                    # Find elements that look like horse entries (numbered 1-14 with horse names)
+                    for i in range(1, 15):
+                        try:
+                            # Look for the row containing this program number
+                            xpath = f"//tr[td[text()='{i}']]"
+                            rows = self.driver.find_elements(By.XPATH, xpath)
+                            for row in rows:
+                                cells = row.find_elements(By.TAG_NAME, "td")
+                                if len(cells) >= 3 and cells[0].text.strip() == str(i):
+                                    horse_name = cells[1].text.strip()
+                                    odds = cells[2].text.strip() if len(cells) > 2 else "SCR"
+                                    if horse_name:  # Make sure we have a horse name
+                                        horse_info = {
+                                            'program_number': i,
+                                            'horse_name': horse_name,
+                                            'odds': odds,
+                                            'confidence': 95
+                                        }
+                                        horses_data.append(horse_info)
+                                        logger.info(f"Found horse {i}: {horse_name} @ {odds}")
+                                        break
+                        except:
+                            continue
                 except:
                     pass
                     
