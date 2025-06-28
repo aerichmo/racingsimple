@@ -440,7 +440,13 @@ class RTNCaptureHeadless:
                 except:
                     logger.error("Could not find any simulcast links at all")
             
-            # Now look for Fair Meadows
+            # Check if we're already on Fair Meadows page
+            current_page_text = self.driver.find_element(By.TAG_NAME, "body").text
+            if "Today's races at Fair Meadows" in current_page_text or "Fair Meadows at Tulsa" in current_page_text:
+                logger.info("Already on Fair Meadows stream page!")
+                return True
+                
+            # Now look for Fair Meadows link if not already there
             track_names = [
                 "Fair Meadows At Tulsa",  # Exact text as shown
                 "Fair Meadows at Tulsa",  # Case variation
@@ -581,27 +587,90 @@ class RTNCaptureHeadless:
             return False
     
     def capture_odds_data(self):
-        """Capture odds data from the page"""
+        """Capture odds data from the Fair Meadows page"""
         try:
             # Take full page screenshot
             self.take_screenshot("debug_race_page.png")
             
-            # Look for odds table or grid
-            odds_elements = self.driver.find_elements(By.CSS_SELECTOR, "table.odds, div.odds-grid, .race-odds")
-            
-            if odds_elements:
-                logger.info(f"Found {len(odds_elements)} odds elements")
-                for i, element in enumerate(odds_elements):
-                    self.capture_element_screenshot(element, f"debug_odds_{i}.png")
-                    
-                    # Get text content
-                    text_content = element.text
-                    logger.info(f"Odds text: {text_content[:200]}...")
-                    
-                    return self._parse_odds_text(text_content)
-            else:
-                logger.warning("No odds elements found")
+            # First check if we're on a race page
+            page_text = self.driver.find_element(By.TAG_NAME, "body").text
+            if "Race" not in page_text:
+                logger.warning("Not on a race page")
                 return []
+                
+            # Extract race number from page
+            race_number = None
+            for line in page_text.split('\n'):
+                if line.startswith("Race ") and any(c.isdigit() for c in line):
+                    try:
+                        race_number = int(''.join(c for c in line.split()[1] if c.isdigit()))
+                        logger.info(f"Capturing data for Race {race_number}")
+                        break
+                    except:
+                        pass
+                        
+            # Look for horse entries - Fair Meadows uses a specific format
+            horses_data = []
+            
+            # Method 1: Look for numbered rows (program numbers)
+            for i in range(1, 15):  # Up to 14 horses
+                try:
+                    # Find elements containing the program number
+                    program_elements = self.driver.find_elements(By.XPATH, f"//td[text()='{i}'] | //div[text()='{i}']")
+                    
+                    for elem in program_elements:
+                        try:
+                            # Get the parent row/container
+                            parent = elem.find_element(By.XPATH, "..")
+                            row_text = parent.text
+                            
+                            # Parse horse info from row
+                            parts = row_text.split()
+                            if len(parts) >= 3:  # Program, Horse Name, ML Odds
+                                horse_info = {
+                                    'program_number': i,
+                                    'horse_name': ' '.join(parts[1:-1]),  # Everything between program and odds
+                                    'odds': parts[-1],
+                                    'confidence': 80
+                                }
+                                horses_data.append(horse_info)
+                                logger.info(f"Found horse: {horse_info}")
+                                break
+                        except:
+                            continue
+                except:
+                    continue
+                    
+            # Method 2: Look for the race entries table/list
+            if not horses_data:
+                try:
+                    # Look for any table or list containing horse names
+                    tables = self.driver.find_elements(By.TAG_NAME, "table")
+                    for table in tables:
+                        if "Runner" in table.text or "Horse" in table.text:
+                            rows = table.find_elements(By.TAG_NAME, "tr")
+                            for row in rows[1:]:  # Skip header
+                                cells = row.find_elements(By.TAG_NAME, "td")
+                                if len(cells) >= 3:
+                                    try:
+                                        horse_info = {
+                                            'program_number': int(cells[0].text.strip()),
+                                            'horse_name': cells[1].text.strip(),
+                                            'odds': cells[2].text.strip() if len(cells) > 2 else "SCR",
+                                            'confidence': 90
+                                        }
+                                        horses_data.append(horse_info)
+                                    except:
+                                        pass
+                except:
+                    pass
+                    
+            if horses_data:
+                logger.info(f"Captured {len(horses_data)} horses for race {race_number}")
+            else:
+                logger.warning("No horse data found on page")
+                
+            return horses_data
                 
         except Exception as e:
             logger.error(f"Error capturing odds: {e}")
