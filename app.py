@@ -1258,6 +1258,22 @@ def show_races_for_date(race_date):
     except Exception as e:
         return f"Error: {str(e)}", 500
 
+@app.route('/debug/routes')
+def debug_routes():
+    """Debug endpoint to list all routes"""
+    import urllib
+    output = []
+    for rule in app.url_map.iter_rules():
+        options = {}
+        for arg in rule.arguments:
+            options[arg] = "[{0}]".format(arg)
+        methods = ','.join(rule.methods)
+        url = urllib.parse.unquote(rule.rule)
+        line = "{:50s} {:20s} {}".format(rule.endpoint, methods, url)
+        output.append(line)
+    
+    return '<pre>' + '\n'.join(sorted(output)) + '</pre>'
+
 @app.route('/health')
 def health():
     """Health check endpoint for Render"""
