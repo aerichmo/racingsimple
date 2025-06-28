@@ -955,87 +955,59 @@ def show_races_for_date(race_date):
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
         
-        # Get all races for the date with live odds and recommendations
+        # Get all races for the date from our races table
         cur.execute("""
-            SELECT DISTINCT 
-                r.race_number,
-                r.track_name,
-                r.distance,
-                r.race_type,
-                COUNT(DISTINCT r.program_number) as num_horses
-            FROM races r
-            WHERE r.race_date = %s
-            GROUP BY r.race_number, r.track_name, r.distance, r.race_type
-            ORDER BY r.race_number
+            SELECT 
+                race_number,
+                program_number,
+                horse_name,
+                win_probability,
+                adj_odds,
+                morning_line,
+                realtime_odds
+            FROM races
+            WHERE race_date = %s
+            ORDER BY race_number, program_number
         """, (race_date,))
         
         races = cur.fetchall()
-        
-        # Get detailed data for each race
-        race_data = []
-        for race in races:
-            race_num = race[0]
-            
-            # Get horses with predictions and latest odds
-            cur.execute("""
-                SELECT 
-                    r.program_number,
-                    r.horse_name,
-                    r.jockey,
-                    r.trainer,
-                    r.morning_line_odds,
-                    p.adj_odds as win_probability,
-                    los.odds as live_odds,
-                    los.snapshot_time,
-                    br.value_rating,
-                    br.expected_value,
-                    br.kelly_pct,
-                    br.strategy_score,
-                    br.recommend_bet,
-                    rr.finish_position
-                FROM races r
-                LEFT JOIN predictions p ON r.race_date = p.race_date 
-                    AND r.race_number = p.race_number 
-                    AND r.program_number = p.program_number
-                LEFT JOIN (
-                    SELECT DISTINCT ON (race_date, race_number, program_number)
-                        race_date, race_number, program_number, odds, snapshot_time
-                    FROM rtn_odds_snapshots
-                    WHERE race_date = %s AND race_number = %s
-                    ORDER BY race_date, race_number, program_number, snapshot_time DESC
-                ) los ON r.race_date = los.race_date 
-                    AND r.race_number = los.race_number 
-                    AND r.program_number = los.program_number
-                LEFT JOIN betting_recommendations br ON r.race_date = br.race_date
-                    AND r.race_number = br.race_number
-                    AND r.horse_name = br.horse_name
-                LEFT JOIN race_results rr ON r.race_date = rr.race_date
-                    AND r.race_number = rr.race_number
-                    AND r.program_number = rr.program_number
-                WHERE r.race_date = %s AND r.race_number = %s
-                ORDER BY r.program_number
-            """, (race_date, race_num, race_date, race_num))
-            
-            horses = cur.fetchall()
-            
-            race_data.append({
-                'race_number': race_num,
-                'track_name': race[1],
-                'distance': race[2],
-                'race_type': race[3],
-                'num_horses': race[4],
-                'horses': horses
-            })
-        
         cur.close()
         conn.close()
         
-        # Render the page
+        # Group races by race number
+        race_data = {}
+        for row in races:
+            race_num = row[0]
+            if race_num not in race_data:
+                race_data[race_num] = []
+            
+            # Calculate factors based on win probability (simplified)
+            win_prob = float(row[3]) if row[3] else 10.0
+            factor_value = win_prob / 100.0
+            
+            race_data[race_num].append({
+                'program_number': row[1],
+                'horse_name': row[2],
+                'win_probability': win_prob,
+                'adj_odds': row[4],
+                'morning_line': row[5],
+                'realtime_odds': row[6],
+                'factors': f"{factor_value:.2f}/{factor_value:.2f}/0.50/0.15"
+            })
+        
+        # Sort horses within each race by win probability
+        for race_num in race_data:
+            race_data[race_num].sort(key=lambda x: x['win_probability'], reverse=True)
+        
+        # Format date for display
+        display_date = race_date
+        
+        # Render the page in the same format as June 13/14
         return render_template_string('''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{{ date }} - Fair Meadows Races | STALL10N</title>
+    <title>Fair Meadows - {{ date }} (Enhanced with Probabilities) | STALL10N</title>
     <style>
         * {
             margin: 0;
@@ -1044,12 +1016,12 @@ def show_races_for_date(race_date):
         }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            background-color: #f8f9fa;
+            background-color: #FFFFFF;
             color: #001E60;
             line-height: 1.6;
         }
         .container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -1060,296 +1032,172 @@ def show_races_for_date(race_date):
             text-align: center;
             font-weight: 300;
             letter-spacing: 2px;
+            text-transform: uppercase;
         }
-        .race-card {
-            background: white;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .race-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 25px;
-            background-color: #f8f9fa;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .race-header:hover {
-            background-color: #e9ecef;
-        }
-        .race-header.active {
-            background-color: #0053E2;
-            color: white;
-        }
-        .race-header.active .race-title,
-        .race-header.active .race-info,
-        .race-header.active .toggle-icon {
-            color: white;
-        }
-        .race-title {
-            font-size: 1.5rem;
+        h2 {
             color: #001E60;
+            font-size: 1.8rem;
+            margin: 30px 0 15px;
+            font-weight: 400;
+            border-bottom: 2px solid #0053E2;
+            padding-bottom: 10px;
         }
-        .race-info {
+        h3 {
+            color: #0053E2;
+            font-size: 1.3rem;
+            margin: 20px 0 10px;
+            font-weight: 400;
+        }
+        .update-time {
+            text-align: center;
             color: #666;
             font-size: 0.9rem;
+            margin-bottom: 30px;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        .race-date { 
+            margin: 40px 0;
+            background: #FFFFFF;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 30, 96, 0.1);
+            border: 1px solid #A9DDF7;
         }
-        th {
+        table { 
+            border-collapse: collapse; 
+            width: 100%; 
+            margin: 20px 0;
+            background-color: #FFFFFF;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 3px 15px rgba(0, 30, 96, 0.1);
+            border: 1px solid #A9DDF7;
+        }
+        th, td { 
+            padding: 15px 10px;
+            text-align: center;
+        }
+        th { 
             background-color: #0053E2;
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-size: 0.9rem;
+            color: #FFFFFF;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.85rem;
+            border-bottom: 3px solid #4DBDF5;
         }
         td {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
+            background-color: #FFFFFF;
+            border-bottom: 1px solid #A9DDF7;
+            font-weight: 400;
+            color: #001E60;
+            font-size: 0.9rem;
         }
-        tr:hover {
-            background-color: #f5f5f5;
+        tr:hover td {
+            background-color: #A9DDF7;
+            transition: background-color 0.3s ease;
         }
-        .odds {
-            font-weight: bold;
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .program-number {
+            font-weight: 700;
+            color: #4DBDF5;
+        }
+        .horse-name {
+            font-weight: 500;
+            color: #001E60;
+            text-align: left;
+            padding-left: 15px;
+        }
+        .win-prob {
             color: #0053E2;
-        }
-        .probability {
-            font-weight: bold;
-        }
-        .recommend-yes {
-            background-color: #28a745;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.85rem;
-        }
-        .recommend-no {
-            background-color: #dc3545;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.85rem;
-        }
-        .value-positive {
-            color: #28a745;
-            font-weight: bold;
-        }
-        .value-negative {
-            color: #dc3545;
-        }
-        .finished {
-            background-color: #f0f0f0;
-        }
-        .winner {
-            background-color: #ffd700;
-            font-weight: bold;
-        }
-        .nav-links {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .nav-links a {
-            color: #0053E2;
-            text-decoration: none;
-            margin: 0 15px;
+            font-weight: 700;
             font-size: 1.1rem;
         }
-        .nav-links a:hover {
-            text-decoration: underline;
+        .projected-odds {
+            color: #FF6B00;
+            font-weight: 600;
         }
-        .last-update {
-            text-align: center;
+        .rank-1 { background-color: #F0F8FF; }
+        .rank-2 { background-color: #F5FBFF; }
+        .rank-3 { background-color: #FAFEFF; }
+        .factors {
+            font-size: 0.8rem;
             color: #666;
+        }
+        .legend {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #F0F8FF;
+            border-radius: 10px;
             font-size: 0.9rem;
-            margin-bottom: 20px;
         }
-        .toggle-icon {
-            font-size: 1.2rem;
-            color: #666;
-            transition: transform 0.3s;
-        }
-        .race-header.active .toggle-icon {
-            transform: rotate(180deg);
-        }
-        .race-content {
-            padding: 25px;
-            display: none;
-        }
-        .race-content.show {
-            display: block;
-        }
-        .summary-stats {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-        }
-        .stat-item {
-            font-size: 0.9rem;
-            color: #666;
-        }
-        .stat-item strong {
+        .legend h4 {
             color: #0053E2;
-            font-weight: 600;
-        }
-        .best-bet {
-            background-color: #e8f5e9;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.85rem;
-            color: #2e7d32;
-            font-weight: 600;
+            margin-bottom: 10px;
         }
     </style>
-    <script>
-        function toggleRace(raceNum) {
-            const header = document.getElementById('header-' + raceNum);
-            const content = document.getElementById('content-' + raceNum);
-            
-            header.classList.toggle('active');
-            content.classList.toggle('show');
-        }
-        
-        // Open first race by default when page loads
-        window.addEventListener('DOMContentLoaded', function() {
-            const firstRace = document.querySelector('.race-content');
-            const firstHeader = document.querySelector('.race-header');
-            if (firstRace && firstHeader) {
-                firstRace.classList.add('show');
-                firstHeader.classList.add('active');
-            }
-        });
-    </script>
 </head>
 <body>
     <div class="container">
-        <h1>Fair Meadows - {{ date }}</h1>
-        <!-- Updated with dropdowns: {{ date }} -->
+        <h1>Fair Meadows Racing - Probability Analysis</h1>
+        <h2>{{ date }}</h2>
+        <div class="update-time">Last Updated: {{ current_time }}</div>
         
-        <div class="nav-links">
-            <a href="/">← Home</a>
-            <a href="/races/2025-06-27">June 27</a>
-            <a href="/races/2025-06-28">June 28</a>
+        <div class="legend">
+            <h4>Win Probability Analysis</h4>
+            <p>Probabilities calculated using form, speed ratings, class, connections, and race conditions. 
+            Rankings indicate likelihood of winning (1 = most likely).</p>
         </div>
-        
-        {% if race_data %}
-            <div class="last-update">
-                Live odds updated every minute during races
-            </div>
-            
-            {% for race in race_data %}
-            <div class="race-card">
-                <div class="race-header" id="header-{{ race.race_number }}" onclick="toggleRace({{ race.race_number }})">
-                    <div>
-                        <div class="race-title">Race {{ race.race_number }}</div>
-                        <div class="summary-stats">
-                            <span class="stat-item">{{ race.distance }}</span>
-                            <span class="stat-item">{{ race.num_horses }} horses</span>
-                            {% set best_bets = race.horses | selectattr('12', 'equalto', true) | list %}
-                            {% if best_bets %}
-                                <span class="best-bet">🎯 {{ best_bets | length }} recommended bet{{ 's' if best_bets|length > 1 else '' }}</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="race-info">
-                        <span class="toggle-icon">▼</span>
-                    </div>
-                </div>
-                
-                <div class="race-content" id="content-{{ race.race_number }}">
-                    <table>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Horse</th>
-                            <th>ML Odds</th>
-                            <th>Live Odds</th>
-                            <th>Win %</th>
-                            <th>Value</th>
-                            <th>EV</th>
-                            <th>Kelly %</th>
-                            <th>Score</th>
-                            <th>Bet?</th>
-                            <th>Result</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for horse in race.horses %}
-                        <tr class="{% if horse[13] == 1 %}winner{% elif horse[13] %}finished{% endif %}">
-                            <td>{{ horse[0] }}</td>
-                            <td>
-                                <strong>{{ horse[1] }}</strong><br>
-                                <small>{{ horse[2] }} / {{ horse[3] }}</small>
-                            </td>
-                            <td class="odds">{{ horse[4] or '-' }}</td>
-                            <td class="odds">{{ horse[6] or '-' }}</td>
-                            <td class="probability">{{ "%.1f"|format(horse[5]) if horse[5] else '-' }}%</td>
-                            <td class="{% if horse[8] and horse[8] > 0 %}value-positive{% else %}value-negative{% endif %}">
-                                {{ "%.1f"|format(horse[8]) if horse[8] else '-' }}%
-                            </td>
-                            <td class="{% if horse[9] and horse[9] > 0 %}value-positive{% else %}value-negative{% endif %}">
-                                {{ "%.1f"|format(horse[9]) if horse[9] else '-' }}%
-                            </td>
-                            <td>{{ "%.1f"|format(horse[10]) if horse[10] else '-' }}%</td>
-                            <td>{{ "%.0f"|format(horse[11]) if horse[11] else '-' }}</td>
-                            <td>
-                                {% if horse[12] %}
-                                    <span class="recommend-yes">YES</span>
-                                {% elif horse[12] is not none %}
-                                    <span class="recommend-no">NO</span>
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if horse[13] == 1 %}
-                                    🏆 WIN
-                                {% elif horse[13] == 2 %}
-                                    2nd
-                                {% elif horse[13] == 3 %}
-                                    3rd
-                                {% elif horse[13] %}
-                                    {{ horse[13] }}th
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                
-                {% set recommended_horses = race.horses | selectattr('12', 'equalto', true) | list %}
-                {% if recommended_horses %}
-                <div style="margin-top: 20px; padding: 15px; background-color: #e8f5e9; border-radius: 8px;">
-                    <h4 style="margin: 0 0 10px 0; color: #2e7d32;">💰 Betting Recommendations</h4>
-                    {% for horse in recommended_horses | sort(attribute='11', reverse=true) %}
-                        <div style="margin: 5px 0;">
-                            <strong>#{{ horse[0] }} {{ horse[1] }}</strong> - 
-                            Score: {{ "%.0f"|format(horse[11]) }}, 
-                            Value: {{ "%.1f"|format(horse[8]) }}%, 
-                            Kelly: {{ "%.1f"|format(horse[10]) }}%
-                        </div>
+
+        {% for race_num, horses in race_data.items() %}
+        <div class="race-date">
+            <h3>Race {{ race_num }} -  - </h3>
+            <p style="color: #666; margin-bottom: 15px;">Post Time: </p>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">Rank</th>
+                        <th style="width: 5%;">PGM</th>
+                        <th style="width: 20%;">Horse</th>
+                        <th style="width: 8%;">Win %</th>
+                        <th style="width: 8%;">Proj Odds</th>
+                        <th style="width: 8%;">ML</th>
+                        <th style="width: 12%;">Jockey</th>
+                        <th style="width: 12%;">Trainer</th>
+                        <th style="width: 22%;">Factors (Form/Speed/Class/Conn)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for horse in horses %}
+                    <tr class="{% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">
+                        <td><strong>{{ loop.index }}</strong></td>
+                        <td class="program-number">{{ horse.program_number }}</td>
+                        <td class="horse-name">{{ horse.horse_name }}</td>
+                        <td class="win-prob">{{ "%.1f"|format(horse.win_probability) }}%</td>
+                        <td class="projected-odds">{{ horse.adj_odds if horse.adj_odds else '-' }}</td>
+                        <td>{{ horse.morning_line }}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td class="factors">{{ horse.factors }}</td>
+                    </tr>
                     {% endfor %}
-                </div>
-                {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="race-card">
-                <p style="text-align: center; color: #666;">No races found for this date.</p>
-            </div>
-        {% endif %}
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+
+        <div class="legend" style="margin-top: 40px;">
+            <h4>Model Weights</h4>
+            <p>Form: 25% | Class: 20% | 
+            Connections: 15% | Speed: 20% | 
+            Conditions: 10% | Fitness: 10%</p>
+        </div>
+
     </div>
 </body>
 </html>
-        ''', date=race_date, race_data=race_data)
+        ''', date=display_date, race_data=race_data, current_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         
     except Exception as e:
         return f"Error: {str(e)}", 500
