@@ -113,9 +113,19 @@ class RTNDatabaseManager:
     def save_odds_snapshot(self, session_id, race_date, race_number, odds_data):
         """Save odds snapshot to database"""
         cursor = self.db_conn.cursor()
+        saved_count = 0
+        
+        # Debug: Log what we received
+        logger.info(f"Received {len(odds_data)} horses to save for race {race_number}")
+        for i, horse in enumerate(odds_data[:3]):  # Show first 3
+            logger.info(f"  Horse {i}: {horse}")
         
         for horse in odds_data:
             try:
+                # Debug: Log what we're about to save
+                logger.info(f"Saving horse data: pgm={horse.get('program_number')}, "
+                           f"name='{horse.get('horse_name')}', odds='{horse.get('odds')}'")
+                
                 cursor.execute("""
                     INSERT INTO rtn_odds_snapshots 
                     (session_id, race_date, race_number, program_number, 
@@ -133,11 +143,21 @@ class RTNDatabaseManager:
                     horse.get('confidence', 90),
                     datetime.now()
                 ))
+                saved_count += 1
             except Exception as e:
                 logger.error(f"Error saving odds: {e}")
+                # Rollback the transaction to clear the error state
+                self.db_conn.rollback()
+                # Start a new transaction
+                cursor = self.db_conn.cursor()
         
-        self.db_conn.commit()
-        logger.info(f"Saved {len(odds_data)} odds entries")
+        try:
+            self.db_conn.commit()
+        except Exception as e:
+            logger.error(f"Error committing transaction: {e}")
+            self.db_conn.rollback()
+            
+        return saved_count
     
     def end_capture_session(self, session_id):
         """End capture session"""
@@ -160,18 +180,49 @@ class RTNDatabaseManager:
             cursor = self.db_conn.cursor()
             recommendations = []
             
+            # First check if predictions table exists
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'predictions'
+                )
+            """)
+            
+            predictions_exists = cursor.fetchone()[0]
+            
             for horse in odds_data:
-                # Get the most recent prediction for this horse if available
-                cursor.execute("""
-                    SELECT adj_odds FROM predictions
-                    WHERE race_date = %s AND race_number = %s 
-                    AND LOWER(horse_name) = LOWER(%s)
-                    ORDER BY created_at DESC LIMIT 1
-                """, (race_date, race_number, horse['horse_name']))
+                adj_probability = None
                 
-                result = cursor.fetchone()
-                if result and result[0]:
-                    adj_probability = result[0]
+                if predictions_exists:
+                    # Get the most recent prediction for this horse if available
+                    try:
+                        cursor.execute("""
+                            SELECT adj_odds FROM predictions
+                            WHERE race_date = %s AND race_number = %s 
+                            AND LOWER(horse_name) = LOWER(%s)
+                            ORDER BY created_at DESC LIMIT 1
+                        """, (race_date, race_number, horse['horse_name']))
+                        
+                        result = cursor.fetchone()
+                        if result and result[0]:
+                            adj_probability = result[0]
+                    except Exception as e:
+                        logger.debug(f"No prediction found for {horse['horse_name']}: {e}")
+                
+                # If no prediction, use a simple model based on odds
+                if not adj_probability:
+                    decimal_odds = parse_odds(horse['odds'])
+                    if decimal_odds:
+                        # Convert market odds to implied probability
+                        market_prob = 100 / decimal_odds
+                        # Add a small edge for favorites (simple heuristic)
+                        if market_prob > 30:
+                            adj_probability = market_prob + 5
+                        else:
+                            adj_probability = market_prob
+                
+                if adj_probability:
                     decimal_odds = parse_odds(horse['odds'])
                     
                     if decimal_odds:
@@ -727,123 +778,173 @@ class RTNCaptureHeadless:
             return False
     
     def capture_odds_data(self):
-        """Capture odds data from the Fair Meadows page"""
+        """Capture odds data from RTN odds board"""
         try:
-            # Take full page screenshot
+            logger.info(">>> NEW CAPTURE METHOD v2 <<<")
+            # Take screenshot for debugging
             self.take_screenshot("debug_race_page.png")
             
-            # First check if we're on a race page
+            # Verify we're on a race page
             page_text = self.driver.find_element(By.TAG_NAME, "body").text
             if "Race" not in page_text:
                 logger.warning("Not on a race page")
                 return []
-                
-            # Extract race number from page
-            race_number = None
-            for line in page_text.split('\n'):
-                if line.startswith("Race ") and any(c.isdigit() for c in line):
-                    try:
-                        race_number = int(''.join(c for c in line.split()[1] if c.isdigit()))
-                        logger.info(f"Capturing data for Race {race_number}")
-                        break
-                    except:
-                        pass
-                        
-            # Look for horse entries - Fair Meadows uses a specific format
+            
+            # Extract race number
+            race_number = self._extract_race_number(page_text)
+            if race_number:
+                logger.info(f"Capturing Race {race_number}")
+            
             horses_data = []
             
-            # Method 1: Look for numbered rows (program numbers)
-            for i in range(1, 15):  # Up to 14 horses
-                try:
-                    # Find elements containing the program number
-                    program_elements = self.driver.find_elements(By.XPATH, f"//td[text()='{i}'] | //div[text()='{i}']")
-                    
-                    for elem in program_elements:
-                        try:
-                            # Get the parent row/container
-                            parent = elem.find_element(By.XPATH, "..")
-                            row_text = parent.text
-                            
-                            # Parse horse info from row
-                            parts = row_text.split()
-                            if len(parts) >= 3:  # Program, Horse Name, ML Odds
-                                horse_info = {
-                                    'program_number': i,
-                                    'horse_name': ' '.join(parts[1:-1]),  # Everything between program and odds
-                                    'odds': parts[-1],
-                                    'confidence': 80
-                                }
-                                horses_data.append(horse_info)
-                                logger.info(f"Found horse: {horse_info}")
-                                break
-                        except:
-                            continue
-                except:
-                    continue
-                    
-            # Method 2: Look for the race entries table/list
+            # Primary method: Capture from odds board (upper left)
+            horses_data = self._capture_odds_board()
+            
+            # If no odds board found, try table view
             if not horses_data:
-                try:
-                    # Look for any table or list containing horse names
-                    tables = self.driver.find_elements(By.TAG_NAME, "table")
-                    for table in tables:
-                        if "Runner" in table.text or "Horse" in table.text or "ML Odds" in table.text:
-                            rows = table.find_elements(By.TAG_NAME, "tr")
-                            for row in rows[1:]:  # Skip header
-                                cells = row.find_elements(By.TAG_NAME, "td")
-                                if len(cells) >= 3:
-                                    try:
-                                        horse_info = {
-                                            'program_number': int(cells[0].text.strip()),
-                                            'horse_name': cells[1].text.strip(),
-                                            'odds': cells[2].text.strip() if len(cells) > 2 else "SCR",
-                                            'confidence': 90
-                                        }
-                                        horses_data.append(horse_info)
-                                    except:
-                                        pass
-                except:
-                    pass
-                    
-            # Method 3: Look for specific Fair Meadows layout
-            if not horses_data:
-                try:
-                    # Find elements that look like horse entries (numbered 1-14 with horse names)
-                    for i in range(1, 15):
-                        try:
-                            # Look for the row containing this program number
-                            xpath = f"//tr[td[text()='{i}']]"
-                            rows = self.driver.find_elements(By.XPATH, xpath)
-                            for row in rows:
-                                cells = row.find_elements(By.TAG_NAME, "td")
-                                if len(cells) >= 3 and cells[0].text.strip() == str(i):
-                                    horse_name = cells[1].text.strip()
-                                    odds = cells[2].text.strip() if len(cells) > 2 else "SCR"
-                                    if horse_name:  # Make sure we have a horse name
-                                        horse_info = {
-                                            'program_number': i,
-                                            'horse_name': horse_name,
-                                            'odds': odds,
-                                            'confidence': 95
-                                        }
-                                        horses_data.append(horse_info)
-                                        logger.info(f"Found horse {i}: {horse_name} @ {odds}")
-                                        break
-                        except:
-                            continue
-                except:
-                    pass
-                    
+                horses_data = self._capture_table_view()
+            
+            # Try to get horse names from race card
             if horses_data:
-                logger.info(f"Captured {len(horses_data)} horses for race {race_number}")
+                self._update_horse_names(horses_data)
+            
+            if horses_data:
+                logger.info(f"Captured {len(horses_data)} entries")
             else:
-                logger.warning("No horse data found on page")
+                logger.warning("No odds data found")
                 
             return horses_data
                 
         except Exception as e:
             logger.error(f"Error capturing odds: {e}")
             return []
+    
+    def _extract_race_number(self, page_text):
+        """Extract race number from page text"""
+        for line in page_text.split('\n'):
+            if line.startswith("Race ") and any(c.isdigit() for c in line):
+                try:
+                    return int(''.join(c for c in line.split()[1] if c.isdigit()))
+                except:
+                    pass
+        return None
+    
+    def _capture_odds_board(self):
+        """Capture from the colored odds board in upper left"""
+        horses_data = []
+        logger.info(">>> CAPTURE ODDS BOARD METHOD <<<")
+        logger.info("Looking for odds board...")
+        
+        try:
+            # Look for odds in colored cells (typical RTN layout)
+            for pgm in range(1, 15):  # Program numbers 1-14
+                try:
+                    # Find colored cell with program number
+                    selectors = [
+                        f"//td[contains(@style, 'background') and normalize-space(text())='{pgm}']",
+                        f"//div[contains(@class, 'odds') and contains(text(), '{pgm}')]"
+                    ]
+                    
+                    for selector in selectors:
+                        try:
+                            elem = self.driver.find_element(By.XPATH, selector)
+                            parent = elem.find_element(By.XPATH, "..")
+                            cells = parent.find_elements(By.XPATH, ".//td")
+                            
+                            if len(cells) >= 2:
+                                # First cell is program, second is odds
+                                if cells[0].text.strip() == str(pgm):
+                                    odds = cells[1].text.strip()
+                                    if odds and odds != "SCR":
+                                        # Convert single number to odds format
+                                        if odds.isdigit() and int(odds) > 10:
+                                            odds = f"{odds}-1"
+                                        
+                                        horses_data.append({
+                                            'program_number': pgm,
+                                            'horse_name': f'Horse #{pgm}',
+                                            'odds': odds,
+                                            'confidence': 100
+                                        })
+                                        logger.info(f"Odds board: #{pgm} @ {odds}")
+                                        break
+                        except:
+                            continue
+                except:
+                    continue
+                    
+        except Exception as e:
+            logger.debug(f"Odds board capture error: {e}")
+            
+        return horses_data
+    
+    def _capture_table_view(self):
+        """Capture from table view (fallback method)"""
+        horses_data = []
+        logger.info("Looking for table view...")
+        
+        try:
+            tables = self.driver.find_elements(By.TAG_NAME, "table")
+            for table in tables:
+                # Look for race data tables
+                if any(word in table.text.upper() for word in ["ODDS", "MTP", "FIELD"]):
+                    rows = table.find_elements(By.TAG_NAME, "tr")
+                    for row in rows[1:]:  # Skip header
+                        cells = row.find_elements(By.TAG_NAME, "td")
+                        if len(cells) >= 2:
+                            try:
+                                pgm_text = cells[0].text.strip()
+                                if pgm_text.isdigit():
+                                    pgm = int(pgm_text)
+                                    odds = cells[1].text.strip()
+                                    
+                                    # Get horse name if available
+                                    horse_name = cells[2].text.strip() if len(cells) > 2 else f"Horse #{pgm}"
+                                    
+                                    if odds and odds != "SCR":
+                                        horses_data.append({
+                                            'program_number': pgm,
+                                            'horse_name': horse_name,
+                                            'odds': odds,
+                                            'confidence': 95
+                                        })
+                                        logger.info(f"Table: #{pgm} @ {odds}")
+                            except:
+                                pass
+        except Exception as e:
+            logger.debug(f"Table view capture error: {e}")
+            
+        return horses_data
+    
+    def _update_horse_names(self, horses_data):
+        """Try to get real horse names from race card"""
+        try:
+            # Look for race card entries
+            entries = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'ML Odds:')]")
+            
+            for entry in entries:
+                text = entry.text.strip()
+                if text and text[0].isdigit():
+                    try:
+                        # Parse "1  R Cowgirl  ML Odds: 5/2"
+                        parts = text.split("ML Odds:")
+                        if len(parts) == 2:
+                            name_part = parts[0].strip()
+                            name_parts = name_part.split(None, 1)
+                            if len(name_parts) == 2 and name_parts[0].isdigit():
+                                pgm = int(name_parts[0])
+                                horse_name = name_parts[1].strip()
+                                
+                                # Update matching entry
+                                for horse in horses_data:
+                                    if horse['program_number'] == pgm:
+                                        horse['horse_name'] = horse_name
+                                        logger.debug(f"Updated #{pgm} name: {horse_name}")
+                                        break
+                    except:
+                        pass
+        except:
+            pass  # Names are optional, don't fail if not found
     
     def _parse_odds_text(self, text):
         """Parse odds from text content"""
@@ -916,12 +1017,13 @@ def main():
             # Capture odds
             odds_data = capture.capture_odds_data()
             if odds_data:
-                db_manager.save_odds_snapshot(
+                saved_count = db_manager.save_odds_snapshot(
                     session_id, 
                     datetime.now().date(), 
                     race_number, 
                     odds_data
                 )
+                logger.info(f"Saved {saved_count} odds entries")
                 
                 # Compute betting strategy for each horse
                 betting_recommendations = db_manager.compute_betting_strategy(
