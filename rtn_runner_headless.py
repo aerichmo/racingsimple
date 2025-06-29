@@ -816,6 +816,10 @@ class RTNCaptureHeadless:
             if race_number:
                 logger.info(f"Capturing Race {race_number}")
             
+            # Wait a bit for dynamic content to load
+            logger.info("Waiting 3 seconds for dynamic content...")
+            time.sleep(3)
+            
             horses_data = []
             
             # Primary method: Capture from odds board (upper left)
@@ -880,10 +884,30 @@ class RTNCaptureHeadless:
             if all_tables:
                 first_table = all_tables[0]
                 logger.info(f"First table text (first 200 chars): {first_table.text[:200]}")
+                # Check if any table has content
+                for i, table in enumerate(all_tables[:3]):  # Check first 3 tables
+                    if table.text.strip():
+                        logger.info(f"Table {i} has content: {table.text[:100]}")
                 
             # Check for iframes - RTN might use iframes for video/odds
             iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
             logger.info(f"Found {len(iframes)} iframes on page")
+            
+            # Check for canvas elements (might be rendering odds on canvas)
+            canvas_elements = self.driver.find_elements(By.TAG_NAME, "canvas")
+            logger.info(f"Found {len(canvas_elements)} canvas elements")
+            
+            # Check for any divs with odds-like content
+            divs_with_numbers = self.driver.find_elements(By.XPATH, "//div[contains(text(), '/') or contains(text(), '-')]")
+            logger.info(f"Found {len(divs_with_numbers)} divs with '/' or '-' (potential odds)")
+            
+            # Look for any element with race information
+            race_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Race ')]")
+            if race_elements:
+                logger.info(f"Found {len(race_elements)} elements with 'Race' text")
+                # Log the first one
+                if race_elements[0].text:
+                    logger.info(f"First race element: {race_elements[0].text[:100]}")
             
             # Look for odds in colored cells (typical RTN layout)
             for pgm in range(1, 15):  # Program numbers 1-14
