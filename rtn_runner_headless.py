@@ -834,13 +834,23 @@ class RTNCaptureHeadless:
         logger.info("Looking for odds board...")
         
         try:
+            # Debug: Log what tables we find
+            all_tables = self.driver.find_elements(By.TAG_NAME, "table")
+            logger.debug(f"Found {len(all_tables)} tables on page")
+            
+            # Look for ODDS text
+            odds_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'ODDS')]")
+            logger.debug(f"Found {len(odds_elements)} elements with 'ODDS' text")
             # Look for odds in colored cells (typical RTN layout)
             for pgm in range(1, 15):  # Program numbers 1-14
                 try:
                     # Find colored cell with program number
                     selectors = [
                         f"//td[contains(@style, 'background') and normalize-space(text())='{pgm}']",
-                        f"//div[contains(@class, 'odds') and contains(text(), '{pgm}')]"
+                        f"//div[contains(@class, 'odds') and contains(text(), '{pgm}')]",
+                        f"//td[@bgcolor and text()='{pgm}']",  # Cells with bgcolor attribute
+                        f"//td[text()='{pgm}' and following-sibling::td]",  # Any td with pgm followed by another td
+                        f"//tr[td[1][text()='{pgm}']]/td[1]"  # First cell in row where first cell is pgm
                     ]
                     
                     for selector in selectors:
@@ -884,8 +894,16 @@ class RTNCaptureHeadless:
         try:
             tables = self.driver.find_elements(By.TAG_NAME, "table")
             for table in tables:
-                # Look for race data tables
-                if any(word in table.text.upper() for word in ["ODDS", "MTP", "FIELD"]):
+                # Look for race data tables - check table text or nearby text
+                table_text = table.text.upper()
+                # Also check text before the table
+                try:
+                    prev_element = table.find_element(By.XPATH, "preceding-sibling::*[1]")
+                    table_text = prev_element.text.upper() + " " + table_text
+                except:
+                    pass
+                    
+                if any(word in table_text for word in ["ODDS", "MTP", "FIELD", "RACE"]):
                     rows = table.find_elements(By.TAG_NAME, "tr")
                     for row in rows[1:]:  # Skip header
                         cells = row.find_elements(By.TAG_NAME, "td")
