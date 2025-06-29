@@ -900,14 +900,35 @@ class RTNCaptureHeadless:
             # Check for any divs with odds-like content
             divs_with_numbers = self.driver.find_elements(By.XPATH, "//div[contains(text(), '/') or contains(text(), '-')]")
             logger.info(f"Found {len(divs_with_numbers)} divs with '/' or '-' (potential odds)")
+            if divs_with_numbers:
+                for i, div in enumerate(divs_with_numbers[:3]):  # Check first 3
+                    logger.info(f"Div {i} with potential odds: '{div.text}'")
             
             # Look for any element with race information
             race_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Race ')]")
             if race_elements:
                 logger.info(f"Found {len(race_elements)} elements with 'Race' text")
-                # Log the first one
-                if race_elements[0].text:
-                    logger.info(f"First race element: {race_elements[0].text[:100]}")
+                # Log the first few
+                for i, elem in enumerate(race_elements[:3]):
+                    if elem.text:
+                        logger.info(f"Race element {i}: {elem.text[:100]}")
+            
+            # Check if we're actually on the stream page or need to click something
+            # Look for elements that might be race selection buttons
+            race_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Race')] | //a[contains(text(), 'Race')]")
+            if race_buttons:
+                logger.info(f"Found {len(race_buttons)} race buttons/links")
+                # Log first one
+                if race_buttons[0].text:
+                    logger.info(f"First race button: '{race_buttons[0].text}'")
+            
+            # Look for any text that looks like odds patterns
+            # Pattern: number followed by space/tab and then odds
+            odds_pattern_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), ' 20') or contains(text(), ' 99') or contains(text(), ' 3/5') or contains(text(), ' 7/2')]")
+            if odds_pattern_elements:
+                logger.info(f"Found {len(odds_pattern_elements)} elements with odds patterns")
+                for i, elem in enumerate(odds_pattern_elements[:3]):
+                    logger.info(f"Odds pattern element {i}: '{elem.text}'")
             
             # Look for odds in colored cells (typical RTN layout)
             for pgm in range(1, 15):  # Program numbers 1-14
