@@ -836,11 +836,18 @@ class RTNCaptureHeadless:
         try:
             # Debug: Log what tables we find
             all_tables = self.driver.find_elements(By.TAG_NAME, "table")
-            logger.debug(f"Found {len(all_tables)} tables on page")
+            logger.info(f"Found {len(all_tables)} tables on page")
             
             # Look for ODDS text
             odds_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'ODDS')]")
-            logger.debug(f"Found {len(odds_elements)} elements with 'ODDS' text")
+            logger.info(f"Found {len(odds_elements)} elements with 'ODDS' text")
+            
+            # Check for any numbered cells
+            for i in range(1, 8):
+                num_cells = self.driver.find_elements(By.XPATH, f"//td[text()='{i}']")
+                if num_cells:
+                    logger.info(f"Found {len(num_cells)} cells with number {i}")
+            
             # Look for odds in colored cells (typical RTN layout)
             for pgm in range(1, 15):  # Program numbers 1-14
                 try:
@@ -929,6 +936,39 @@ class RTNCaptureHeadless:
                                 pass
         except Exception as e:
             logger.debug(f"Table view capture error: {e}")
+        
+        # Fallback: Try to find ANY table with numbers
+        if not horses_data:
+            logger.info("Trying fallback: any table with program numbers")
+            try:
+                for table in tables:
+                    rows = table.find_elements(By.TAG_NAME, "tr")
+                    for row in rows:
+                        cells = row.find_elements(By.TAG_NAME, "td")
+                        if len(cells) >= 2:
+                            try:
+                                # Check if first cell is a number 1-14
+                                first_cell = cells[0].text.strip()
+                                if first_cell.isdigit() and 1 <= int(first_cell) <= 14:
+                                    pgm = int(first_cell)
+                                    second_cell = cells[1].text.strip()
+                                    
+                                    # If second cell looks like odds or is not empty
+                                    if second_cell and (second_cell.isdigit() or '/' in second_cell or '-' in second_cell):
+                                        horses_data.append({
+                                            'program_number': pgm,
+                                            'horse_name': f'Horse #{pgm}',
+                                            'odds': second_cell,
+                                            'confidence': 90
+                                        })
+                                        logger.info(f"Fallback found: #{pgm} @ {second_cell}")
+                            except:
+                                pass
+                    
+                    if horses_data:
+                        break  # Found data, stop looking
+            except Exception as e:
+                logger.debug(f"Fallback capture error: {e}")
             
         return horses_data
     
