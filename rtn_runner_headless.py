@@ -780,7 +780,6 @@ class RTNCaptureHeadless:
     def capture_odds_data(self):
         """Capture odds data from RTN odds board"""
         try:
-            logger.info(">>> NEW CAPTURE METHOD v2 <<<")
             # Take screenshot for debugging
             self.take_screenshot("debug_race_page.png")
             
@@ -832,7 +831,6 @@ class RTNCaptureHeadless:
     def _capture_odds_board(self):
         """Capture from the colored odds board in upper left"""
         horses_data = []
-        logger.info(">>> CAPTURE ODDS BOARD METHOD <<<")
         logger.info("Looking for odds board...")
         
         try:
