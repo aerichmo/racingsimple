@@ -789,6 +789,28 @@ class RTNCaptureHeadless:
                 logger.warning("Not on a race page")
                 return []
             
+            # Check if we need to switch to an iframe
+            iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
+            if iframes:
+                logger.info(f"Found {len(iframes)} iframes, checking each...")
+                for i, iframe in enumerate(iframes):
+                    try:
+                        self.driver.switch_to.frame(iframe)
+                        iframe_text = self.driver.find_element(By.TAG_NAME, "body").text
+                        logger.info(f"Iframe {i} text (first 100 chars): {iframe_text[:100]}")
+                        
+                        # Check if this iframe has race/odds content
+                        if any(word in iframe_text.upper() for word in ["ODDS", "RACE", "MTP"]):
+                            logger.info(f"Found potential odds content in iframe {i}")
+                            # Stay in this iframe for capture
+                            break
+                        else:
+                            # Switch back to main content
+                            self.driver.switch_to.default_content()
+                    except:
+                        self.driver.switch_to.default_content()
+                        continue
+            
             # Extract race number
             race_number = self._extract_race_number(page_text)
             if race_number:
@@ -817,6 +839,12 @@ class RTNCaptureHeadless:
         except Exception as e:
             logger.error(f"Error capturing odds: {e}")
             return []
+        finally:
+            # Always switch back to default content
+            try:
+                self.driver.switch_to.default_content()
+            except:
+                pass
     
     def _extract_race_number(self, page_text):
         """Extract race number from page text"""
@@ -847,6 +875,15 @@ class RTNCaptureHeadless:
                 num_cells = self.driver.find_elements(By.XPATH, f"//td[text()='{i}']")
                 if num_cells:
                     logger.info(f"Found {len(num_cells)} cells with number {i}")
+            
+            # Log first table content to understand structure
+            if all_tables:
+                first_table = all_tables[0]
+                logger.info(f"First table text (first 200 chars): {first_table.text[:200]}")
+                
+            # Check for iframes - RTN might use iframes for video/odds
+            iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
+            logger.info(f"Found {len(iframes)} iframes on page")
             
             # Look for odds in colored cells (typical RTN layout)
             for pgm in range(1, 15):  # Program numbers 1-14
